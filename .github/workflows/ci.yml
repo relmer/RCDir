@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target: [x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+        configuration: [debug, release]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build (${{ matrix.configuration }})
+        run: |
+          $flags = if ("${{ matrix.configuration }}" -eq "release") { "--release" } else { "" }
+          cargo build --target ${{ matrix.target }} $flags
+
+      - name: Run Clippy
+        run: cargo clippy --target ${{ matrix.target }} -- -D warnings
+
+      - name: Run Tests
+        if: matrix.target == 'x86_64-pc-windows-msvc'  # Can only run x64 tests on x64 runner
+        run: |
+          $flags = if ("${{ matrix.configuration }}" -eq "release") { "--release" } else { "" }
+          cargo test --target ${{ matrix.target }} $flags
+
+      - name: Upload Release Binaries
+        uses: actions/upload-artifact@v4
+        if: matrix.configuration == 'release'
+        with:
+          name: rcdir-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/rcdir.exe
+          retention-days: 30
+
+  cross-platform-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install mingw-w64
+        run: sudo apt-get install -y mingw-w64
+
+      - name: Check cross-compilation
+        run: cargo check --target x86_64-pc-windows-gnu

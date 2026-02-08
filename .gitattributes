@@ -1,0 +1,21 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Rust source files
+*.rs text diff=rust
+
+# Common text files
+*.md text
+*.toml text
+*.json text
+*.yml text
+*.yaml text
+
+# Scripts
+*.ps1 text eol=crlf
+*.sh text eol=lf
+
+# Prevent accidental binary diffs
+*.exe binary
+*.dll binary
+*.pdb binary

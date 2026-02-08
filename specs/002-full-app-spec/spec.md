@@ -1,15 +1,28 @@
 ````markdown
-# Application Specification: TCDir (Technicolor Directory)
+# Application Specification: RCDir (Rust Colorized Directory)
 
 **Spec Branch**: `002-full-app-spec`  
 **Created**: 2026-02-07  
-**Status**: Reverse-Engineered from Source  
+**Status**: Port Specification  
 **Version**: 4.2.x  
-**Input**: Comprehensive specification reverse-engineered from TCDir source code
+**Input**: Comprehensive specification reverse-engineered from TCDir C++ source code  
+**Reference Implementation**: [TCDir](https://github.com/relmer/TCDir) (C++, same workspace)
 
 ## Overview
 
-TCDir ("Technicolor Directory") is a fast, colorized directory listing tool for Windows consoles. It provides a practical `dir`-style command with useful defaults including color-coded output by extension and attributes, sorting, recursion, wide output, and multi-threaded directory enumeration.
+RCDir ("Rust Colorized Directory") is a Rust port of [TCDir](https://github.com/relmer/TCDir), a fast, colorized directory listing tool for Windows consoles. It provides a practical `dir`-style command with useful defaults including color-coded output by extension and attributes, sorting, recursion, wide output, and multi-threaded directory enumeration.
+
+### Porting Goal
+
+RCDir must be **100% user-identical** to TCDir. From the user's perspective, there must be no observable difference between the two implementations:
+
+- **Command-line interface**: Identical switches, syntax, and parsing behavior
+- **Output**: Byte-identical console output for the same inputs (colors, formatting, alignment, spacing)
+- **Environment variable**: `RCDIR` replaces `TCDIR` but uses the same grammar and semantics
+- **Exit codes**: Identical error codes and error message formatting
+- **Behavior**: Identical sorting, filtering, recursion, multi-threading, and cloud detection
+
+The TCDir C++ source code (available in the same workspace under `TCDir/`) is the authoritative reference for any behavior not fully specified in this document.
 
 ### Target Platforms
 
@@ -23,6 +36,7 @@ TCDir ("Technicolor Directory") is a fast, colorized directory listing tool for 
 - **Fast**: Multi-threaded enumeration for large directory trees
 - **Cloud-aware**: Native support for OneDrive/iCloud sync status visualization
 - **Configurable**: Environment variable customization of colors and defaults
+- **Idiomatic Rust**: Leverage Rust's ownership model, error handling, and ecosystem while preserving identical user-facing behavior
 
 ---
 
@@ -32,17 +46,17 @@ TCDir ("Technicolor Directory") is a fast, colorized directory listing tool for 
 
 As a developer or power user, I want to view directory contents with visual color coding so I can quickly identify file types, attributes, and directories without reading each entry.
 
-**Why this priority**: This is the core value proposition of TCDir - colorized directory listings that improve file identification speed.
+**Why this priority**: This is the core value proposition of RCDir - colorized directory listings that improve file identification speed.
 
-**Independent Test**: Run `tcdir` in any directory with mixed file types and verify color differentiation.
+**Independent Test**: Run `rcdir` in any directory with mixed file types and verify color differentiation.
 
 **Acceptance Scenarios**:
 
-1. **Given** a directory with files of various extensions, **When** user runs `tcdir`, **Then** each file type is displayed in a distinct configured color
-2. **Given** a directory with subdirectories, **When** user runs `tcdir`, **Then** directories are visually distinguished from files (different color)
-3. **Given** system/hidden files in a directory, **When** user runs `tcdir /a:hs`, **Then** hidden and system files are displayed with their attribute-specific colors
-4. **Given** the default console, **When** user runs `tcdir`, **Then** output includes: file date/time, file size, attributes, and colorized filename
-5. **Given** any directory, **When** user runs `tcdir`, **Then** directory header shows volume label, drive info, and total bytes available
+1. **Given** a directory with files of various extensions, **When** user runs `rcdir`, **Then** each file type is displayed in a distinct configured color
+2. **Given** a directory with subdirectories, **When** user runs `rcdir`, **Then** directories are visually distinguished from files (different color)
+3. **Given** system/hidden files in a directory, **When** user runs `rcdir /a:hs`, **Then** hidden and system files are displayed with their attribute-specific colors
+4. **Given** the default console, **When** user runs `rcdir`, **Then** output includes: file date/time, file size, attributes, and colorized filename
+5. **Given** any directory, **When** user runs `rcdir`, **Then** directory header shows volume label, drive info, and total bytes available
 
 ---
 
@@ -52,14 +66,14 @@ As a user managing files, I want to sort directory listings by various criteria 
 
 **Why this priority**: Sorting is fundamental to directory management and file discovery.
 
-**Independent Test**: Run `tcdir /o:s` to sort by size, `tcdir /o:d` to sort by date, verify correct ordering.
+**Independent Test**: Run `rcdir /o:s` to sort by size, `rcdir /o:d` to sort by date, verify correct ordering.
 
 **Acceptance Scenarios**:
 
-1. **Given** files of various sizes, **When** user runs `tcdir /o:s`, **Then** files are sorted smallest to largest
-2. **Given** files with various names, **When** user runs `tcdir /o:n`, **Then** files are sorted alphabetically by name
-3. **Given** files with various extensions, **When** user runs `tcdir /o:e`, **Then** files are sorted alphabetically by extension
-4. **Given** files with various timestamps, **When** user runs `tcdir /o:d`, **Then** files are sorted oldest to newest
+1. **Given** files of various sizes, **When** user runs `rcdir /o:s`, **Then** files are sorted smallest to largest
+2. **Given** files with various names, **When** user runs `rcdir /o:n`, **Then** files are sorted alphabetically by name
+3. **Given** files with various extensions, **When** user runs `rcdir /o:e`, **Then** files are sorted alphabetically by extension
+4. **Given** files with various timestamps, **When** user runs `rcdir /o:d`, **Then** files are sorted oldest to newest
 5. **Given** any sort option, **When** user prepends `-` (e.g., `/o:-d`), **Then** sort order is reversed
 6. **Given** both `/o-s` and `/o:-s` syntax, **When** either is used, **Then** both forms are accepted and produce identical results
 
@@ -71,14 +85,14 @@ As a user searching for specific files, I want to filter directory listings by f
 
 **Why this priority**: Attribute filtering enables targeted file discovery and is a core CMD `dir` compatibility feature.
 
-**Independent Test**: Run `tcdir /a:d` to show only directories, `tcdir /a:-d` to exclude directories.
+**Independent Test**: Run `rcdir /a:d` to show only directories, `rcdir /a:-d` to exclude directories.
 
 **Acceptance Scenarios**:
 
-1. **Given** a directory with mixed files and directories, **When** user runs `tcdir /a:d`, **Then** only directories are displayed
-2. **Given** hidden files exist, **When** user runs `tcdir /a:h`, **Then** only hidden files are displayed
-3. **Given** system files exist, **When** user runs `tcdir /a:s`, **Then** only system files are displayed
-4. **Given** read-only files exist, **When** user runs `tcdir /a:r`, **Then** only read-only files are displayed
+1. **Given** a directory with mixed files and directories, **When** user runs `rcdir /a:d`, **Then** only directories are displayed
+2. **Given** hidden files exist, **When** user runs `rcdir /a:h`, **Then** only hidden files are displayed
+3. **Given** system files exist, **When** user runs `rcdir /a:s`, **Then** only system files are displayed
+4. **Given** read-only files exist, **When** user runs `rcdir /a:r`, **Then** only read-only files are displayed
 5. **Given** any attribute filter, **When** user prefixes with `-` (e.g., `/a:-h`), **Then** files with that attribute are excluded
 6. **Given** multiple attributes specified (e.g., `/a:hs`), **When** user runs the command, **Then** files matching ANY specified attribute are included
 
@@ -90,11 +104,11 @@ As a user exploring file hierarchies, I want to recursively list all subdirector
 
 **Why this priority**: Recursive listing is essential for understanding project structures and finding files across nested directories.
 
-**Independent Test**: Run `tcdir /s` in a directory with subdirectories and verify all levels are displayed.
+**Independent Test**: Run `rcdir /s` in a directory with subdirectories and verify all levels are displayed.
 
 **Acceptance Scenarios**:
 
-1. **Given** a directory with nested subdirectories, **When** user runs `tcdir /s`, **Then** all subdirectory contents are listed hierarchically
+1. **Given** a directory with nested subdirectories, **When** user runs `rcdir /s`, **Then** all subdirectory contents are listed hierarchically
 2. **Given** recursive mode, **When** each subdirectory is processed, **Then** a header line shows the current directory path
 3. **Given** recursive mode completes, **When** all directories are processed, **Then** a summary shows total files found, total bytes, and directories traversed
 4. **Given** file masks (e.g., `*.cpp`), **When** combined with `/s`, **Then** only matching files are shown across all subdirectories
@@ -108,11 +122,11 @@ As a user viewing large directories, I want a compact wide listing format so I c
 
 **Why this priority**: Wide format improves information density for directories with many files.
 
-**Independent Test**: Run `tcdir /w` and verify multi-column output.
+**Independent Test**: Run `rcdir /w` and verify multi-column output.
 
 **Acceptance Scenarios**:
 
-1. **Given** wide mode is enabled, **When** user runs `tcdir /w`, **Then** files are displayed in multiple columns fitting console width
+1. **Given** wide mode is enabled, **When** user runs `rcdir /w`, **Then** files are displayed in multiple columns fitting console width
 2. **Given** wide mode, **When** displaying directories, **Then** directory names are enclosed in brackets `[dirname]`
 3. **Given** wide mode, **When** column count is calculated, **Then** it adapts to the current console window width
 4. **Given** wide mode, **When** files have varying name lengths, **Then** column width accommodates the longest filename in the directory
@@ -125,11 +139,11 @@ As a user scripting file operations, I want a bare listing format (filenames onl
 
 **Why this priority**: Bare format enables integration with shell pipelines and automation scripts.
 
-**Independent Test**: Run `tcdir /b` and verify output contains only file paths with no headers/footers.
+**Independent Test**: Run `rcdir /b` and verify output contains only file paths with no headers/footers.
 
 **Acceptance Scenarios**:
 
-1. **Given** bare mode is enabled, **When** user runs `tcdir /b`, **Then** only file/directory paths are displayed (one per line)
+1. **Given** bare mode is enabled, **When** user runs `rcdir /b`, **Then** only file/directory paths are displayed (one per line)
 2. **Given** bare mode, **When** output is generated, **Then** no headers, footers, volume info, or summaries are included
 3. **Given** bare mode with recursion (`/s`), **When** listing occurs, **Then** full paths are displayed for each file
 4. **Given** bare mode, **When** cloud-synced files are listed, **Then** no cloud status symbols are displayed
@@ -142,11 +156,11 @@ As a user analyzing file activity, I want to choose which timestamp to display (
 
 **Why this priority**: Different timestamps serve different analytical needs (when created vs. when last used vs. when changed).
 
-**Independent Test**: Run `tcdir /t:c` to show creation times, `tcdir /t:a` to show access times.
+**Independent Test**: Run `rcdir /t:c` to show creation times, `rcdir /t:a` to show access times.
 
 **Acceptance Scenarios**:
 
-1. **Given** default behavior, **When** user runs `tcdir`, **Then** last modified time (W) is displayed
+1. **Given** default behavior, **When** user runs `rcdir`, **Then** last modified time (W) is displayed
 2. **Given** `/t:c` switch, **When** user runs the command, **Then** file creation time is displayed
 3. **Given** `/t:a` switch, **When** user runs the command, **Then** last access time is displayed
 4. **Given** `/t:w` switch, **When** user runs the command, **Then** last modified time is displayed
@@ -160,7 +174,7 @@ As a user with cloud-synced folders (OneDrive, iCloud), I want to see visual ind
 
 **Why this priority**: Cloud storage is ubiquitous and users need to know file availability before going offline.
 
-**Independent Test**: Run `tcdir` in a OneDrive folder and observe cloud status symbols.
+**Independent Test**: Run `rcdir` in a OneDrive folder and observe cloud status symbols.
 
 **Acceptance Scenarios**:
 
@@ -168,27 +182,27 @@ As a user with cloud-synced folders (OneDrive, iCloud), I want to see visual ind
 2. **Given** a locally available file (can be dehydrated), **When** displayed, **Then** a half-filled circle symbol (◐) appears
 3. **Given** a pinned (always available) file, **When** displayed, **Then** a solid circle symbol (●) appears
 4. **Given** a file not in a cloud sync root, **When** displayed, **Then** no cloud status symbol appears
-5. **Given** cloud files in a folder, **When** user runs `tcdir /a:o`, **Then** only cloud-only placeholder files are shown
-6. **Given** cloud files in a folder, **When** user runs `tcdir /a:v`, **Then** only pinned (always available) files are shown
+5. **Given** cloud files in a folder, **When** user runs `rcdir /a:o`, **Then** only cloud-only placeholder files are shown
+6. **Given** cloud files in a folder, **When** user runs `rcdir /a:v`, **Then** only pinned (always available) files are shown
 
 ---
 
 ### User Story 9 - Color Configuration via Environment Variable (Priority: P2)
 
-As a power user, I want to customize colors and default switches via the TCDIR environment variable so I can personalize the display to my preferences.
+As a power user, I want to customize colors and default switches via the RCDIR environment variable so I can personalize the display to my preferences.
 
-**Why this priority**: Customization enables users to optimize TCDir for their visual preferences and workflow.
+**Why this priority**: Customization enables users to optimize RCDir for their visual preferences and workflow.
 
-**Independent Test**: Set `TCDIR=W;D=LightGreen` and verify wide mode is default and date color is green.
+**Independent Test**: Set `RCDIR=W;D=LightGreen` and verify wide mode is default and date color is green.
 
 **Acceptance Scenarios**:
 
-1. **Given** TCDIR env var includes switch names (e.g., `W`), **When** tcdir runs, **Then** those switches are enabled by default
-2. **Given** TCDIR env var includes item colors (e.g., `D=LightGreen`), **When** tcdir runs, **Then** that display item uses the specified color
-3. **Given** TCDIR env var includes extension colors (e.g., `.cpp=Cyan`), **When** tcdir runs, **Then** files with that extension use the specified color
-4. **Given** TCDIR env var includes attribute colors (e.g., `Attr:H=DarkGray`), **When** tcdir runs, **Then** hidden files use the specified color
-5. **Given** TCDIR env var has syntax errors, **When** tcdir runs, **Then** errors are displayed at the end of output with specific details
-6. **Given** user runs `tcdir --env`, **When** displayed, **Then** complete environment variable syntax help is shown
+1. **Given** RCDIR env var includes switch names (e.g., `W`), **When** rcdir runs, **Then** those switches are enabled by default
+2. **Given** RCDIR env var includes item colors (e.g., `D=LightGreen`), **When** rcdir runs, **Then** that display item uses the specified color
+3. **Given** RCDIR env var includes extension colors (e.g., `.cpp=Cyan`), **When** rcdir runs, **Then** files with that extension use the specified color
+4. **Given** RCDIR env var includes attribute colors (e.g., `Attr:H=DarkGray`), **When** rcdir runs, **Then** hidden files use the specified color
+5. **Given** RCDIR env var has syntax errors, **When** rcdir runs, **Then** errors are displayed at the end of output with specific details
+6. **Given** user runs `rcdir --env`, **When** displayed, **Then** complete environment variable syntax help is shown
 
 ---
 
@@ -198,12 +212,12 @@ As a user troubleshooting colors, I want to see my current color configuration s
 
 **Why this priority**: Configuration visibility aids troubleshooting and understanding current behavior.
 
-**Independent Test**: Run `tcdir --config` and verify all settings are displayed with their sources.
+**Independent Test**: Run `rcdir --config` and verify all settings are displayed with their sources.
 
 **Acceptance Scenarios**:
 
-1. **Given** user runs `tcdir --config`, **When** output is displayed, **Then** all display item colors are shown with their current values
-2. **Given** user runs `tcdir --config`, **When** output is displayed, **Then** all extension color overrides are shown
+1. **Given** user runs `rcdir --config`, **When** output is displayed, **Then** all display item colors are shown with their current values
+2. **Given** user runs `rcdir --config`, **When** output is displayed, **Then** all extension color overrides are shown
 3. **Given** each configuration item, **When** displayed, **Then** the source is indicated (Default vs Environment)
 
 ---
@@ -214,13 +228,13 @@ As a system administrator, I want to see file ownership information so I can aud
 
 **Why this priority**: Ownership info is useful for administration but requires slow security API calls per file.
 
-**Independent Test**: Run `tcdir --owner` and verify owner usernames appear for each file.
+**Independent Test**: Run `rcdir --owner` and verify owner usernames appear for each file.
 
 **Acceptance Scenarios**:
 
 1. **Given** `--owner` switch, **When** user runs the command, **Then** file owner (DOMAIN\User format) is displayed for each file
 2. **Given** a file owned by SYSTEM, **When** displayed with `--owner`, **Then** appropriate system account name is shown
-3. **Given** TCDIR env var includes `Owner`, **When** tcdir runs, **Then** ownership is enabled by default
+3. **Given** RCDIR env var includes `Owner`, **When** rcdir runs, **Then** ownership is enabled by default
 
 ---
 
@@ -230,14 +244,14 @@ As a security analyst or power user, I want to see NTFS alternate data streams s
 
 **Why this priority**: ADS are rarely needed but important for security analysis and forensics.
 
-**Independent Test**: Run `tcdir --streams` on files with alternate streams and verify streams are listed.
+**Independent Test**: Run `rcdir --streams` on files with alternate streams and verify streams are listed.
 
 **Acceptance Scenarios**:
 
 1. **Given** `--streams` switch, **When** user runs the command, **Then** alternate data streams are displayed below each file
 2. **Given** a file with multiple streams, **When** displayed with `--streams`, **Then** each stream name and size is shown
 3. **Given** a file with no alternate streams, **When** displayed with `--streams`, **Then** no additional output appears for that file
-4. **Given** TCDIR env var includes `Streams`, **When** tcdir runs, **Then** streams display is enabled by default
+4. **Given** RCDIR env var includes `Streams`, **When** rcdir runs, **Then** streams display is enabled by default
 
 ---
 
@@ -247,11 +261,11 @@ As a developer or performance-conscious user, I want to see elapsed time for dir
 
 **Why this priority**: Performance timing is a diagnostic/debugging feature for power users.
 
-**Independent Test**: Run `tcdir /p` and verify elapsed time is displayed.
+**Independent Test**: Run `rcdir /p` and verify elapsed time is displayed.
 
 **Acceptance Scenarios**:
 
-1. **Given** `/p` switch, **When** tcdir completes, **Then** elapsed time is displayed in milliseconds
+1. **Given** `/p` switch, **When** rcdir completes, **Then** elapsed time is displayed in milliseconds
 2. **Given** large recursive listing with `/p`, **When** completes, **Then** time reflects total enumeration and display time
 
 ---
@@ -262,13 +276,13 @@ As a user on constrained systems, I want to control multi-threaded enumeration s
 
 **Why this priority**: Multi-threading is enabled by default; control is needed for edge cases.
 
-**Independent Test**: Run `tcdir /s /m-` and verify single-threaded operation.
+**Independent Test**: Run `rcdir /s /m-` and verify single-threaded operation.
 
 **Acceptance Scenarios**:
 
 1. **Given** default behavior, **When** recursive listing runs, **Then** multi-threading is enabled for parallel enumeration
 2. **Given** `/m-` switch, **When** recursive listing runs, **Then** single-threaded enumeration is used
-3. **Given** non-recursive listing, **When** tcdir runs, **Then** multi-threading has no effect (single directory)
+3. **Given** non-recursive listing, **When** rcdir runs, **Then** multi-threading has no effect (single directory)
 
 ---
 
@@ -278,7 +292,7 @@ As a new user, I want to see usage help so I can learn available switches and sy
 
 **Why this priority**: Help is essential for discoverability and user onboarding.
 
-**Independent Test**: Run `tcdir -?` or `tcdir /?` and verify comprehensive help is displayed.
+**Independent Test**: Run `rcdir -?` or `rcdir /?` and verify comprehensive help is displayed.
 
 **Acceptance Scenarios**:
 
@@ -296,7 +310,7 @@ As a developer debugging file attribute issues, I want to see raw hexadecimal at
 
 **Why this priority**: Developer diagnostic feature, not needed for normal usage.
 
-**Independent Test**: Run `tcdir --debug` (debug builds only) and verify hex attributes appear before filenames.
+**Independent Test**: Run `rcdir --debug` (debug builds only) and verify hex attributes appear before filenames.
 
 **Acceptance Scenarios**:
 
@@ -312,7 +326,7 @@ As a developer debugging file attribute issues, I want to see raw hexadecimal at
 - What happens when a path does not exist? Error message indicating the path does not exist.
 - What happens when access is denied to a directory? Error is displayed but enumeration continues for accessible items.
 - What happens when a filename contains Unicode characters? Full Unicode support via wide character APIs.
-- What happens when TCDIR env var has invalid syntax? Errors are displayed at the end of output with specific details.
+- What happens when RCDIR env var has invalid syntax? Errors are displayed at the end of output with specific details.
 - What happens when both `-` and `/` prefixes are mixed? Both are supported; the last-used prefix affects help display format.
 - What happens when long switches use single dash (e.g., `-env`)? Error is returned; long switches require `--` prefix with `-` style.
 
@@ -326,7 +340,7 @@ As a developer debugging file attribute issues, I want to see raw hexadecimal at
 
 - **FR-001**: System MUST enumerate directory contents using Windows FindFirstFile/FindNextFile APIs
 - **FR-002**: System MUST display file date/time, size, attributes, and filename in normal listing mode
-- **FR-003**: System MUST support multiple file masks on a single command line (e.g., `tcdir *.cpp *.h`)
+- **FR-003**: System MUST support multiple file masks on a single command line (e.g., `rcdir *.cpp *.h`)
 - **FR-004**: System MUST group file masks by target directory and process each group
 - **FR-005**: System MUST display volume label, drive type, and available space in directory headers
 - **FR-006**: System MUST display total files, total bytes, and directories count in summary footer
@@ -383,12 +397,12 @@ As a developer debugging file attribute issues, I want to see raw hexadecimal at
 
 #### Configuration
 
-- **FR-080**: System MUST read configuration from TCDIR environment variable
-- **FR-081**: System MUST support switch defaults in TCDIR (e.g., `W` enables wide mode by default)
-- **FR-082**: System MUST support display item colors in TCDIR (e.g., `D=LightGreen`)
-- **FR-083**: System MUST support extension colors in TCDIR (e.g., `.cpp=Cyan`)
-- **FR-084**: System MUST support file attribute colors in TCDIR (e.g., `Attr:H=DarkGray`)
-- **FR-085**: System MUST validate TCDIR syntax and report specific errors at end of output
+- **FR-080**: System MUST read configuration from RCDIR environment variable
+- **FR-081**: System MUST support switch defaults in RCDIR (e.g., `W` enables wide mode by default)
+- **FR-082**: System MUST support display item colors in RCDIR (e.g., `D=LightGreen`)
+- **FR-083**: System MUST support extension colors in RCDIR (e.g., `.cpp=Cyan`)
+- **FR-084**: System MUST support file attribute colors in RCDIR (e.g., `Attr:H=DarkGray`)
+- **FR-085**: System MUST validate RCDIR syntax and report specific errors at end of output
 
 #### Extended Features
 
@@ -431,11 +445,19 @@ As a developer debugging file attribute issues, I want to see raw hexadecimal at
 - **SC-003**: Users can identify file types by color without reading filenames or extensions
 - **SC-004**: All CMD `dir` attribute filter codes are supported (`/a:` switch)
 - **SC-005**: All CMD `dir` sort options are supported (`/o:` switch)
-- **SC-006**: Users familiar with CMD `dir` can use TCDir with minimal learning curve
+- **SC-006**: Users familiar with CMD `dir` can use RCDir with minimal learning curve
 - **SC-007**: Color configuration allows personalization without code changes
 - **SC-008**: Cloud sync status is visible at a glance for OneDrive/iCloud folders
 - **SC-009**: Help text is comprehensive enough for users to learn all features independently
 - **SC-010**: Multi-threaded enumeration provides measurable speedup (2x+) for large recursive listings
+
+### Port Fidelity Criteria
+
+- **PF-001**: Running `rcdir <args>` and `tcdir <args>` with the same arguments (and equivalent env vars) produces identical console output
+- **PF-002**: All command-line switches accepted by TCDir are accepted by RCDir with identical syntax
+- **PF-003**: Exit codes match TCDir for the same error conditions
+- **PF-004**: Error messages match TCDir (with "RCDir"/"RCDIR" replacing "TCDir"/"TCDIR" where the product name appears)
+- **PF-005**: Column alignment, spacing, and number formatting are identical to TCDir
 
 ---
 
@@ -451,7 +473,7 @@ As a developer debugging file attribute issues, I want to see raw hexadecimal at
 
 # Appendix A: Implementation Details
 
-This appendix contains exact implementation details required to build a pixel-perfect clone of TCDir.
+This appendix contains exact implementation details required to build a pixel-perfect clone of RCDir.
 
 ## A.1 Unicode Symbols
 
@@ -470,7 +492,7 @@ This appendix contains exact implementation details required to build a pixel-pe
 
 ### A.2.1 Windows Console Color Values (WORD)
 
-TCDir uses Windows console text attributes, which are 16-bit values combining foreground and background colors:
+RCDir uses Windows console text attributes, which are 16-bit values combining foreground and background colors:
 
 **Foreground Colors (bits 0-3):**
 
@@ -497,7 +519,7 @@ TCDir uses Windows console text attributes, which are 16-bit values combining fo
 
 ### A.2.2 Color Name Mapping (Environment Variable)
 
-Valid color names for TCDIR environment variable (case-insensitive):
+Valid color names for RCDIR environment variable (case-insensitive):
 
 | Color Name | Foreground Value | Background Value |
 |------------|------------------|------------------|
@@ -776,7 +798,7 @@ All numbers use locale-aware thousands separators via `std::format(locale(""), L
 
 ---
 
-## A.5 TCDIR Environment Variable Grammar
+## A.5 RCDIR Environment Variable Grammar
 
 ```ebnf
 tcdir_value     = entry { ";" entry }
@@ -939,7 +961,7 @@ When `/p` is specified:
 - Display format: `{name}:  {value:.2f} msec\n`
   - Note: TWO spaces after the colon
   - Value formatted with exactly 2 decimal places
-  - Example: `TCDir time elapsed:  123.45 msec`
+  - Example: `RCDir time elapsed:  123.45 msec`
 - Timer auto-displays on destruction (Automatic mode)
 
 ---
@@ -988,9 +1010,9 @@ Path not found:
 {Error}Error:   {InformationHighlight}path{Error} does not exist
 ```
 
-TCDIR env var errors displayed at end of output:
+RCDIR env var errors displayed at end of output:
 ```
-{Error}There are some problems with your TCDIR environment variable (see --env for help):
+{Error}There are some problems with your RCDIR environment variable (see --env for help):
 {Error}  Invalid foreground color in ".cpp=FakeColor"
 {Default}                                  ‾‾‾‾‾‾‾‾‾
 ```
@@ -1039,7 +1061,7 @@ When multiple file masks are specified on the command line, they are grouped by 
 ### A.16.2 Grouping Algorithm
 
 ```
-Input:  tcdir *.cpp *.h foo\*.txt bar\
+Input:  rcdir *.cpp *.h foo\*.txt bar\
 
 Output groups:
   [
@@ -1154,7 +1176,7 @@ This appendix lists all Windows APIs used, organized by functionality. For Rust 
 
 | API | Purpose | Rust Crate |
 |-----|---------|------------|
-| `GetEnvironmentVariableW` | Read TCDIR env var | `windows::Win32::System::Environment` |
+| `GetEnvironmentVariableW` | Read RCDIR env var | `windows::Win32::System::Environment` |
 
 ## B.8 Key Data Structures
 
@@ -1288,7 +1310,7 @@ Switch prefix character determines formatting:
 {rainbow}Technicolor{Information} Directory version {VERSION} {ARCH} ({BUILD_DATE})
 Copyright © 2004-{YEAR} by Robert Elmer
 
-{InformationHighlight}TCDIR{Information} [{InformationHighlight}drive:{Information}][{InformationHighlight}path{Information}][{InformationHighlight}filename{Information}] [{InformationHighlight}{short}A{Information}[[:{InformationHighlight}attributes{Information}}]] [{InformationHighlight}{short}O{Information}[[:{InformationHighlight}sortorder{Information}]]] [{InformationHighlight}{short}T{Information}[[:{InformationHighlight}timefield{Information}]]] [{InformationHighlight}{short}S{Information}] [{InformationHighlight}{short}W{Information}] [{InformationHighlight}{short}B{Information}] [{InformationHighlight}{short}P{Information}] [{InformationHighlight}{short}M{Information}] [{InformationHighlight}{long}Env{Information}] [{InformationHighlight}{long}Config{Information}] [{InformationHighlight}{long}Owner{Information}] [{InformationHighlight}{long}Streams{Information}]
+{InformationHighlight}RCDIR{Information} [{InformationHighlight}drive:{Information}][{InformationHighlight}path{Information}][{InformationHighlight}filename{Information}] [{InformationHighlight}{short}A{Information}[[:{InformationHighlight}attributes{Information}}]] [{InformationHighlight}{short}O{Information}[[:{InformationHighlight}sortorder{Information}]]] [{InformationHighlight}{short}T{Information}[[:{InformationHighlight}timefield{Information}]]] [{InformationHighlight}{short}S{Information}] [{InformationHighlight}{short}W{Information}] [{InformationHighlight}{short}B{Information}] [{InformationHighlight}{short}P{Information}] [{InformationHighlight}{short}M{Information}] [{InformationHighlight}{long}Env{Information}] [{InformationHighlight}{long}Config{Information}] [{InformationHighlight}{long}Owner{Information}] [{InformationHighlight}{long}Streams{Information}]
 ```
 
 Where:
@@ -1336,7 +1358,7 @@ Where:
   {InformationHighlight}{short}B{Information}          Displays bare file names only (no headers, footers, or details).
   {InformationHighlight}{short}P{Information}          Displays performance timing information.
   {InformationHighlight}{short}M{Information}          Enables multi-threaded enumeration (default). Use{InformationHighlight}{disable}{Information} to disable.
-  {InformationHighlight}{long}Env{Information}       {pad}Displays TCDIR environment variable help, syntax, and current value.
+  {InformationHighlight}{long}Env{Information}       {pad}Displays RCDIR environment variable help, syntax, and current value.
   {InformationHighlight}{long}Config{Information}    {pad}Displays current color configuration for all items and extensions.
   {InformationHighlight}{long}Owner{Information}     {pad}Displays file owner (DOMAIN\User) for each file.
   {InformationHighlight}{long}Streams{Information}   {pad}Displays alternate data streams (NTFS only).
@@ -1354,8 +1376,8 @@ Different syntax shown based on detected shell (checks for `PSModulePath` env va
 
 **PowerShell:**
 ```
-{Information}Set the {InformationHighlight}TCDIR{Information} environment variable to override default colors for display items, file attributes, or file extensions:
-  {InformationHighlight}$env:TCDIR{Information} = "[{InformationHighlight}<Switch>{Information}] | [{InformationHighlight}<Item>{Information} | {InformationHighlight}Attr:<fileattr>{Information} | {InformationHighlight}<.ext>{Information}] = {InformationHighlight}<Fore>{Information} [on {InformationHighlight}<Back>{Information}][;...]"
+{Information}Set the {InformationHighlight}RCDIR{Information} environment variable to override default colors for display items, file attributes, or file extensions:
+  {InformationHighlight}$env:RCDIR{Information} = "[{InformationHighlight}<Switch>{Information}] | [{InformationHighlight}<Item>{Information} | {InformationHighlight}Attr:<fileattr>{Information} | {InformationHighlight}<.ext>{Information}] = {InformationHighlight}<Fore>{Information} [on {InformationHighlight}<Back>{Information}][;...]"
 
   {InformationHighlight}<Switch>{Information}    A command-line switch:
                   {InformationHighlight}W{Information}        Wide listing format
@@ -1391,7 +1413,7 @@ Different syntax shown based on detected shell (checks for `PSModulePath` env va
 
 **CMD:**
 ```
-  set {InformationHighlight}TCDIR{Information} =[{InformationHighlight}<Switch>{Information}] | ...
+  set {InformationHighlight}RCDIR{Information} =[{InformationHighlight}<Switch>{Information}] | ...
 ```
 (rest of body is identical)
 
@@ -1420,20 +1442,20 @@ Column widths:
 
 **PowerShell:**
 ```
-{Information}  Example: {InformationHighlight}$env:TCDIR{Information} = "W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue"
+{Information}  Example: {InformationHighlight}$env:RCDIR{Information} = "W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue"
 ```
 
 **CMD:**
 ```
-{Information}  Example: {InformationHighlight}set TCDIR{Information} = W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue
+{Information}  Example: {InformationHighlight}set RCDIR{Information} = W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue
 ```
 
-### D.2.4 Current Value Display (if TCDIR is set)
+### D.2.4 Current Value Display (if RCDIR is set)
 
 ```
 {Information}Your settings:{Default}
 
-  {Information}TCDIR{Default} = "{segment1};{segment2};..."
+  {Information}RCDIR{Default} = "{segment1};{segment2};..."
 ```
 
 Each segment in the value is colorized:
@@ -1443,7 +1465,7 @@ Each segment in the value is colorized:
 
 ### D.2.5 Decoded Settings Display
 
-If TCDIR has values from environment, show them grouped:
+If RCDIR has values from environment, show them grouped:
 
 ```
     {Information}Switches:
@@ -1466,7 +1488,7 @@ If TCDIR has values from environment, show them grouped:
 
 ```
 {Default}
-{Error}There are some problems with your TCDIR environment variable (see --env for help):
+{Error}There are some problems with your RCDIR environment variable (see --env for help):
 {Error}  Invalid foreground color in ".cpp=FakeColor"
 {Default}                                  ‾‾‾‾‾‾‾‾‾
 ```
@@ -1506,7 +1528,7 @@ Current display item configuration:
 ```
 
 Where `{Source}` is:
-- `{Cyan}Environment` if from TCDIR env var
+- `{Cyan}Environment` if from RCDIR env var
 - `{DarkGrey}Default` if built-in default
 
 Column widths:
@@ -1581,10 +1603,10 @@ For multiple specs:
 {Default}No files matching '{spec1}, {spec2}' found.
 ```
 
-### D.4.3 TCDIR Parse Errors (shown at end of run)
+### D.4.3 RCDIR Parse Errors (shown at end of run)
 
 ```
-{Error}There are some problems with your TCDIR environment variable (see {long}env for help):
+{Error}There are some problems with your RCDIR environment variable (see {long}env for help):
 {Error}  {error_description} in "{full_entry}"
 {Default}{padding}‾‾‾...
 ```

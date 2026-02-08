@@ -1,0 +1,18 @@
+# Rust build artifacts
+/target/
+
+# Cargo.lock is typically committed for binaries, ignored for libraries
+# Since this is a binary, we commit it (don't ignore)
+
+# IDE/editor
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug files
+*.pdb

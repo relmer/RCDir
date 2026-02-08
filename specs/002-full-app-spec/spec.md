@@ -1,4 +1,3 @@
-````markdown
 # Application Specification: RCDir (Rust Colorized Directory)
 
 **Spec Branch**: `002-full-app-spec`  
@@ -255,11 +254,11 @@ As a security analyst or power user, I want to see NTFS alternate data streams s
 
 ---
 
-### User Story 13 - Performance Timing Information (Priority: P3)
+### User Story 13 - Performance Timing Information (Priority: P1)
 
 As a developer or performance-conscious user, I want to see elapsed time for directory operations so I can benchmark and optimize file system access.
 
-**Why this priority**: Performance timing is a diagnostic/debugging feature for power users.
+**Why this priority**: Performance timing must be implemented first so that we can track RCDir performance versus TCDir as each feature is ported.
 
 **Independent Test**: Run `rcdir /p` and verify elapsed time is displayed.
 
@@ -425,6 +424,10 @@ As a developer debugging file attribute issues, I want to see raw hexadecimal at
 - **FR-111**: System MUST require `--` prefix for long switches when using `-` style (e.g., `--env` not `-env`)
 - **FR-112**: System MUST support both `/a:hs` and `/ahs` syntax for attribute switches
 - **FR-113**: System MUST support both `/o:d` and `/od` syntax for sort switches
+- **FR-114**: System MUST treat all single-character switch letters as case-insensitive (e.g., `/S` and `/s` are identical)
+- **FR-115**: System MUST treat sub-option characters as case-insensitive (e.g., `/O:S` and `/o:s` are identical)
+- **FR-116**: System MUST treat long switch names as case-insensitive (e.g., `--Owner` and `--owner` are identical)
+- **FR-117**: System MUST treat color names in the RCDIR environment variable as case-insensitive (e.g., `LightGreen` and `lightgreen` are identical)
 
 ### Key Entities
 
@@ -1022,28 +1025,103 @@ RCDIR env var errors displayed at end of output:
 
 ## A.15 Multi-Threading Architecture
 
-### A.15.1 Work Queue
+### A.15.1 Producer/Consumer Model
 
-- Thread-safe work queue using `mutex` and `condition_variable`
-- Worker threads dequeue directory work items
-- Main thread enqueues root directory, workers enqueue children
+The multi-threaded architecture uses a **streaming producer/consumer model** where output begins as soon as the first directory is enumerated, NOT after the entire tree is complete.
 
-### A.15.2 Directory Tree Processing
+**Producers (N worker threads):**
+- Pull directory work items from a shared FIFO work queue
+- Enumerate each directory (matching files and discovering subdirectories)
+- Signal per-node completion via condition variable
+- Enqueue discovered child directories back onto the work queue
 
-1. Enumerate root directory, enqueue child directories
-2. Worker threads enumerate children in parallel
-3. Results stored in `CDirectoryInfo` tree structure with status tracking
-4. Main thread waits for completion, then prints in depth-first order
-5. Totals accumulated during print traversal
+**Consumer (main thread):**
+- Walks the directory tree depth-first, concurrently with producers
+- Blocks on each node's **per-node** condition variable until that specific node is `Done` or `Error`
+- Prints results for each directory **immediately** as it completes
+- Recurses into children in discovery order (order returned by FindFirstFile/FindNextFile)
+- Never skips ahead — if child[0] is slow and child[1] is fast, output waits for child[0]
 
-### A.15.3 Status States
+**This streaming behavior is user-observable**: on large recursive listings, output appears progressively as directories are enumerated, rather than all at once after the tree is fully walked.
+
+### A.15.2 Work Queue
+
+- Thread-safe FIFO queue using `mutex` and `condition_variable`
+- `Push`: adds work item, notifies one waiting worker
+- `Pop`: blocks until item available or shutdown signaled; returns false on shutdown
+- `SetDone`: signals all workers to exit (sets done flag, wakes all blocked workers)
+- Queue is unbounded — no backpressure mechanism
+- Main thread enqueues only the root directory; all child enqueuing is done by workers
+
+### A.15.3 Directory Tree Construction
+
+The tree of `DirectoryInfo` nodes is built dynamically during enumeration:
+
+1. Main thread creates root `DirectoryInfo`, enqueues it, then immediately starts tree walk
+2. A worker dequeues root, enumerates matching files, discovers subdirectories
+3. For each subdirectory: worker creates a child `DirectoryInfo` node, adds it to parent's `children` vector, enqueues it
+4. Other workers pick up child nodes and repeat the process
+5. Tree grows as enumeration proceeds; the consumer walks whatever is built so far
+
+### A.15.4 Per-Node Synchronization
+
+Each `DirectoryInfo` node has its own `mutex` + `condition_variable`:
+
+- **Mutex** protects: status, error code, matches vector, children vector, counters
+- **Condition variable** is notified when status transitions to `Done` or `Error`
+- The consumer's `WaitForNodeCompletion` acquires the per-node lock and waits on the per-node CV
+- This per-node granularity allows maximum parallelism — no global lock contention
+
+### A.15.5 Output Ordering
+
+Output is **strict depth-first pre-order**, matching child discovery order:
+
+```
+Root          (printed first, as soon as root enumeration completes)
+├── Child A   (printed as soon as A completes, even if B/C are already done)
+│   ├── A1    (printed as soon as A1 completes)
+│   └── A2
+├── Child B
+│   └── B1
+└── Child C
+```
+
+Children are processed in the order they appear in the parent's `children` vector (filesystem enumeration order). The consumer never reorders or skips nodes.
+
+### A.15.6 Status States
 
 | Status | Meaning |
 |--------|---------|
-| Waiting | Queued, not yet started |
-| InProgress | Currently being enumerated |
-| Done | Enumeration complete |
-| Error | Enumeration failed |
+| Waiting | Queued but not yet picked up by a worker |
+| InProgress | Worker is actively enumerating this directory |
+| Done | Enumeration complete, results available |
+| Error | Enumeration failed (error code stored) |
+
+State transitions: `Waiting → InProgress → Done | Error` (one-way, no reset)
+
+### A.15.7 Totals Accumulation
+
+Running totals are accumulated **during the print walk**, not during enumeration:
+- Each node stores its own counts (files, bytes, streams, subdirectories)
+- The consumer adds each node's counts to the running `ListingTotals` immediately after printing that node
+- The recursive summary is printed after the entire tree walk completes
+
+### A.15.8 Error Handling in Tree Walk
+
+- Per-node errors are reported but do **not** abort the tree walk
+- If a directory fails to enumerate, the error is printed and the consumer moves to the next sibling
+- Only explicit cancellation (Ctrl+C) aborts the entire walk
+
+### A.15.9 Shutdown Sequence
+
+1. Request stop on all worker threads (via stop token/flag)
+2. Signal work queue done (wakes all blocked workers)
+3. Join all worker threads
+4. Consumer's `WaitForNodeCompletion` also checks the stop flag in its CV predicate
+
+### A.15.10 Thread Count
+
+Default: number of hardware threads (`std::thread::available_parallelism()`), minimum 1.
 
 ---
 
@@ -1109,6 +1187,37 @@ Appears after cloud status symbol, before owner (if enabled), immediately before
 - **No masks provided**: Defaults to `[ cwd, ["*"] ]`
 - **Directory-only mask** (e.g., `foo\`): Filespec becomes `*`
 - **Drive letter without path** (e.g., `C:file.txt`): Treated as directory-qualified
+
+## A.18 CLI Parsing Rules
+
+### A.18.1 Case-Insensitivity
+
+All command-line parsing is case-insensitive. This mirrors TCDir's behavior (via `towlower` and `lstrcmpiW`):
+
+| Element | Example Equivalents | TCDir Mechanism |
+|---------|--------------------|-----------------|
+| Switch character | `/S` = `/s`, `-W` = `-w` | `towlower()` on each char |
+| Sub-option characters | `/O:S` = `/o:s`, `/A:HD` = `/a:hd` | `towlower()` on each char |
+| Long switch names | `--Owner` = `--owner` | `lstrcmpiW()` comparison |
+| Color names (env var) | `LightGreen` = `lightgreen` | `lstrcmpiW()` comparison |
+| Attribute chars (env var) | `Attr:H` = `Attr:h` | `towlower()` on each char |
+
+### A.18.2 Switch Prefix Detection
+
+The parser auto-detects the user's preferred switch style from the first switch encountered:
+
+- `/` prefix → slash style (CMD-compatible): long switches use `/`
+- `-` prefix → dash style (POSIX-like): long switches require `--`
+- Default when no switches present: `-` style
+
+### A.18.3 Compound Switch Syntax
+
+Switches with sub-options support two syntax forms:
+
+- **Colon form**: `/o:sn`, `/a:h-d`, `/t:c`
+- **Compact form**: `/osn`, `/ah-d`, `/tc`
+
+Both forms are parsed identically. The `-` inside sub-options means negation/reverse, not a switch prefix.
 
 ---
 
@@ -1626,4 +1735,3 @@ Error descriptions:
 - `Invalid file attribute character (expected R, H, S, A, T, E, C, P or 0)`
 - `Invalid switch (expected W, S, P, M, Owner, or Streams)`
 - `Switch prefixes (/, -, --) are not allowed in env var`
-````

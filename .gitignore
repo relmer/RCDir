@@ -16,3 +16,10 @@ Thumbs.db
 
 # Debug files
 *.pdb
+
+# Environment and logs
+.env*
+*.log
+
+# Profiling
+*.prof*

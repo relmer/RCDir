@@ -26,6 +26,13 @@ pub struct MockEnvironmentProvider {
 }
 
 #[cfg(test)]
+impl Default for MockEnvironmentProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
 impl MockEnvironmentProvider {
     pub fn new() -> Self {
         MockEnvironmentProvider {

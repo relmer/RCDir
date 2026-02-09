@@ -238,10 +238,8 @@ fn display_file_results(
         }
 
         // Owner column (if --owner)
-        if cmd.show_owner {
-            if let Some(owner_str) = owners.get(idx) {
-                display_file_owner(console, config, owner_str, max_owner_len);
-            }
+        if let (true, Some(owner_str)) = (cmd.show_owner, owners.get(idx)) {
+            display_file_owner(console, config, owner_str, max_owner_len);
         }
 
         // Filename

@@ -327,7 +327,7 @@
 
 **Independent Test**: `cargo run -- /t:c` shows creation times; `cargo run -- /t:c /o:d` sorts by creation time
 
-- [ ] T078 [US7] Implement time field selection plumbing — pass `time_field` from CommandLine through to NormalDisplayer (selects which FILETIME for date/time columns) and FileComparator (selects which FILETIME for date sort key) — in src/directory_lister.rs
+- [X] T078 [US7] Implement time field selection plumbing — pass `time_field` from CommandLine through to NormalDisplayer (selects which FILETIME for date/time columns) and FileComparator (selects which FILETIME for date sort key) — in src/directory_lister.rs
   📖 Port from: `CommandLine.h` (ETimeField enum), `ResultsDisplayerNormal.cpp` + `FileComparator.cpp` (time field dispatch)
 
 **Checkpoint**: All three time fields display correctly; sort-by-date respects selected time field
@@ -340,11 +340,11 @@
 
 **Independent Test**: `cargo run` in a OneDrive folder shows cloud status symbols; `cargo run -- /a:o` filters to cloud-only
 
-- [ ] T079 [US8] Implement cloud sync root detection — `CfGetSyncRootInfoByPath` returns success if path is under a cloud provider (OneDrive, iCloud), cache result per drive/root — in src/cloud_status.rs
+- [X] T079 [US8] Implement cloud sync root detection — `CfGetSyncRootInfoByPath` returns success if path is under a cloud provider (OneDrive, iCloud), cache result per drive/root — in src/cloud_status.rs
   📖 Port from: `DirectoryLister.cpp` → `IsCloudSyncRoot()` / `CfGetSyncRootInfoByPath` call
-- [ ] T080 [US8] Implement per-file cloud placeholder state — `CfGetPlaceholderStateFromAttributeTag(dwFileAttributes, dwReserved0)` → map state to symbol: cloud-only → ○, local → ◐, pinned → ● — in src/cloud_status.rs
+- [X] T080 [US8] Implement per-file cloud placeholder state — `CfGetPlaceholderStateFromAttributeTag(dwFileAttributes, dwReserved0)` → map state to symbol: cloud-only → ○, local → ◐, pinned → ● — in src/cloud_status.rs
   📖 Port from: `DirectoryLister.cpp` → `GetCloudPlaceholderState()`, `UnicodeSymbols.h` (cloud symbols)
-- [ ] T081 [US8] Integrate cloud status into NormalDisplayer — display cloud symbol with configured color after attribute column, before filename; suppress in bare mode and when not in a cloud sync root — in src/results_displayer.rs
+- [X] T081 [US8] Integrate cloud status into NormalDisplayer — display cloud symbol with configured color after attribute column, before filename; suppress in bare mode and when not in a cloud sync root — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → cloud symbol display within `DisplayFileEntry()`
 
 **Checkpoint**: Cloud symbols appear for OneDrive/iCloud folders; non-cloud folders show no symbols; bare mode suppresses symbols

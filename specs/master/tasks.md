@@ -456,8 +456,8 @@
 - [ ] T098 [P] Create output parity integration test framework — build both rcdir and tcdir, capture output for representative scenarios, compare line-by-line — in tests/output_parity/mod.rs
 - [ ] T099 [P] Add output parity test cases — single dir, recursive, sorted (/o:s, /o:-d), filtered (/a:d, /a:-hs), wide, bare, combined switches — in tests/output_parity/
 - [X] T100 Run `cargo clippy` and fix all warnings across all modules
-- [ ] T101 Run quickstart.md validation — build both architectures (x64+ARM64), run tests, deploy to test path per quickstart.md
-- [ ] T101a Validate performance criteria — benchmark typical directory (<1s per SC-001), large recursive listing (<10s per SC-002), verify MT gives 2x+ speedup over `/m-` (SC-010) using `/p` switch
+- [X] T101 Run quickstart.md validation — build both architectures (x64+ARM64), run tests, deploy to test path per quickstart.md
+- [X] T101a Validate performance criteria — benchmark typical directory (<1s per SC-001), large recursive listing (<10s per SC-002), verify MT gives 2x+ speedup over `/m-` (SC-010) using `/p` switch
 - [ ] T102 Final review — verify byte-identical output for representative test cases against TCDir, check column alignment, number formatting, color accuracy
 
 ---

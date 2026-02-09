@@ -138,15 +138,15 @@ fn display_drive_header(console: &mut Console, drive_info: &DriveInfo) {
         ));
     }
 
-    console.color_puts(&format!(
-        "{{Information}} ({{InformationHighlight}}{}{{Information}})",
+    console.color_printf(&format!(
+        "{{Information}} ({{InformationHighlight}}{}{{Information}})\n",
         drive_info.file_system_name,
     ));
 
     // Volume name (second line)
     if !drive_info.volume_name.is_empty() {
-        console.color_puts(&format!(
-            "{{Information}} Volume name is \"{{InformationHighlight}}{}{{Information}}\"",
+        console.color_printf(&format!(
+            "{{Information}} Volume name is \"{{InformationHighlight}}{}{{Information}}\"\n",
             drive_info.volume_name,
         ));
     } else {

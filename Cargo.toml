@@ -1,0 +1,46 @@
+[package]
+name = "rcdir"
+version = "0.1.0"
+edition = "2024"
+description = "Technicolor Directory - A fast, colorized directory listing tool for Windows"
+authors = ["relmer"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/relmer/RCDir"
+keywords = ["cli", "directory", "windows", "console"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+widestring = "1"
+
+[dependencies.windows]
+version = "0.62"
+features = [
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_CloudFilters",
+    "Win32_System_Console",
+    "Win32_System_Environment",
+    "Win32_System_IO",
+    "Win32_System_Time",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Globalization",
+    "Win32_NetworkManagement_WNet",
+]
+
+[dev-dependencies]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+# Faster debug builds
+opt-level = 0
+debug = true
+
+[[bin]]
+name = "rcdir"
+path = "src/main.rs"

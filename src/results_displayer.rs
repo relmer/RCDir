@@ -231,6 +231,12 @@ fn display_file_results(
         let cloud = cloud_status::get_cloud_status(file_info.file_attributes, in_sync_root);
         display_cloud_status_symbol(console, config, cloud);
 
+        // Debug attribute display (debug builds only, gated by --debug)
+        #[cfg(debug_assertions)]
+        if cmd.debug {
+            display_raw_attributes(console, config, file_info);
+        }
+
         // Owner column (if --owner)
         if cmd.show_owner {
             if let Some(owner_str) = owners.get(idx) {
@@ -393,6 +399,24 @@ fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: C
 
     let color = config.attributes[attr as usize];
     console.printf(color, &format!("{} ", symbol));
+}
+
+/// Display raw file attributes and cloud placeholder state in hex.
+///
+/// Format: `[XXXXXXXX:YY] ` — 8 hex digits for file attributes, 2 hex digits for CF state.
+/// Only compiled in debug builds.
+///
+/// Port of: CResultsDisplayerNormal::DisplayRawAttributes
+#[cfg(debug_assertions)]
+fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &FileInfo) {
+    use windows::Win32::Storage::CloudFilters::CfGetPlaceholderStateFromAttributeTag;
+
+    let cf_state = unsafe {
+        CfGetPlaceholderStateFromAttributeTag(file_info.file_attributes, file_info.reparse_tag)
+    };
+
+    let info_color = config.attributes[Attribute::Information as usize];
+    console.printf(info_color, &format!("[{:08X}:{:02X}] ", file_info.file_attributes, cf_state.0 as u8));
 }
 
 /// Display a file owner string, padded to `max_width`.

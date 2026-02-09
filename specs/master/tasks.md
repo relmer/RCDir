@@ -429,7 +429,7 @@
 
 **Independent Test**: `cargo run -- /s /m-` runs single-threaded recursive listing
 
-- [ ] T096 [US14] Implement single-threaded fallback path — when `multi_threaded == false`, enumerate directories sequentially on main thread: BFS or DFS enumeration without worker threads, same output ordering and totals — in src/directory_lister.rs
+- [X] T096 [US14] Implement single-threaded fallback path — when `multi_threaded == false`, enumerate directories sequentially on main thread: BFS or DFS enumeration without worker threads, same output ordering and totals — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → `ListDirectoryRecursive()` single-threaded path
 
 **Checkpoint**: `/m-` produces identical output to multi-threaded mode; single-threaded is measurably slower on large trees
@@ -442,7 +442,7 @@
 
 **Independent Test**: `cargo run -- --debug` (debug build) shows `[XXXXXXXX:YY]` before each filename
 
-- [ ] T097 [US16] Implement debug attribute display — `[{:08X}:{:02X}]` format showing file attributes (8 hex digits) and cloud placeholder state (2 hex digits), gated behind `#[cfg(debug_assertions)]`, positioned after cloud status and before owner/filename per A.17 — in src/results_displayer.rs
+- [X] T097 [US16] Implement debug attribute display — `[{:08X}:{:02X}]` format showing file attributes (8 hex digits) and cloud placeholder state (2 hex digits), gated behind `#[cfg(debug_assertions)]`, positioned after cloud status and before owner/filename per A.17 — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → debug attribute display block (`#ifdef _DEBUG`)
 
 **Checkpoint**: Debug builds show hex attributes; release builds have no debug output; format matches A.17

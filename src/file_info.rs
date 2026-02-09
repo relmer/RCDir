@@ -91,6 +91,7 @@ pub struct FileInfo {
     pub creation_time:   u64,    // FILETIME as u64
     pub last_write_time: u64,    // FILETIME as u64
     pub last_access_time: u64,   // FILETIME as u64
+    pub reparse_tag:     u32,    // dwReserved0 — reparse tag for cloud/symlink detection
     pub streams:         Vec<StreamInfo>,
 }
 
@@ -120,6 +121,7 @@ impl FileInfo {
             creation_time,
             last_write_time,
             last_access_time,
+            reparse_tag: wfd.dwReserved0,
             streams: Vec::new(),
         }
     }
@@ -187,6 +189,7 @@ mod tests {
             creation_time:   0,
             last_write_time: 0,
             last_access_time: 0,
+            reparse_tag:     0,
             streams:         Vec::new(),
         };
         assert!(fi.is_directory());
@@ -201,6 +204,7 @@ mod tests {
             creation_time:   0,
             last_write_time: 0,
             last_access_time: 0,
+            reparse_tag:     0,
             streams:         Vec::new(),
         };
         assert!(fi.is_dot_dir());

@@ -11,6 +11,7 @@
 use std::os::windows::ffi::OsStrExt;
 use std::sync::Arc;
 
+use crate::cloud_status::{self, CloudStatus};
 use crate::command_line::{CommandLine, TimeField};
 use crate::config::{Attribute, Config};
 use crate::console::Console;
@@ -203,6 +204,7 @@ fn display_file_results(
     dir_info: &DirectoryInfo,
 ) {
     let max_size_width = get_string_length_of_max_file_size(dir_info.largest_file_size);
+    let in_sync_root = cloud_status::is_under_sync_root(dir_info.dir_path.as_os_str());
 
     for file_info in &dir_info.matches {
         let text_attr = config.get_text_attr_for_file(file_info.file_attributes, &file_info.file_name);
@@ -217,8 +219,9 @@ fn display_file_results(
         // File size or <DIR>
         display_file_size(console, file_info, max_size_width);
 
-        // Cloud status placeholder (space for now, full impl in US-8)
-        console.printf_attr(Attribute::Default, "  ");
+        // Cloud status symbol
+        let cloud = cloud_status::get_cloud_status(file_info.file_attributes, in_sync_root);
+        display_cloud_status_symbol(console, config, cloud);
 
         // Filename
         let name_str = file_info.file_name.to_string_lossy();
@@ -352,6 +355,23 @@ fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize
             right = right_pad,
         ));
     }
+}
+
+// ── Cloud status symbol ───────────────────────────────────────────────────────
+
+/// Display cloud status symbol with configured color.
+///
+/// Port of: CResultsDisplayerNormal::DisplayCloudStatusSymbol
+fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: CloudStatus) {
+    let (attr, symbol) = match status {
+        CloudStatus::None      => (Attribute::Default,                            ' '),
+        CloudStatus::CloudOnly => (Attribute::CloudStatusCloudOnly,               cloud_status::CIRCLE_HOLLOW),
+        CloudStatus::Local     => (Attribute::CloudStatusLocallyAvailable,        cloud_status::CIRCLE_HALF_FILLED),
+        CloudStatus::Pinned    => (Attribute::CloudStatusAlwaysLocallyAvailable,  cloud_status::CIRCLE_FILLED),
+    };
+
+    let color = config.attributes[attr as usize];
+    console.printf(color, &format!("{} ", symbol));
 }
 
 // ── Directory summary ─────────────────────────────────────────────────────────

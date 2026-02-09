@@ -139,38 +139,46 @@ impl Console {
     /// No trailing newline.
     ///
     /// Port of: CConsole::ColorPrint / ColorPrintf
+    ///
+    /// Matches TCDir's ColorPrint algorithm exactly:
+    /// - Always calls process_multiline_string for text before each marker,
+    ///   even when that text is empty (emits SetColor for the default attr).
+    /// - This ensures the same color-reset sequence as TCDir at the start
+    ///   of each ColorPrintf call.
     pub fn color_printf(&mut self, text: &str) {
         let default_attr = self.config.attributes[Attribute::Default as usize];
         let mut current_attr = default_attr;
-        let mut rest = text;
+        let mut chunk_start = 0;
 
-        while !rest.is_empty() {
-            if let Some(brace_pos) = rest.find('{') {
-                // Emit text before the marker
-                if brace_pos > 0 {
-                    self.process_multiline_string(&rest[..brace_pos], current_attr);
-                }
+        while chunk_start < text.len() {
+            // Find the next potential marker
+            let chunk_end = text[chunk_start..].find('{').map(|p| chunk_start + p);
 
-                // Try to parse the marker
-                let after_brace = &rest[brace_pos + 1..];
-                if let Some(close_pos) = after_brace.find('}') {
-                    let marker_name = &after_brace[..close_pos];
-                    if let Some(attr_idx) = Attribute::from_name(marker_name) {
-                        current_attr = self.config.attributes[attr_idx as usize];
-                        rest = &after_brace[close_pos + 1..];
-                    } else {
-                        // Unknown marker — emit the '{' as literal
-                        self.process_multiline_string("{", current_attr);
-                        rest = after_brace;
-                    }
+            // Emit text before the marker (or all remaining text if no marker found)
+            let chunk = match chunk_end {
+                Some(end) => &text[chunk_start..end],
+                None      => &text[chunk_start..],
+            };
+            self.process_multiline_string(chunk, current_attr);
+
+            // If no marker found, we're done
+            let Some(brace_pos) = chunk_end else { break };
+
+            // Try to parse the marker
+            let after_brace = &text[brace_pos + 1..];
+            if let Some(close_pos) = after_brace.find('}') {
+                let marker_name = &after_brace[..close_pos];
+                if let Some(attr_idx) = Attribute::from_name(marker_name) {
+                    current_attr = self.config.attributes[attr_idx as usize];
+                    chunk_start = brace_pos + 1 + close_pos + 1;
                 } else {
-                    // Unclosed brace — emit remaining text
-                    self.process_multiline_string(&rest[brace_pos..], current_attr);
-                    break;
+                    // Unknown marker — emit the '{' as literal
+                    self.process_multiline_string("{", current_attr);
+                    chunk_start = brace_pos + 1;
                 }
             } else {
-                // No more markers
-                self.process_multiline_string(rest, current_attr);
+                // Unclosed brace — emit '{' and remaining text
+                self.process_multiline_string(&text[brace_pos..], current_attr);
                 break;
             }
         }

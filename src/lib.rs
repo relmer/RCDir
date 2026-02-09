@@ -22,6 +22,9 @@ pub mod results_displayer;
 pub mod cloud_status;
 pub mod streams;
 pub mod owner;
+pub mod usage;
+
+use std::sync::Arc;
 
 use ehm::AppError;
 
@@ -44,13 +47,38 @@ pub fn run() -> Result<(), AppError> {
     let mut cmd = cmd;
     cmd.apply_config_defaults(&cfg);
 
-    // TODO: US-15 help/env-help early exits will go here
+    // Wrap config in Arc for shared ownership with Console
+    let cfg = Arc::new(cfg);
+
+    // Initialize console
+    let mut console = console::Console::initialize(Arc::clone(&cfg))?;
+
+    // Help early exits — show requested help and return
+    if cmd.show_help {
+        usage::display_usage(&mut console, cmd.switch_prefix);
+        console.flush()?;
+        return Ok(());
+    }
+
+    if cmd.show_env_help {
+        usage::display_env_var_help(&mut console, cmd.switch_prefix);
+        console.flush()?;
+        return Ok(());
+    }
+
+    if cmd.show_config {
+        usage::display_current_configuration(&mut console, cmd.switch_prefix);
+        console.flush()?;
+        return Ok(());
+    }
+
     // TODO: US-1 directory listing pipeline will go here
 
     // Performance timer output — spec A.11: "RCDir time elapsed:  X.XX msec\n"
     if cmd.perf_timer {
         timer.stop();
-        eprintln!("RCDir time elapsed:  {:.2} msec", timer.elapsed_ms());
+        console.printf_attr(config::Attribute::Default, &format!("RCDir time elapsed:  {:.2} msec\n", timer.elapsed_ms()));
+        console.flush()?;
     }
 
     Ok(())

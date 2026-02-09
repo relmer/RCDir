@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/002-full-app-spec/` and `/specs/master/`
 **Prerequisites**: plan.md ✓, spec.md ✓, research.md ✓, data-model.md ✓, contracts/cli-contract.md ✓, quickstart.md ✓
 
-**Tests**: Not explicitly requested — test tasks omitted (except output parity in Polish phase).
+**Tests**: Each module task includes writing `#[cfg(test)]` unit tests within the same source file. Tests are part of the task, not separate tasks. Output parity integration tests are in Phase 19.
 
 **Organization**: Tasks grouped by user story in priority order. US-13 (Performance Timer) is first per plan.md mandate.
 
@@ -62,7 +62,7 @@
   📖 Port from: `Console.cpp` → `PutChar()`, `Puts()`, `Printf()`
 - [ ] T012 Implement `Console::color_printf()` — text with embedded `{MarkerName}` color markers (e.g., `{Error}`, `{Date}`, `{Size}`), resolve marker names to Attribute enum → WORD via Config lookup — in src/console.rs
   📖 Port from: `Console.cpp` → `CConsole::ColorPrintf()`
-- [ ] T013 Implement `Console::print_colorful_string()` — rainbow cycling text (cycle through 6 bright colors), used for colorful help screen headers — in src/console.rs
+- [ ] T013 Implement `Console::print_colorful_string()` — rainbow cycling text (cycle through all 16 colors, skipping background color per spec D.1.1), used for colorful help screen headers — in src/console.rs
   📖 Port from: `Console.cpp` → `CConsole::PrintColorfulString()`
 - [ ] T014 Implement `Console::flush()` — dual output path: WriteConsoleW with UTF-16 conversion for real console, WriteFile with UTF-8 for redirected output, append `\x1b[0m` reset before flush — in src/console.rs
   📖 Port from: `Console.cpp` → `CConsole::Flush()`
@@ -132,8 +132,8 @@
   📖 Port from: `Usage.cpp` → `CUsage::DisplayUsage()` switch listing section
 - [ ] T033 [US15] Implement help screen attribute codes table — all attribute filter characters (D/H/S/R/A/T/E/C/P/0/X/I/B/O/L/V) with descriptions, cloud status symbols (○/◐/●) in their configured colors with meanings — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayUsage()` attribute codes + cloud symbols sections, `UnicodeSymbols.h`
-- [ ] T034 [US15] Implement `--env` help screen — RCDIR environment variable syntax reference: entry types (switches, display item colors, extension colors, attribute colors), format examples, color name list, valid switch names — in src/lib.rs
-  📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarHelp()`
+- [ ] T034 [US15] Implement `--env` help screen — RCDIR environment variable static syntax reference: entry types (switches, display item colors, extension colors, attribute colors), format examples, color chart, valid switch names per D.2.1–D.2.3 — in src/lib.rs
+  📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarHelp()` (static reference sections only)
 - [ ] T035 [US15] Wire help and env-help into lib::run() — check `show_help` and `show_env_help` as early-exit paths, display usage screen on invalid switch (`Err(InvalidArg)` → usage + exit 1) — in src/lib.rs
   📖 Port from: `TCDir.cpp` → `wmain()` help/env-help early-exit paths
 
@@ -199,6 +199,8 @@
   📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → `DisplayFooter()`
 - [ ] T054 [US1] Implement separator lines — horizontal line between directories, blank line rules per A.12 — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → separator logic in `DisplayResults()`
+- [ ] T054a [US1] Implement empty-directory and no-match messages — "Directory is empty." when all specs are `*`, "No files matching '...' found." for specific file specs per D.4.2 — in src/results_displayer.rs
+  📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → `DisplayResults()` empty-directory branch
 
 ### Main Orchestration
 
@@ -369,8 +371,8 @@
   📖 Port from: `Config.cpp` → `CConfig::ParseEnvironmentVariable()` error accumulation + ErrorInfo struct
 - [ ] T088 [US9] Implement env var error display — at end of normal output, print each error with: the original RCDIR value, an underline annotation pointing to the exact invalid text position, and error description — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarIssues()` + `DisplayEnvVarCurrentValue()`
-- [ ] T089 [US9] Implement `--env` help content — complete RCDIR syntax reference with entry types, format examples, color name list, attribute key list, valid switch names — in src/lib.rs
-  📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarHelp()` + `DisplayEnvVarDecodedSettings()`
+- [ ] T089 [US9] Implement `--env` dynamic content — current RCDIR value display (D.2.4), decoded settings display grouped by switches/items/attrs/extensions (D.2.5), color chart (D.2.2) — in src/lib.rs
+  📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarDecodedSettings()`, `DisplayEnvVarCurrentValue()`
 
 **Checkpoint**: Color overrides work; switch defaults work; syntax errors display with underline annotations; `--env` shows complete reference
 
@@ -455,6 +457,7 @@
 - [ ] T099 [P] Add output parity test cases — single dir, recursive, sorted (/o:s, /o:-d), filtered (/a:d, /a:-hs), wide, bare, combined switches — in tests/output_parity/
 - [ ] T100 Run `cargo clippy` and fix all warnings across all modules
 - [ ] T101 Run quickstart.md validation — build both architectures (x64+ARM64), run tests, deploy to test path per quickstart.md
+- [ ] T101a Validate performance criteria — benchmark typical directory (<1s per SC-001), large recursive listing (<10s per SC-002), verify MT gives 2x+ speedup over `/m-` (SC-010) using `/p` switch
 - [ ] T102 Final review — verify byte-identical output for representative test cases against TCDir, check column alignment, number formatting, color accuracy
 
 ---

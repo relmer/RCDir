@@ -414,9 +414,9 @@
 
 **Independent Test**: `cargo run -- --streams` on a file with ADS shows stream names and sizes below each file
 
-- [ ] T094 [US12] Implement stream enumeration — `FindFirstStreamW`/`FindNextStreamW` loop, construct StreamInfo (strip `:$DATA` suffix from name, extract size), only on NTFS/ReFS volumes — in src/streams.rs
+- [X] T094 [US12] Implement stream enumeration — `FindFirstStreamW`/`FindNextStreamW` loop, construct StreamInfo (strip `:$DATA` suffix from name, extract size), only on NTFS/ReFS volumes — in src/streams.rs
   📖 Port from: `DirectoryLister.cpp` → `EnumerateStreams()` (FindFirstStreamW/FindNextStreamW loop)
-- [ ] T095 [US12] Integrate streams into NormalDisplayer — display each stream below parent file (indented, showing stream name and locale-formatted size per A.9.2), accumulate stream counts/bytes in ListingTotals — in src/results_displayer.rs
+- [X] T095 [US12] Integrate streams into NormalDisplayer — display each stream below parent file (indented, showing stream name and locale-formatted size per A.9.2), accumulate stream counts/bytes in ListingTotals — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → stream display within `DisplayFileEntry()`
 
 **Checkpoint**: Streams display below files; stream totals included in summaries; only on NTFS/ReFS volumes

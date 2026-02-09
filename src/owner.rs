@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn get_owner_of_nonexistent_file() {
-        let path = Path::new("C:\\this\\path\\does\\not\\exist\\file.txt");
+        let path = std::path::Path::new("C:\\this\\path\\does\\not\\exist\\file.txt");
         let owner = get_file_owner(path.as_os_str());
         assert_eq!(owner, "Unknown");
     }

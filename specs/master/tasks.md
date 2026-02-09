@@ -126,15 +126,15 @@
 
 **Independent Test**: `cargo run -- /?` displays full help with all switches, attribute codes, cloud symbols, version, and architecture
 
-- [ ] T031 [US15] Implement help screen header — product name (colorful rainbow text), version number, architecture (x64/ARM64) via `cfg!(target_arch)`, copyright — in src/lib.rs
+- [X] T031 [US15] Implement help screen header — product name (colorful rainbow text), version number, architecture (x64/ARM64) via `cfg!(target_arch)`, copyright — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayUsage()` header section, `Version.h`
-- [ ] T032 [US15] Implement help screen switch listing — all switches with descriptions, column-aligned, switch prefix–aware formatting (show `/` or `-` based on `switch_prefix`) — in src/lib.rs
+- [X] T032 [US15] Implement help screen switch listing — all switches with descriptions, column-aligned, switch prefix–aware formatting (show `/` or `-` based on `switch_prefix`) — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayUsage()` switch listing section
-- [ ] T033 [US15] Implement help screen attribute codes table — all attribute filter characters (D/H/S/R/A/T/E/C/P/0/X/I/B/O/L/V) with descriptions, cloud status symbols (○/◐/●) in their configured colors with meanings — in src/lib.rs
+- [X] T033 [US15] Implement help screen attribute codes table — all attribute filter characters (D/H/S/R/A/T/E/C/P/0/X/I/B/O/L/V) with descriptions, cloud status symbols (○/◐/●) in their configured colors with meanings — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayUsage()` attribute codes + cloud symbols sections, `UnicodeSymbols.h`
-- [ ] T034 [US15] Implement `--env` help screen — RCDIR environment variable static syntax reference: entry types (switches, display item colors, extension colors, attribute colors), format examples, color chart, valid switch names per D.2.1–D.2.3 — in src/lib.rs
+- [X] T034 [US15] Implement `--env` help screen — RCDIR environment variable static syntax reference: entry types (switches, display item colors, extension colors, attribute colors), format examples, color chart, valid switch names per D.2.1–D.2.3 — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarHelp()` (static reference sections only)
-- [ ] T035 [US15] Wire help and env-help into lib::run() — check `show_help` and `show_env_help` as early-exit paths, display usage screen on invalid switch (`Err(InvalidArg)` → usage + exit 1) — in src/lib.rs
+- [X] T035 [US15] Wire help and env-help into lib::run() — check `show_help` and `show_env_help` as early-exit paths, display usage screen on invalid switch (`Err(InvalidArg)` → usage + exit 1) — in src/lib.rs
   📖 Port from: `TCDir.cpp` → `wmain()` help/env-help early-exit paths
 
 **Checkpoint**: `rcdir /?` and `rcdir --env` both display complete reference information; invalid switches show usage + exit 1

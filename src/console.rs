@@ -81,6 +81,12 @@ impl Console {
         &self.config
     }
 
+    /// Get a shared reference-counted pointer to the config.
+    /// Use this when you need config data across mutable Console calls.
+    pub fn config_arc(&self) -> Arc<Config> {
+        Arc::clone(&self.config)
+    }
+
     /// Emit ANSI SGR color sequence if the color has changed from the previous call.
     /// Color elision: skip if unchanged (major perf optimization).
     ///

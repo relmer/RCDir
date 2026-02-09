@@ -357,21 +357,21 @@
 
 **Independent Test**: Set `RCDIR=W;D=LightGreen;.rs=Cyan` → wide mode default, green dates, cyan .rs files
 
-- [ ] T082 [US9] Implement RCDIR env var top-level parser — read via EnvironmentProvider, split on semicolons, classify each entry: switch name (with optional `-`), display item color (`key=ColorSpec`), extension color (`.ext=ColorSpec`), attribute color (`Attr:X=ColorSpec`) — in src/config.rs
+- [X] T082 [US9] Implement RCDIR env var top-level parser — read via EnvironmentProvider, split on semicolons, classify each entry: switch name (with optional `-`), display item color (`key=ColorSpec`), extension color (`.ext=ColorSpec`), attribute color (`Attr:X=ColorSpec`) — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::ParseEnvironmentVariable()` outer loop
-- [ ] T083 [US9] Implement switch default parsing — recognize valid switch names (W/S/P/M/B/Owner/Streams) with optional trailing `-` to disable, reject entries with switch prefixes (`/`, `-`, `--`), set Config Option fields — in src/config.rs
+- [X] T083 [US9] Implement switch default parsing — recognize valid switch names (W/S/P/M/B/Owner/Streams) with optional trailing `-` to disable, reject entries with switch prefixes (`/`, `-`, `--`), set Config Option fields — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::ParseEnvironmentVariable()` switch-name handling branch
-- [ ] T084 [US9] Implement display item color override parsing — map key names to Attribute enum variants (D=Date, T=Time, etc. per A.2.4), call parse_color_spec for value, update attributes array and set source to Environment — in src/config.rs
+- [X] T084 [US9] Implement display item color override parsing — map key names to Attribute enum variants (D=Date, T=Time, etc. per A.2.4), call parse_color_spec for value, update attributes array and set source to Environment — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::ParseEnvironmentVariable()` display-item color branch
-- [ ] T085 [US9] Implement extension color override parsing — entries starting with `.`, call parse_color_spec for value, update extension_colors HashMap with case-insensitive extension key — in src/config.rs
+- [X] T085 [US9] Implement extension color override parsing — entries starting with `.`, call parse_color_spec for value, update extension_colors HashMap with case-insensitive extension key — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::ParseEnvironmentVariable()` extension color branch
-- [ ] T086 [US9] Implement file attribute color override parsing — entries starting with `Attr:` followed by attribute char (H/S/E/C etc.), call parse_color_spec for value, update file_attr_colors HashMap — in src/config.rs
+- [X] T086 [US9] Implement file attribute color override parsing — entries starting with `Attr:` followed by attribute char (H/S/E/C etc.), call parse_color_spec for value, update file_attr_colors HashMap — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::ParseEnvironmentVariable()` attribute color branch
-- [ ] T087 [US9] Implement env var validation and error collection — accumulate `ErrorInfo` structs for each invalid entry (invalid color name, invalid attribute key, unknown switch, invalid prefix), store for later display — in src/config.rs
+- [X] T087 [US9] Implement env var validation and error collection — accumulate `ErrorInfo` structs for each invalid entry (invalid color name, invalid attribute key, unknown switch, invalid prefix), store for later display — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::ParseEnvironmentVariable()` error accumulation + ErrorInfo struct
-- [ ] T088 [US9] Implement env var error display — at end of normal output, print each error with: the original RCDIR value, an underline annotation pointing to the exact invalid text position, and error description — in src/lib.rs
+- [X] T088 [US9] Implement env var error display — at end of normal output, print each error with: the original RCDIR value, an underline annotation pointing to the exact invalid text position, and error description — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarIssues()` + `DisplayEnvVarCurrentValue()`
-- [ ] T089 [US9] Implement `--env` dynamic content — current RCDIR value display (D.2.4), decoded settings display grouped by switches/items/attrs/extensions (D.2.5), color chart (D.2.2) — in src/lib.rs
+- [X] T089 [US9] Implement `--env` dynamic content — current RCDIR value display (D.2.4), decoded settings display grouped by switches/items/attrs/extensions (D.2.5), color chart (D.2.2) — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayEnvVarDecodedSettings()`, `DisplayEnvVarCurrentValue()`
 
 **Checkpoint**: Color overrides work; switch defaults work; syntax errors display with underline annotations; `--env` shows complete reference
@@ -384,9 +384,9 @@
 
 **Independent Test**: `cargo run -- --config` displays all colors with sources (Default vs Environment)
 
-- [ ] T090 [US10] Implement `--config` display item listing — for each Attribute enum variant, show name, color swatch (colored sample text), hex WORD value, source (Default or Environment) — in src/lib.rs
+- [X] T090 [US10] Implement `--config` display item listing — for each Attribute enum variant, show name, color swatch (colored sample text), hex WORD value, source (Default or Environment) — in src/lib.rs
   📖 Port from: `Usage.cpp` → `CUsage::DisplayCurrentConfiguration()`, `DisplayConfigurationTable()`, `DisplayAttributeConfiguration()`
-- [ ] T091 [US10] Implement `--config` extension and attribute color listing — show all extension color overrides (source-tagged), all file attribute color overrides (source-tagged) — in src/lib.rs
+- [X] T091 [US10] Implement `--config` extension and attribute color listing — show all extension color overrides (source-tagged), all file attribute color overrides (source-tagged) — in src/lib.rs
   📖 Port from: `Usage.cpp` → `DisplayExtensionConfiguration()`, `DisplayFileAttributeConfiguration()`, `DisplayColorConfiguration()`
 
 **Checkpoint**: Config display shows all settings; source tracking distinguishes defaults from env var overrides
@@ -399,9 +399,9 @@
 
 **Independent Test**: `cargo run -- --owner` displays `DOMAIN\User` for each file
 
-- [ ] T092 [US11] Implement file owner lookup — `GetNamedSecurityInfoW` to get security descriptor, `GetSecurityDescriptorOwner` to get SID, `LookupAccountSidW` to get `DOMAIN\User` string — in src/owner.rs
+- [X] T092 [US11] Implement file owner lookup — `GetNamedSecurityInfoW` to get security descriptor, `GetSecurityDescriptorOwner` to get SID, `LookupAccountSidW` to get `DOMAIN\User` string — in src/owner.rs
   📖 Port from: `DirectoryLister.cpp` → `GetFileOwner()` (security descriptor + SID lookup)
-- [ ] T093 [US11] Integrate owner column into NormalDisplayer — display owner string between cloud status and filename, pad to consistent column width for alignment — in src/results_displayer.rs
+- [X] T093 [US11] Integrate owner column into NormalDisplayer — display owner string between cloud status and filename, pad to consistent column width for alignment — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → owner column within `DisplayFileEntry()`
 
 **Checkpoint**: Owner column displays correct `DOMAIN\User`; column alignment is preserved

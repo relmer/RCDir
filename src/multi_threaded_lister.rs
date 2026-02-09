@@ -24,7 +24,7 @@ use crate::drive_info::DriveInfo;
 use crate::file_comparator;
 use crate::file_info::{FileInfo, FindHandle, FILE_ATTRIBUTE_DIRECTORY};
 use crate::listing_totals::ListingTotals;
-use crate::results_displayer::{DirectoryLevel, NormalDisplayer, ResultsDisplayer};
+use crate::results_displayer::{DirectoryLevel, Displayer, ResultsDisplayer};
 use crate::work_queue::WorkQueue;
 
 /// A work item is a reference to a directory node in the tree.
@@ -76,7 +76,7 @@ impl MultiThreadedLister {
         drive_info: &DriveInfo,
         dir_path: &Path,
         file_specs: &[OsString],
-        displayer: &mut NormalDisplayer,
+        displayer: &mut Displayer,
         totals: &mut ListingTotals,
     ) {
         let spec_strings: Vec<String> = file_specs.iter()
@@ -108,7 +108,7 @@ impl MultiThreadedLister {
         &self,
         node: &WorkItem,
         drive_info: &DriveInfo,
-        displayer: &mut NormalDisplayer,
+        displayer: &mut Displayer,
         level: DirectoryLevel,
         totals: &mut ListingTotals,
     ) {

@@ -230,6 +230,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn from_find_data_basic() {
         let mut wfd = WIN32_FIND_DATAW::default();
         wfd.dwFileAttributes = FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_READONLY;

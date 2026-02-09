@@ -177,6 +177,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn sort_by_size() {
         let mut cmd = CommandLine::default();
         cmd.sort_order = SortOrder::Size;
@@ -194,6 +195,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn sort_by_size_descending() {
         let mut cmd = CommandLine::default();
         cmd.sort_order = SortOrder::Size;

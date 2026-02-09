@@ -28,6 +28,30 @@ use ehm::AppError;
 /// Main entry point for the library.
 /// Called by main.rs; returns Result for clean error handling.
 pub fn run() -> Result<(), AppError> {
-    // Stub — will be wired up as user stories are implemented
+    // Start performance timer immediately
+    let mut timer = perf_timer::PerfTimer::new();
+    timer.start();
+
+    // Parse command line
+    let args: Vec<String> = std::env::args().collect();
+    let cmd = command_line::CommandLine::parse_from(args.iter().skip(1))?;
+
+    // Initialize configuration
+    let mut cfg = config::Config::new();
+    cfg.initialize(0x07); // default: LightGrey on Black
+
+    // Apply config defaults from RCDIR env var to command line
+    let mut cmd = cmd;
+    cmd.apply_config_defaults(&cfg);
+
+    // TODO: US-15 help/env-help early exits will go here
+    // TODO: US-1 directory listing pipeline will go here
+
+    // Performance timer output — spec A.11: "RCDir time elapsed:  X.XX msec\n"
+    if cmd.perf_timer {
+        timer.stop();
+        eprintln!("RCDir time elapsed:  {:.2} msec", timer.elapsed_ms());
+    }
+
     Ok(())
 }

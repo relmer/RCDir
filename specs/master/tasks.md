@@ -111,9 +111,9 @@
 
 **Independent Test**: `cargo run -- /p` prints `RCDir time elapsed:  X.XX msec`
 
-- [ ] T029 [US13] Implement `PerfTimer` struct — wraps `std::time::Instant`, `new()` captures start time, `elapsed_ms() -> f64` returns milliseconds with fractional precision — in src/perf_timer.rs
+- [X] T029 [US13] Implement `PerfTimer` struct — wraps `std::time::Instant`, `new()` captures start time, `elapsed_ms() -> f64` returns milliseconds with fractional precision — in src/perf_timer.rs
   📖 Port from: `PerfTimer.h`, `PerfTimer.cpp` (QueryPerformanceCounter → Rust Instant)
-- [ ] T030 [US13] Wire PerfTimer into lib::run() — start at entry, print formatted output per spec A.11 (`"RCDir time elapsed:  {:.2} msec\n"`, two spaces after colon, 2 decimal places) if `command_line.perf_timer` is true — in src/lib.rs
+- [X] T030 [US13] Wire PerfTimer into lib::run() — start at entry, print formatted output per spec A.11 (`"RCDir time elapsed:  {:.2} msec\n"`, two spaces after colon, 2 decimal places) if `command_line.perf_timer` is true — in src/lib.rs
   📖 Port from: `TCDir.cpp` → timer output at end of `wmain()`
 
 **Checkpoint**: `rcdir /p` produces timer output; baseline for all future performance comparisons

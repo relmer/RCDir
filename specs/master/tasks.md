@@ -253,38 +253,38 @@
 
 ### Tree Infrastructure
 
-- [ ] T062 [US4] Extend `DirectoryInfo` for tree structure — add `DirStatus` enum (Waiting/InProgress/Done/Error per A.15.6), per-node `Mutex` + `Condvar`, `error: Option<AppError>`, `children: Vec<Arc<Mutex<DirectoryInfo>>>` — in src/directory_info.rs
+- [X] T062 [US4] Extend `DirectoryInfo` for tree structure — add `DirStatus` enum (Waiting/InProgress/Done/Error per A.15.6), per-node `Mutex` + `Condvar`, `error: Option<AppError>`, `children: Vec<Arc<Mutex<DirectoryInfo>>>` — in src/directory_info.rs
   📖 Port from: `DirectoryInfo.h` → tree fields (m_status, m_hEvent, m_children, m_hrError)
-- [ ] T063 [P] [US4] Implement `WorkQueue<T>` — thread-safe FIFO using `Mutex<VecDeque<T>>` + `Condvar`, `push()` adds item + notify_one, `pop()` waits until item available or done, `set_done()` sets flag + notify_all, `is_done()` check — in src/work_queue.rs
+- [X] T063 [P] [US4] Implement `WorkQueue<T>` — thread-safe FIFO using `Mutex<VecDeque<T>>` + `Condvar`, `push()` adds item + notify_one, `pop()` waits until item available or done, `set_done()` sets flag + notify_all, `is_done()` check — in src/work_queue.rs
   📖 Port from: `WorkQueue.h`
 
 ### Worker Threads
 
-- [ ] T064 [US4] Implement `MultiThreadedLister` struct — spawn N worker threads (`std::thread::available_parallelism()`, min 1), store `JoinHandle<()>` vec, `Arc<AtomicBool>` stop signal — in src/multi_threaded_lister.rs
+- [X] T064 [US4] Implement `MultiThreadedLister` struct — spawn N worker threads (`std::thread::available_parallelism()`, min 1), store `JoinHandle<()>` vec, `Arc<AtomicBool>` stop signal — in src/multi_threaded_lister.rs
   📖 Port from: `MultiThreadedLister.h`, `MultiThreadedLister.cpp` → `CMultiThreadedLister::CMultiThreadedLister()` + `Start()`
-- [ ] T065 [US4] Implement worker thread enumeration loop — pop work item, lock node → set InProgress, enumerate matching files (reuse enumeration from T044/T045), update node counters — in src/multi_threaded_lister.rs
+- [X] T065 [US4] Implement worker thread enumeration loop — pop work item, lock node → set InProgress, enumerate matching files (reuse enumeration from T044/T045), update node counters — in src/multi_threaded_lister.rs
   📖 Port from: `MultiThreadedLister.cpp` → `WorkerThread()` main loop
-- [ ] T066 [US4] Implement worker child directory discovery — during enumeration, for each subdirectory found: create child DirectoryInfo node, lock parent → add to children vec, push child onto work queue — in src/multi_threaded_lister.rs
+- [X] T066 [US4] Implement worker child directory discovery — during enumeration, for each subdirectory found: create child DirectoryInfo node, lock parent → add to children vec, push child onto work queue — in src/multi_threaded_lister.rs
   📖 Port from: `MultiThreadedLister.cpp` → `WorkerThread()` subdirectory discovery block
-- [ ] T067 [US4] Implement worker completion signaling — after enumeration: lock node → set status Done or Error, store error if failed, `condvar.notify_one()` to wake consumer — in src/multi_threaded_lister.rs
+- [X] T067 [US4] Implement worker completion signaling — after enumeration: lock node → set status Done or Error, store error if failed, `condvar.notify_one()` to wake consumer — in src/multi_threaded_lister.rs
   📖 Port from: `MultiThreadedLister.cpp` → `WorkerThread()` completion + SetEvent signaling
-- [ ] T068 [US4] Implement shutdown sequence — set AtomicBool stop flag, call work_queue.set_done(), join all worker threads, consumer's WaitForNodeCompletion checks stop flag in CV predicate — in src/multi_threaded_lister.rs
+- [X] T068 [US4] Implement shutdown sequence — set AtomicBool stop flag, call work_queue.set_done(), join all worker threads, consumer's WaitForNodeCompletion checks stop flag in CV predicate — in src/multi_threaded_lister.rs
   📖 Port from: `MultiThreadedLister.cpp` → `Stop()` + `~CMultiThreadedLister()`
 
 ### Streaming Consumer
 
-- [ ] T069 [US4] Implement `WaitForNodeCompletion()` — acquire per-node mutex, `condvar.wait_while(lock, |state| state.status < Done && !stop_requested)`, return status — in src/directory_lister.rs
+- [X] T069 [US4] Implement `WaitForNodeCompletion()` — acquire per-node mutex, `condvar.wait_while(lock, |state| state.status < Done && !stop_requested)`, return status — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → `WaitForDirectoryCompletion()` (WaitForSingleObject → Condvar)
-- [ ] T070 [US4] Implement `print_directory_tree()` — recursive depth-first walk: wait for node completion, sort results, display results, accumulate totals into ListingTotals, recurse into children in discovery order (never skip or reorder) per A.15.5 — in src/directory_lister.rs
+- [X] T070 [US4] Implement `print_directory_tree()` — recursive depth-first walk: wait for node completion, sort results, display results, accumulate totals into ListingTotals, recurse into children in discovery order (never skip or reorder) per A.15.5 — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → `PrintDirectoryTree()`
-- [ ] T071 [US4] Implement per-node error handling in tree walk — if node status is Error, print error message and continue to next sibling (don't abort tree walk) per A.15.8 — in src/directory_lister.rs
+- [X] T071 [US4] Implement per-node error handling in tree walk — if node status is Error, print error message and continue to next sibling (don't abort tree walk) per A.15.8 — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → error handling within `PrintDirectoryTree()`
 
 ### Summary and Wiring
 
-- [ ] T072 [US4] Implement recursive summary display — "Total Files Listed" footer with accumulated ListingTotals (total files, total bytes, total dirs) with locale-formatted numbers — in src/results_displayer.rs
+- [X] T072 [US4] Implement recursive summary display — "Total Files Listed" footer with accumulated ListingTotals (total files, total bytes, total dirs) with locale-formatted numbers — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → `DisplayRecursiveSummary()`
-- [ ] T073 [US4] Wire recursive listing path into lib::run() — if `/s`: create root DirectoryInfo, enqueue root, start MultiThreadedLister, call print_directory_tree, print recursive summary, stop workers, flush — in src/lib.rs
+- [X] T073 [US4] Wire recursive listing path into lib::run() — if `/s`: create root DirectoryInfo, enqueue root, start MultiThreadedLister, call print_directory_tree, print recursive summary, stop workers, flush — in src/lib.rs
   📖 Port from: `TCDir.cpp` → `wmain()` recursive-mode branch
 
 **Checkpoint**: Recursive listing produces correct depth-first output; output appears progressively (streaming); MT gives measurable speedup; error in one dir doesn't abort the rest

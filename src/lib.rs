@@ -123,44 +123,72 @@ pub fn run() -> Result<(), AppError> {
             Arc::clone(&cfg),
         );
 
-        for file_spec in file_specs {
-            let spec_str = file_spec.to_string_lossy().to_string();
-            let mut di = directory_info::DirectoryInfo::new(dir_path.clone(), spec_str);
-
-            // Enumerate matching files
-            directory_lister::collect_matching_files(
-                dir_path,
-                file_spec.as_os_str(),
-                &mut di,
-                &cmd,
-                &mut totals,
-                &cfg,
+        if cmd.multi_threaded && cmd.recurse {
+            // ── Multi-threaded recursive path ──
+            let mut mt_lister = multi_threaded_lister::MultiThreadedLister::new(
+                Arc::clone(&cmd),
+                Arc::clone(&cfg),
             );
 
-            // Track directory count in totals
-            totals.directory_count += di.subdirectory_count;
+            mt_lister.process(
+                &drive_info,
+                dir_path,
+                file_specs,
+                &mut displayer,
+                &mut totals,
+            );
 
-            // Sort results
-            file_comparator::sort_files(&mut di.matches, &cmd);
+            // Build a summary DirectoryInfo for the recursive summary display
+            let spec_strings: Vec<String> = file_specs.iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect();
+            let summary_di = directory_info::DirectoryInfo::new_multi(dir_path.clone(), spec_strings);
 
-            // Display results
-            use results_displayer::{ResultsDisplayer, DirectoryLevel};
-            displayer.display_results(&drive_info, &di, DirectoryLevel::Initial);
+            use results_displayer::ResultsDisplayer;
+            displayer.display_recursive_summary(&summary_di, &totals);
 
-            // Recurse into subdirectories if /S switch
-            if cmd.recurse {
-                recurse_into_subdirectories(
-                    &drive_info,
+            mt_lister.stop_workers();
+        } else {
+            // ── Single-threaded path ──
+            for file_spec in file_specs {
+                let spec_str = file_spec.to_string_lossy().to_string();
+                let mut di = directory_info::DirectoryInfo::new(dir_path.clone(), spec_str);
+
+                // Enumerate matching files
+                directory_lister::collect_matching_files(
                     dir_path,
                     file_spec.as_os_str(),
+                    &mut di,
                     &cmd,
-                    &cfg,
                     &mut totals,
-                    &mut displayer,
+                    &cfg,
                 );
 
-                // Show recursive summary at the end of the initial directory
-                displayer.display_recursive_summary(&di, &totals);
+                // Track directory count in totals
+                totals.directory_count += di.subdirectory_count;
+
+                // Sort results
+                file_comparator::sort_files(&mut di.matches, &cmd);
+
+                // Display results
+                use results_displayer::{ResultsDisplayer, DirectoryLevel};
+                displayer.display_results(&drive_info, &di, DirectoryLevel::Initial);
+
+                // Recurse into subdirectories if /S switch (single-threaded)
+                if cmd.recurse {
+                    recurse_into_subdirectories(
+                        &drive_info,
+                        dir_path,
+                        file_spec.as_os_str(),
+                        &cmd,
+                        &cfg,
+                        &mut totals,
+                        &mut displayer,
+                    );
+
+                    // Show recursive summary at the end of the initial directory
+                    displayer.display_recursive_summary(&di, &totals);
+                }
             }
         }
 

@@ -9,7 +9,7 @@ use crate::file_info::FileInfo;
 
 /// Multithreading status for a directory enumeration job.
 /// Port of: CDirectoryInfo::Status
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DirectoryStatus {
     Waiting,
     InProgress,
@@ -20,6 +20,8 @@ pub enum DirectoryStatus {
 /// Port of: CDirectoryInfo
 ///
 /// Contains the results of a directory enumeration: matched files, counts, sizes.
+/// In multithreaded mode, each node is wrapped in Arc<Mutex<DirectoryInfo>>
+/// and the condvar is used to signal completion.
 pub struct DirectoryInfo {
     pub matches:             Vec<FileInfo>,
     pub dir_path:            PathBuf,
@@ -34,9 +36,8 @@ pub struct DirectoryInfo {
 
     // Multithreading support
     pub status:              DirectoryStatus,
-    pub error:               Option<crate::ehm::AppError>,
-    pub children:            Vec<Arc<Mutex<DirectoryInfo>>>,
-    pub status_changed:      Arc<(Mutex<bool>, Condvar)>,
+    pub error:               Option<String>,
+    pub children:            Vec<Arc<(Mutex<DirectoryInfo>, Condvar)>>,
 }
 
 impl DirectoryInfo {
@@ -55,7 +56,6 @@ impl DirectoryInfo {
             status:             DirectoryStatus::Waiting,
             error:              None,
             children:           Vec::new(),
-            status_changed:     Arc::new((Mutex::new(false), Condvar::new())),
         }
     }
 
@@ -74,7 +74,6 @@ impl DirectoryInfo {
             status:             DirectoryStatus::Waiting,
             error:              None,
             children:           Vec::new(),
-            status_changed:     Arc::new((Mutex::new(false), Condvar::new())),
         }
     }
 }

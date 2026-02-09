@@ -19,10 +19,10 @@
 
 **Purpose**: Project initialization — pop stashed scaffold, add real dependencies, establish module structure
 
-- [ ] T001 Pop cargo stash and update Cargo.toml with `windows` v0.62 feature flags (Win32_Storage_FileSystem, Win32_Storage_CloudFilters, Win32_System_Console, Win32_System_IO, Win32_System_Time, Win32_Security, Win32_Security_Authorization, Win32_Globalization, Win32_NetworkManagement_WNet) and `widestring = "1"` per research R-02/R-12 in Cargo.toml
-- [ ] T002 Create src/lib.rs with all module declarations (one `mod` per source file from plan.md: ehm, ansi_codes, color, environment_provider, console, command_line, config, file_info, directory_info, drive_info, mask_grouper, listing_totals, perf_timer, file_comparator, directory_lister, multi_threaded_lister, work_queue, results_displayer, cloud_status, streams, owner) and a `pub fn run() -> Result<(), AppError>` stub
+- [X] T001 Pop cargo stash and update Cargo.toml with `windows` v0.62 feature flags (Win32_Storage_FileSystem, Win32_Storage_CloudFilters, Win32_System_Console, Win32_System_IO, Win32_System_Time, Win32_Security, Win32_Security_Authorization, Win32_Globalization, Win32_NetworkManagement_WNet) and `widestring = "1"` per research R-02/R-12 in Cargo.toml
+- [X] T002 Create src/lib.rs with all module declarations (one `mod` per source file from plan.md: ehm, ansi_codes, color, environment_provider, console, command_line, config, file_info, directory_info, drive_info, mask_grouper, listing_totals, perf_timer, file_comparator, directory_lister, multi_threaded_lister, work_queue, results_displayer, cloud_status, streams, owner) and a `pub fn run() -> Result<(), AppError>` stub
   📖 Port from: `TCDir.cpp` (wmain structure), `pch.h` (module/include inventory)
-- [ ] T003 Update src/main.rs to call `rcdir::run()`, map `Err` to `eprintln!` + `process::exit(1)` per spec A.14 exit codes
+- [X] T003 Update src/main.rs to call `rcdir::run()`, map `Err` to `eprintln!` + `process::exit(1)` per spec A.14 exit codes
   📖 Port from: `Main.cpp`
 
 ---
@@ -35,70 +35,70 @@
 
 ### Error Handling
 
-- [ ] T004 Implement `AppError` enum (`Win32`, `Io`, `InvalidArg`, `PathNotFound`) with `Display`, `Error`, and `From<windows::core::Error>`, `From<std::io::Error>` impls in src/ehm.rs — replaces TCDir's HRESULT + EHM macro pattern with Rust's `?` operator + `From` trait conversions
+- [X] T004 Implement `AppError` enum (`Win32`, `Io`, `InvalidArg`, `PathNotFound`) with `Display`, `Error`, and `From<windows::core::Error>`, `From<std::io::Error>` impls in src/ehm.rs — replaces TCDir's HRESULT + EHM macro pattern with Rust's `?` operator + `From` trait conversions
   📖 New Rust-idiomatic error type (no direct TCDir equivalent — TCDir uses raw HRESULT everywhere; `Ehm.h` macros are replaced by `?`)
 
 ### Color Infrastructure
 
-- [ ] T005 [P] Implement ANSI SGR escape code constants — Windows WORD (4-bit fg+bg) → ANSI code lookup table, +60 for bright variants, reset sequence `\x1b[0m`, SGR format `\x1b[{fg};{bg}m` — in src/ansi_codes.rs
+- [X] T005 [P] Implement ANSI SGR escape code constants — Windows WORD (4-bit fg+bg) → ANSI code lookup table, +60 for bright variants, reset sequence `\x1b[0m`, SGR format `\x1b[{fg};{bg}m` — in src/ansi_codes.rs
   📖 Port from: `AnsiCodes.h`
-- [ ] T006 [P] Implement `Color` enum (16 values: Black, DarkBlue, DarkGreen, DarkCyan, DarkRed, DarkMagenta, DarkYellow, Gray, DarkGray, Blue, Green, Cyan, Red, Magenta, Yellow, White) with name→WORD and WORD→name bidirectional mapping in src/color.rs
+- [X] T006 [P] Implement `Color` enum (16 values: Black, DarkBlue, DarkGreen, DarkCyan, DarkRed, DarkMagenta, DarkYellow, Gray, DarkGray, Blue, Green, Cyan, Red, Magenta, Yellow, White) with name→WORD and WORD→name bidirectional mapping in src/color.rs
   📖 Port from: `Color.h` (color constants + name mapping)
-- [ ] T007 [P] Implement `parse_color_spec()` — parse `"FgColor on BgColor"` strings into Windows WORD (4-bit fg | 4-bit bg<<4), case-insensitive color name matching per A.18 — in src/color.rs
+- [X] T007 [P] Implement `parse_color_spec()` — parse `"FgColor on BgColor"` strings into Windows WORD (4-bit fg | 4-bit bg<<4), case-insensitive color name matching per A.18 — in src/color.rs
   📖 Port from: `Config.cpp` → `CConfig::ParseColorValue()`
 
 ### Environment Abstraction
 
-- [ ] T008 [P] Implement `EnvironmentProvider` trait (`fn get_env_var(&self, name: &str) -> Option<String>`) and `DefaultEnvironmentProvider` (wraps `std::env::var`) in src/environment_provider.rs
+- [X] T008 [P] Implement `EnvironmentProvider` trait (`fn get_env_var(&self, name: &str) -> Option<String>`) and `DefaultEnvironmentProvider` (wraps `std::env::var`) in src/environment_provider.rs
   📖 Port from: `EnvironmentProviderBase.h`, `EnvironmentProvider.h`, `EnvironmentProvider.cpp`
 
 ### Console Output
 
-- [ ] T009 Implement `Console` struct initialization — GetStdHandle(STD_OUTPUT_HANDLE), GetConsoleMode for redirect detection, SetConsoleMode for ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleScreenBufferInfo for console width, 10 MB buffer pre-allocation — in src/console.rs
+- [X] T009 Implement `Console` struct initialization — GetStdHandle(STD_OUTPUT_HANDLE), GetConsoleMode for redirect detection, SetConsoleMode for ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleScreenBufferInfo for console width, 10 MB buffer pre-allocation — in src/console.rs
   📖 Port from: `Console.h` (class declaration), `Console.cpp` → `CConsole::CConsole()` constructor
-- [ ] T010 Implement `Console::set_color()` — emit ANSI SGR sequence via ansi_codes lookup, track `prev_attr: Option<u16>` for color elision (skip if unchanged), handle reset — in src/console.rs
+- [X] T010 Implement `Console::set_color()` — emit ANSI SGR sequence via ansi_codes lookup, track `prev_attr: Option<u16>` for color elision (skip if unchanged), handle reset — in src/console.rs
   📖 Port from: `Console.cpp` → `CConsole::SetColor()`
-- [ ] T011 Implement `Console` basic output methods — `putchar(attr, ch)`, `puts(attr_idx, text)` (named color + newline), `printf(attr, text)` (formatted text with color) — in src/console.rs
+- [X] T011 Implement `Console` basic output methods — `putchar(attr, ch)`, `puts(attr_idx, text)` (named color + newline), `printf(attr, text)` (formatted text with color) — in src/console.rs
   📖 Port from: `Console.cpp` → `PutChar()`, `Puts()`, `Printf()`
-- [ ] T012 Implement `Console::color_printf()` — text with embedded `{MarkerName}` color markers (e.g., `{Error}`, `{Date}`, `{Size}`), resolve marker names to Attribute enum → WORD via Config lookup — in src/console.rs
+- [X] T012 Implement `Console::color_printf()` — text with embedded `{MarkerName}` color markers (e.g., `{Error}`, `{Date}`, `{Size}`), resolve marker names to Attribute enum → WORD via Config lookup — in src/console.rs
   📖 Port from: `Console.cpp` → `CConsole::ColorPrintf()`
-- [ ] T013 Implement `Console::print_colorful_string()` — rainbow cycling text (cycle through all 16 colors, skipping background color per spec D.1.1), used for colorful help screen headers — in src/console.rs
+- [X] T013 Implement `Console::print_colorful_string()` — rainbow cycling text (cycle through all 16 colors, skipping background color per spec D.1.1), used for colorful help screen headers — in src/console.rs
   📖 Port from: `Console.cpp` → `CConsole::PrintColorfulString()`
-- [ ] T014 Implement `Console::flush()` — dual output path: WriteConsoleW with UTF-16 conversion for real console, WriteFile with UTF-8 for redirected output, append `\x1b[0m` reset before flush — in src/console.rs
+- [X] T014 Implement `Console::flush()` — dual output path: WriteConsoleW with UTF-16 conversion for real console, WriteFile with UTF-8 for redirected output, append `\x1b[0m` reset before flush — in src/console.rs
   📖 Port from: `Console.cpp` → `CConsole::Flush()`
 
 ### Command-Line Parser
 
-- [ ] T015 Implement `CommandLine` struct with all fields per data model E-06 (recurse, attrs_required, attrs_excluded, sort_order, sort_direction, sort_preference, masks, wide_listing, bare_listing, perf_timer, multi_threaded, show_env_help, show_config, show_help, switch_prefix, time_field, show_owner, show_streams, debug) and `Default` impl in src/command_line.rs
+- [X] T015 Implement `CommandLine` struct with all fields per data model E-06 (recurse, attrs_required, attrs_excluded, sort_order, sort_direction, sort_preference, masks, wide_listing, bare_listing, perf_timer, multi_threaded, show_env_help, show_config, show_help, switch_prefix, time_field, show_owner, show_streams, debug) and `Default` impl in src/command_line.rs
   📖 Port from: `CommandLine.h` (class declaration + enums)
-- [ ] T016 Implement `CommandLine::parse_from()` skeleton — iterate args, detect `/` or `-` prefix (set `switch_prefix`), route to short vs long switch handler based on length and second char per R-01 parsing rules — in src/command_line.rs
+- [X] T016 Implement `CommandLine::parse_from()` skeleton — iterate args, detect `/` or `-` prefix (set `switch_prefix`), route to short vs long switch handler based on length and second char per R-01 parsing rules — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::Parse()` outer loop
-- [ ] T017 Implement boolean switch handlers — S (recurse), W (wide), B (bare), P (perf_timer), M/M- (multi_threaded toggle), ? (show_help), each with trailing `-` disable support — in src/command_line.rs
+- [X] T017 Implement boolean switch handlers — S (recurse), W (wide), B (bare), P (perf_timer), M/M- (multi_threaded toggle), ? (show_help), each with trailing `-` disable support — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::Parse()` switch cases (S/W/B/P/M/?)
-- [ ] T018 Implement `/O` sort order handler — optional colon skip, optional `-` for reverse, read first key char (N/E/S/D), set sort_order + sort_direction + recompute sort_preference tiebreaker chain per A.6, case-insensitive per A.18 — in src/command_line.rs
+- [X] T018 Implement `/O` sort order handler — optional colon skip, optional `-` for reverse, read first key char (N/E/S/D), set sort_order + sort_direction + recompute sort_preference tiebreaker chain per A.6, case-insensitive per A.18 — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::Parse()` case 'O' block
-- [ ] T019 Implement `/A` attribute filter handler — optional colon skip, character-by-character loop, `-` toggles exclude mode for next char only then resets, map chars to Win32 attribute flags (D/H/S/R/A/T/E/C/P/0/X/I/B) plus cloud composites (O/L/V), double-`-` is error, case-insensitive per A.18 — in src/command_line.rs
+- [X] T019 Implement `/A` attribute filter handler — optional colon skip, character-by-character loop, `-` toggles exclude mode for next char only then resets, map chars to Win32 attribute flags (D/H/S/R/A/T/E/C/P/0/X/I/B) plus cloud composites (O/L/V), double-`-` is error, case-insensitive per A.18 — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::Parse()` case 'A' block
-- [ ] T020 Implement `/T` time field handler — optional colon skip, read field char (C/A/W), case-insensitive, set `time_field` enum — in src/command_line.rs
+- [X] T020 Implement `/T` time field handler — optional colon skip, read field char (C/A/W), case-insensitive, set `time_field` enum — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::Parse()` case 'T' block
-- [ ] T021 Implement long switch handler — case-insensitive match via lstrcmpiW or `eq_ignore_ascii_case` for `env`/`config`/`owner`/`streams`/`debug`, reject single-dash long (e.g., `-env` → error, `--env` and `/env` → valid) per A.18.2 — in src/command_line.rs
+- [X] T021 Implement long switch handler — case-insensitive match via lstrcmpiW or `eq_ignore_ascii_case` for `env`/`config`/`owner`/`streams`/`debug`, reject single-dash long (e.g., `-env` → error, `--env` and `/env` → valid) per A.18.2 — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::Parse()` long-switch detection block
-- [ ] T022 Implement positional argument (file mask) collection — args without switch prefix are masks, collect into `masks: Vec<OsString>` — in src/command_line.rs
+- [X] T022 Implement positional argument (file mask) collection — args without switch prefix are masks, collect into `masks: Vec<OsString>` — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::Parse()` else-branch (non-switch args)
-- [ ] T023 Implement `CommandLine::apply_config_defaults()` — apply env var switch defaults from Config (wide_listing, bare_listing, recurse, perf_timer, multi_threaded, show_owner, show_streams), command-line switches override env var defaults — in src/command_line.rs
+- [X] T023 Implement `CommandLine::apply_config_defaults()` — apply env var switch defaults from Config (wide_listing, bare_listing, recurse, perf_timer, multi_threaded, show_owner, show_streams), command-line switches override env var defaults — in src/command_line.rs
   📖 Port from: `CommandLine.cpp` → `CCommandLine::ApplyConfigDefaults()`
 
 ### Configuration
 
-- [ ] T024 Implement `Config` struct skeleton — Attribute enum (16 display item variants per A.2.4 + COUNT), AttributeSource enum, `attributes` array, `attribute_sources` array, extension_colors HashMap, file_attr_colors HashMap, switch default Option fields — in src/config.rs
+- [X] T024 Implement `Config` struct skeleton — Attribute enum (16 display item variants per A.2.4 + COUNT), AttributeSource enum, `attributes` array, `attribute_sources` array, extension_colors HashMap, file_attr_colors HashMap, switch default Option fields — in src/config.rs
   📖 Port from: `Config.h` (class declaration, EAttribute enum, EAttributeSource enum)
-- [ ] T025 Implement `Config` default display item colors — hardcode all 16 display item colors per spec A.3.1 (Background, Date, Time, AM/PM, Attrs, Size, DirSlash, Separator, Error, Header, etc.) — in src/config.rs
+- [X] T025 Implement `Config` default display item colors — hardcode all 16 display item colors per spec A.3.1 (Background, Date, Time, AM/PM, Attrs, Size, DirSlash, Separator, Error, Header, etc.) — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::CConfig()` constructor (s_defaultAttributes table)
-- [ ] T026 [P] Implement `Config` default extension color map — hardcode all ~40 extension→color mappings per spec A.3.3 (grouped: source code, web, config, data, binary, media, compressed, documents) — in src/config.rs
+- [X] T026 [P] Implement `Config` default extension color map — hardcode all ~40 extension→color mappings per spec A.3.3 (grouped: source code, web, config, data, binary, media, compressed, documents) — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::CConfig()` (extension color initialization block)
-- [ ] T027 [P] Implement `Config` default file attribute colors — hardcode attribute flag → color mappings per spec A.3.2 (Hidden, System, Encrypted, Compressed, etc.) with priority ordering — in src/config.rs
+- [X] T027 [P] Implement `Config` default file attribute colors — hardcode attribute flag → color mappings per spec A.3.2 (Hidden, System, Encrypted, Compressed, etc.) with priority ordering — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::CConfig()` (file attribute color initialization block)
-- [ ] T028 Implement `Config::get_text_attr_for_file()` — resolve color priority: check file attribute colors first (in priority order), then extension color, then default FileName color — in src/config.rs
+- [X] T028 Implement `Config::get_text_attr_for_file()` — resolve color priority: check file attribute colors first (in priority order), then extension color, then default FileName color — in src/config.rs
   📖 Port from: `Config.cpp` → `CConfig::GetTextAttrForFile()`
 
 **Checkpoint**: Foundation ready — all modules compile, Console can output colored text, CommandLine parses all switches, Config provides default colors

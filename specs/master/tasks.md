@@ -223,7 +223,7 @@
   📖 Port from: `FileComparator.cpp` → `CompareName()`, `CompareExtension()`
 - [X] T058 [US2] Implement size/date comparison and tiebreaker chain — u64 compare for size, CompareFileTime for dates respecting TimeField selection, tiebreaker fallback order per A.6.2 (primary → name → date → extension → size), ascending/descending via SortDirection — in src/file_comparator.rs
   📖 Port from: `FileComparator.cpp` → `CompareSize()`, `CompareDate()`, tiebreaker chain in `CompareEntries()`
-- [ ] T059 [US2] Wire sorting into directory_lister — call FileComparator::sort on DirectoryInfo.matches after enumeration, before passing to displayer — in src/directory_lister.rs
+- [X] T059 [US2] Wire sorting into directory_lister — call FileComparator::sort on DirectoryInfo.matches after enumeration, before passing to displayer — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → sort call after `EnumerateFiles()`
 
 **Checkpoint**: All four sort keys work; reverse sort works; tiebreaker chain produces stable ordering matching TCDir; directories always sort first
@@ -236,9 +236,9 @@
 
 **Independent Test**: `cargo run -- /a:d` shows only directories; `cargo run -- /a:-hsd` excludes hidden, system, directories
 
-- [ ] T060 [US3] Implement standard attribute filter logic — during enumeration, apply `(attrs & required) == required && (attrs & excluded) == 0` test, map standard chars to Win32 flags (D/H/S/R/A/T/E/C/P/0/X/I/B) per A.7.1 — in src/directory_lister.rs
+- [X] T060 [US3] Implement standard attribute filter logic — during enumeration, apply `(attrs & required) == required && (attrs & excluded) == 0` test, map standard chars to Win32 flags (D/H/S/R/A/T/E/C/P/0/X/I/B) per A.7.1 — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → attribute filter check within `EnumerateFiles()`, `Flag.h` (CFlag::IsSet/IsNotSet)
-- [ ] T061 [US3] Implement cloud-composite attribute mapping — O maps to composite (FILE_ATTRIBUTE_OFFLINE | RECALL_ON_OPEN | RECALL_ON_DATA_ACCESS), L maps to unpinned locally-available check, V maps to pinned check — per A.7 and A.8 in src/directory_lister.rs
+- [X] T061 [US3] Implement cloud-composite attribute mapping — O maps to composite (FILE_ATTRIBUTE_OFFLINE | RECALL_ON_OPEN | RECALL_ON_DATA_ACCESS), L maps to unpinned locally-available check, V maps to pinned check — per A.7 and A.8 in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → cloud attribute filter logic, `CommandLine.cpp` → 'A' case cloud composites
 
 **Checkpoint**: Standard attribute filters work; cloud attribute filters work; `-` exclusion prefix works; double-`-` is an error

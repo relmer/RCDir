@@ -1,10 +1,12 @@
 // results_displayer.rs — Display formatting for directory listings
 //
 // Port of: IResultsDisplayer.h, ResultsDisplayerNormal.h/.cpp,
-//          ResultsDisplayerWithHeaderAndFooter.h/.cpp
+//          ResultsDisplayerWithHeaderAndFooter.h/.cpp,
+//          ResultsDisplayerWide.h/.cpp,
+//          ResultsDisplayerBare.h/.cpp
 //
-// Provides the ResultsDisplayer trait and NormalDisplayer implementation
-// for the standard (non-wide, non-bare) directory listing format.
+// Provides the ResultsDisplayer trait including NormalDisplayer, WideDisplayer,
+// and BareDisplayer implementations, plus a Displayer enum wrapper.
 
 use std::os::windows::ffi::OsStrExt;
 use std::sync::Arc;
@@ -568,6 +570,267 @@ fn format_with_commas(n: u64) -> String {
         result.push(ch);
     }
     result
+}
+
+// ── WideDisplayer ─────────────────────────────────────────────────────────────
+
+/// Wide format displayer — multi-column filenames with [dir] brackets.
+///
+/// Port of: CResultsDisplayerWide
+pub struct WideDisplayer {
+    console: Console,
+    cmd:     Arc<CommandLine>,
+    config:  Arc<Config>,
+}
+
+impl WideDisplayer {
+    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
+        WideDisplayer { console, cmd, config }
+    }
+
+    pub fn into_console(self) -> Console {
+        self.console
+    }
+
+    pub fn console_mut(&mut self) -> &mut Console {
+        &mut self.console
+    }
+}
+
+impl ResultsDisplayer for WideDisplayer {
+    /// Display results for a single directory using wide format.
+    ///
+    /// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayResults (header/footer)
+    ///        + CResultsDisplayerWide::DisplayFileResults (column layout)
+    fn display_results(&mut self, drive_info: &DriveInfo, dir_info: &DirectoryInfo, level: DirectoryLevel) {
+        // Skip empty subdirectories
+        if level == DirectoryLevel::Subdirectory && dir_info.matches.is_empty() {
+            return;
+        }
+
+        if level == DirectoryLevel::Initial {
+            display_drive_header(&mut self.console, drive_info);
+        }
+
+        display_path_header(&mut self.console, dir_info);
+
+        if dir_info.matches.is_empty() {
+            display_empty_directory_message(&mut self.console, dir_info);
+        } else {
+            display_wide_file_results(&mut self.console, &self.config, dir_info);
+            display_directory_summary(&mut self.console, dir_info);
+
+            if !self.cmd.recurse {
+                display_volume_footer(&mut self.console, dir_info);
+            }
+        }
+
+        self.console.puts(Attribute::Default, "");
+        self.console.puts(Attribute::Default, "");
+
+        let _ = self.console.flush();
+    }
+
+    fn display_recursive_summary(&mut self, dir_info: &DirectoryInfo, totals: &ListingTotals) {
+        display_listing_summary(&mut self.console, dir_info, totals);
+    }
+}
+
+/// Display files in column-major wide format.
+///
+/// Port of: CResultsDisplayerWide::DisplayFileResults
+fn display_wide_file_results(console: &mut Console, config: &Config, di: &DirectoryInfo) {
+    if di.largest_file_name == 0 || di.matches.is_empty() {
+        return;
+    }
+
+    let console_width = console.width() as usize;
+
+    // Account for brackets on directories: [dirname] adds 2 chars
+    let max_name_len = di.matches.iter().map(|fi| {
+        let base_len = fi.file_name.to_string_lossy().len();
+        if fi.is_directory() { base_len + 2 } else { base_len }
+    }).max().unwrap_or(0);
+
+    // Calculate column count and widths — Port of: GetColumnInfo
+    let (columns, column_width) = if max_name_len + 1 > console_width {
+        (1, console_width)
+    } else {
+        let cols = console_width / (max_name_len + 1);
+        (cols, console_width / cols)
+    };
+
+    let total_items     = di.matches.len();
+    let rows            = total_items.div_ceil(columns);
+    let items_in_last_row = total_items % columns;
+
+    // Display in column-major order — Port of: DisplayFileResults loop
+    for row in 0..rows {
+        for col in 0..columns {
+            if row * columns + col >= total_items {
+                break;
+            }
+
+            // Column-major index calculation matching TCDir exactly
+            let full_rows = if items_in_last_row != 0 { rows - 1 } else { rows };
+            let mut idx = row + (col * full_rows);
+
+            // Adjust for items in the last row
+            if col < items_in_last_row {
+                idx += col;
+            } else {
+                idx += items_in_last_row;
+            }
+
+            if idx >= total_items {
+                break;
+            }
+
+            let fi = &di.matches[idx];
+            let text_attr = config.get_text_attr_for_file(fi.file_attributes, &fi.file_name);
+
+            // Format filename: [dirname] for dirs, plain name for files
+            let name = fi.file_name.to_string_lossy();
+            let display_name = if fi.is_directory() {
+                format!("[{}]", name)
+            } else {
+                name.to_string()
+            };
+
+            console.printf(text_attr, &display_name);
+
+            // Pad to column width
+            if column_width > display_name.len() {
+                console.printf_attr(Attribute::Default, &format!(
+                    "{:width$}", "", width = column_width - display_name.len(),
+                ));
+            }
+        }
+
+        console.puts(Attribute::Default, "");
+    }
+}
+
+// ── BareDisplayer ─────────────────────────────────────────────────────────────
+
+/// Bare format displayer — filenames only, no decoration.
+///
+/// Port of: CResultsDisplayerBare
+pub struct BareDisplayer {
+    console: Console,
+    cmd:     Arc<CommandLine>,
+    config:  Arc<Config>,
+}
+
+impl BareDisplayer {
+    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
+        BareDisplayer { console, cmd, config }
+    }
+
+    pub fn into_console(self) -> Console {
+        self.console
+    }
+
+    pub fn console_mut(&mut self) -> &mut Console {
+        &mut self.console
+    }
+}
+
+impl ResultsDisplayer for BareDisplayer {
+    /// Display results for a single directory using bare format.
+    ///
+    /// Port of: CResultsDisplayerBare::DisplayResults
+    fn display_results(&mut self, _drive_info: &DriveInfo, dir_info: &DirectoryInfo, _level: DirectoryLevel) {
+        for fi in &dir_info.matches {
+            let text_attr = self.config.get_text_attr_for_file(fi.file_attributes, &fi.file_name);
+
+            if self.cmd.recurse {
+                // When recursing, show full path
+                let full_path = dir_info.dir_path.join(&fi.file_name);
+                let path_str = full_path.to_string_lossy();
+                console_printf_line(&mut self.console, text_attr, &path_str);
+            } else {
+                let name = fi.file_name.to_string_lossy();
+                console_printf_line(&mut self.console, text_attr, &name);
+            }
+        }
+
+        let _ = self.console.flush();
+    }
+
+    /// Bare mode doesn't display recursive summary.
+    ///
+    /// Port of: CResultsDisplayerBare::DisplayRecursiveSummary
+    fn display_recursive_summary(&mut self, _dir_info: &DirectoryInfo, _totals: &ListingTotals) {
+        // No summary in bare mode
+    }
+}
+
+/// Helper: Printf a line with color + newline.
+fn console_printf_line(console: &mut Console, attr: u16, text: &str) {
+    console.printf(attr, &format!("{}\n", text));
+}
+
+// ── Displayer enum (polymorphic wrapper) ──────────────────────────────────────
+
+/// Polymorphic displayer wrapping Normal, Wide, or Bare variants.
+///
+/// Provides `into_console()` and `console_mut()` without trait object issues.
+pub enum Displayer {
+    Normal(NormalDisplayer),
+    Wide(WideDisplayer),
+    Bare(BareDisplayer),
+}
+
+impl Displayer {
+    /// Create the appropriate displayer based on command-line switches.
+    ///
+    /// Priority: bare > wide > normal (matching TCDir)
+    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
+        if cmd.bare_listing {
+            Displayer::Bare(BareDisplayer::new(console, cmd, config))
+        } else if cmd.wide_listing {
+            Displayer::Wide(WideDisplayer::new(console, cmd, config))
+        } else {
+            Displayer::Normal(NormalDisplayer::new(console, cmd, config))
+        }
+    }
+
+    /// Consume the displayer and return the Console.
+    pub fn into_console(self) -> Console {
+        match self {
+            Displayer::Normal(d) => d.into_console(),
+            Displayer::Wide(d)   => d.into_console(),
+            Displayer::Bare(d)   => d.into_console(),
+        }
+    }
+
+    /// Get a mutable reference to the console.
+    pub fn console_mut(&mut self) -> &mut Console {
+        match self {
+            Displayer::Normal(d) => d.console_mut(),
+            Displayer::Wide(d)   => d.console_mut(),
+            Displayer::Bare(d)   => d.console_mut(),
+        }
+    }
+}
+
+impl ResultsDisplayer for Displayer {
+    fn display_results(&mut self, drive_info: &DriveInfo, dir_info: &DirectoryInfo, level: DirectoryLevel) {
+        match self {
+            Displayer::Normal(d) => d.display_results(drive_info, dir_info, level),
+            Displayer::Wide(d)   => d.display_results(drive_info, dir_info, level),
+            Displayer::Bare(d)   => d.display_results(drive_info, dir_info, level),
+        }
+    }
+
+    fn display_recursive_summary(&mut self, dir_info: &DirectoryInfo, totals: &ListingTotals) {
+        match self {
+            Displayer::Normal(d) => d.display_recursive_summary(dir_info, totals),
+            Displayer::Wide(d)   => d.display_recursive_summary(dir_info, totals),
+            Displayer::Bare(d)   => d.display_recursive_summary(dir_info, totals),
+        }
+    }
 }
 
 #[cfg(test)]

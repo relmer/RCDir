@@ -297,9 +297,9 @@
 
 **Independent Test**: `cargo run -- /w` displays files in multiple columns; directories show as `[dirname]`
 
-- [ ] T074 [US5] Implement `WideDisplayer` column calculation — compute column count from console width and longest filename, column-major fill order (items flow down columns, not across rows) per A.4.3 — in src/results_displayer.rs
+- [X] T074 [US5] Implement `WideDisplayer` column calculation — compute column count from console width and longest filename, column-major fill order (items flow down columns, not across rows) per A.4.3 — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWide.h`, `ResultsDisplayerWide.cpp` → column count + layout logic
-- [ ] T075 [US5] Implement `WideDisplayer` output — bracket directory names `[dirname]`, colorize filenames, pad to column width, handle last-row partial fill — in src/results_displayer.rs
+- [X] T075 [US5] Implement `WideDisplayer` output — bracket directory names `[dirname]`, colorize filenames, pad to column width, handle last-row partial fill — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWide.cpp` → `DisplayFileEntry()` + `DisplayResults()`
 
 **Checkpoint**: Wide listing fills columns correctly; directory brackets display; column count adapts to terminal width
@@ -312,9 +312,9 @@
 
 **Independent Test**: `cargo run -- /b` outputs one filename per line with no headers, footers, or decorations
 
-- [ ] T076 [US6] Implement `BareDisplayer` — filenames only (one per line), no headers/footers/volume info/cloud symbols/summaries per A.4.4 — in src/results_displayer.rs
+- [X] T076 [US6] Implement `BareDisplayer` — filenames only (one per line), no headers/footers/volume info/cloud symbols/summaries per A.4.4 — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerBare.h`, `ResultsDisplayerBare.cpp` → `DisplayFileEntry()`
-- [ ] T077 [US6] Implement bare recursive output — full paths in recursive mode (`/s`), path constructed from DirectoryInfo.dir_path + filename — in src/results_displayer.rs
+- [X] T077 [US6] Implement bare recursive output — full paths in recursive mode (`/s`), path constructed from DirectoryInfo.dir_path + filename — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerBare.cpp` → `DisplayResults()` recursive path construction
 
 **Checkpoint**: Bare output is clean for piping; recursive bare shows full paths; no extra decoration

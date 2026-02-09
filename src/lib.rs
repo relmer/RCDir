@@ -116,8 +116,8 @@ pub fn run() -> Result<(), AppError> {
             }
         };
 
-        // Create the displayer for this listing
-        let mut displayer = results_displayer::NormalDisplayer::new(
+        // Create the displayer for this listing (bare > wide > normal priority)
+        let mut displayer = results_displayer::Displayer::new(
             console,
             Arc::clone(&cmd),
             Arc::clone(&cfg),
@@ -216,7 +216,7 @@ fn recurse_into_subdirectories(
     cmd: &Arc<command_line::CommandLine>,
     cfg: &Arc<config::Config>,
     totals: &mut listing_totals::ListingTotals,
-    displayer: &mut results_displayer::NormalDisplayer,
+    displayer: &mut results_displayer::Displayer,
 ) {
     use std::os::windows::ffi::OsStrExt;
     use windows::Win32::Storage::FileSystem::{FindFirstFileW, FindNextFileW, WIN32_FIND_DATAW};

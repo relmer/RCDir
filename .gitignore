@@ -1,6 +1,10 @@
 # Rust build artifacts
 /target/
 
+# Architecture-specific output folders (created by scripts/Build.ps1)
+/ARM64/
+/x64/
+
 # Cargo.lock is typically committed for binaries, ignored for libraries
 # Since this is a binary, we commit it (don't ignore)
 

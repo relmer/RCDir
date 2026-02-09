@@ -1,0 +1,22 @@
+# Cargo configuration for RCDir
+#
+# Aliases provide shorthand for common architecture-specific builds.
+# All aliases use explicit --target to ensure binaries land in
+# target/<triple>/ rather than the ambiguous target/debug|release/.
+
+[alias]
+# Debug builds
+bx64    = "build --target x86_64-pc-windows-msvc"
+barm    = "build --target aarch64-pc-windows-msvc"
+
+# Release builds
+rx64    = "build --release --target x86_64-pc-windows-msvc"
+rarm    = "build --release --target aarch64-pc-windows-msvc"
+
+# Test (native arch only — cross-compiled tests can't run)
+tx64    = "test --target x86_64-pc-windows-msvc"
+tarm    = "test --target aarch64-pc-windows-msvc"
+
+# Clippy
+cx64    = "clippy --target x86_64-pc-windows-msvc"
+carm    = "clippy --target aarch64-pc-windows-msvc"

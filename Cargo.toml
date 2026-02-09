@@ -26,6 +26,7 @@ features = [
     "Win32_Security_Authorization",
     "Win32_Globalization",
     "Win32_NetworkManagement_WNet",
+    "Win32_System_WindowsProgramming",
 ]
 
 [dev-dependencies]

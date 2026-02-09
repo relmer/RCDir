@@ -149,62 +149,62 @@
 
 ### Data Structures
 
-- [ ] T036 [P] [US1] Implement `FileInfo` struct — fields per data model E-01 (attributes, creation_time, last_access_time, last_write_time, file_size, reparse_tag, file_name as OsString, streams vec), construct from WIN32_FIND_DATAW — in src/file_info.rs
+- [X] T036 [P] [US1] Implement `FileInfo` struct — fields per data model E-01 (attributes, creation_time, last_access_time, last_write_time, file_size, reparse_tag, file_name as OsString, streams vec), construct from WIN32_FIND_DATAW — in src/file_info.rs
   📖 Port from: `DirectoryInfo.h` → `FILEENTRY` struct (WIN32_FIND_DATAW field mapping)
-- [ ] T037 [P] [US1] Implement RAII `FindHandle` struct (wraps Win32 HANDLE, Drop calls FindClose) and `SafeHandle` struct (wraps HANDLE, Drop calls CloseHandle) — these are NOT interchangeable per research R-02 — in src/file_info.rs
+- [X] T037 [P] [US1] Implement RAII `FindHandle` struct (wraps Win32 HANDLE, Drop calls FindClose) and `SafeHandle` struct (wraps HANDLE, Drop calls CloseHandle) — these are NOT interchangeable per research R-02 — in src/file_info.rs
   📖 Port from: `UniqueFindHandle.h` (FindHandleDeleter + UniqueFindHandle typedef)
-- [ ] T038 [P] [US1] Implement `FileAttributeMap` — static constant array mapping u32 attribute flags → display chars in fixed order (R/H/S/A/T/E/C/P/0 per A.4.2), function to build 9-char attribute display string from a file's attributes — in src/file_info.rs
+- [X] T038 [P] [US1] Implement `FileAttributeMap` — static constant array mapping u32 attribute flags → display chars in fixed order (R/H/S/A/T/E/C/P/0 per A.4.2), function to build 9-char attribute display string from a file's attributes — in src/file_info.rs
   📖 Port from: `FileAttributeMap.h`
-- [ ] T039 [P] [US1] Implement `ListingTotals` struct — fields per data model E-08 (file_count, dir_count, file_bytes, stream_count, stream_bytes), Default impl, `add()` accumulator method — in src/listing_totals.rs
+- [X] T039 [P] [US1] Implement `ListingTotals` struct — fields per data model E-08 (file_count, dir_count, file_bytes, stream_count, stream_bytes), Default impl, `add()` accumulator method — in src/listing_totals.rs
   📖 Port from: `ListingTotals.h`
-- [ ] T040 [P] [US1] Implement `DirectoryInfo` struct for single-directory mode — fields: dir_path (PathBuf), file_specs (Vec), matches (Vec<FileInfo>), largest_file_size, longest_filename, file_count, subdir_count, stream_count, bytes_used, stream_bytes_used — in src/directory_info.rs
+- [X] T040 [P] [US1] Implement `DirectoryInfo` struct for single-directory mode — fields: dir_path (PathBuf), file_specs (Vec), matches (Vec<FileInfo>), largest_file_size, longest_filename, file_count, subdir_count, stream_count, bytes_used, stream_bytes_used — in src/directory_info.rs
   📖 Port from: `DirectoryInfo.h` → `CDirectoryInfo` class
-- [ ] T041 [P] [US1] Implement `MaskGroup` struct and `group_masks_by_directory()` — rules: pure masks grouped under CWD, directory-qualified grouped by dir (case-insensitive), trailing separator → `*`, empty masks → single group `[CWD, ["*"]]`, handle drive-letter paths — in src/mask_grouper.rs
+- [X] T041 [P] [US1] Implement `MaskGroup` struct and `group_masks_by_directory()` — rules: pure masks grouped under CWD, directory-qualified grouped by dir (case-insensitive), trailing separator → `*`, empty masks → single group `[CWD, ["*"]]`, handle drive-letter paths — in src/mask_grouper.rs
   📖 Port from: `MaskGrouper.h`, `MaskGrouper.cpp`
 
 ### Drive Information
 
-- [ ] T042 [US1] Implement `DriveInfo` struct — GetVolumeInformationW (volume label, filesystem name), GetDriveTypeW (volume_type), GetDiskFreeSpaceExW (free bytes), volume_description() human-readable type mapping, is_unc/is_ntfs/is_refs computed properties — in src/drive_info.rs
+- [X] T042 [US1] Implement `DriveInfo` struct — GetVolumeInformationW (volume label, filesystem name), GetDriveTypeW (volume_type), GetDiskFreeSpaceExW (free bytes), volume_description() human-readable type mapping, is_unc/is_ntfs/is_refs computed properties — in src/drive_info.rs
   📖 Port from: `DriveInfo.h`, `DriveInfo.cpp` → `CDriveInfo::CDriveInfo()` constructor, `GetVolumeDescription()`
-- [ ] T043 [US1] Implement DriveInfo UNC path handling — detect UNC paths, WNetGetConnectionW for mapped drive remote names, format for header display — in src/drive_info.rs
+- [X] T043 [US1] Implement DriveInfo UNC path handling — detect UNC paths, WNetGetConnectionW for mapped drive remote names, format for header display — in src/drive_info.rs
   📖 Port from: `DriveInfo.cpp` → UNC detection + `WNetGetConnectionW` block
 
 ### Directory Enumeration
 
-- [ ] T044 [US1] Implement core enumeration loop — FindFirstFileW with constructed search path (dir_path + file_spec), FindNextFileW loop, skip `.`/`..` entries, construct FileInfo from WIN32_FIND_DATAW, track largest_file_size and longest_filename — in src/directory_lister.rs
+- [X] T044 [US1] Implement core enumeration loop — FindFirstFileW with constructed search path (dir_path + file_spec), FindNextFileW loop, skip `.`/`..` entries, construct FileInfo from WIN32_FIND_DATAW, track largest_file_size and longest_filename — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → `CDirectoryLister::EnumerateFiles()` inner loop
-- [ ] T045 [US1] Implement file spec matching logic — for each file spec in DirectoryInfo.file_specs, enumerate matching files, separate directories from files for counting, populate matches vec and counters (file_count, subdir_count, bytes_used) — in src/directory_lister.rs
+- [X] T045 [US1] Implement file spec matching logic — for each file spec in DirectoryInfo.file_specs, enumerate matching files, separate directories from files for counting, populate matches vec and counters (file_count, subdir_count, bytes_used) — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → `CDirectoryLister::EnumerateFiles()` outer file-spec loop + counter accumulation
 
 ### Display Infrastructure
 
-- [ ] T046 [US1] Implement `ResultsDisplayer` trait — `display_results(&self, console, drive_info, dir_info, level)` and `display_recursive_summary(&self, console, dir_info, totals)`, plus `DirectoryLevel` enum (First, Subsequent, RecursiveFirst, RecursiveSubsequent) — in src/results_displayer.rs
+- [X] T046 [US1] Implement `ResultsDisplayer` trait — `display_results(&self, console, drive_info, dir_info, level)` and `display_recursive_summary(&self, console, dir_info, totals)`, plus `DirectoryLevel` enum (First, Subsequent, RecursiveFirst, RecursiveSubsequent) — in src/results_displayer.rs
   📖 Port from: `IResultsDisplayer.h` (interface + EDirectoryLevel enum)
 
 ### Normal Listing Format (NormalDisplayer)
 
-- [ ] T047 [US1] Implement NormalDisplayer volume header — `color_printf` with drive type description, volume label, serial number, and "Directory of {path}" line per A.4.5, conditional on DirectoryLevel — in src/results_displayer.rs
+- [X] T047 [US1] Implement NormalDisplayer volume header — `color_printf` with drive type description, volume label, serial number, and "Directory of {path}" line per A.4.5, conditional on DirectoryLevel — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → `DisplayHeader()`
-- [ ] T048 [US1] Implement date/time formatting helpers — FILETIME → FileTimeToSystemTime → SystemTimeToTzSpecificLocalTime → GetDateFormatEx(DATE_SHORTDATE) + GetTimeFormatEx(TIME_NOSECONDS), select which FILETIME based on TimeField setting — in src/results_displayer.rs
+- [X] T048 [US1] Implement date/time formatting helpers — FILETIME → FileTimeToSystemTime → SystemTimeToTzSpecificLocalTime → GetDateFormatEx(DATE_SHORTDATE) + GetTimeFormatEx(TIME_NOSECONDS), select which FILETIME based on TimeField setting — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → `FormatDate()`, `FormatTime()`
-- [ ] T049 [US1] Implement size formatting helper — u64 file size → GetNumberFormatEx for locale-aware thousands-separated string, right-aligned to `largest_file_size` column width, `<DIR>` tag for directories — in src/results_displayer.rs
+- [X] T049 [US1] Implement size formatting helper — u64 file size → GetNumberFormatEx for locale-aware thousands-separated string, right-aligned to `largest_file_size` column width, `<DIR>` tag for directories — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → `FormatSize()`
-- [ ] T050 [US1] Implement attribute column formatting — build 9-char attribute display string from FileAttributeMap, colorize each attribute char using file attribute colors from Config — in src/results_displayer.rs
+- [X] T050 [US1] Implement attribute column formatting — build 9-char attribute display string from FileAttributeMap, colorize each attribute char using file attribute colors from Config — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → attribute display section within `DisplayFileEntry()`
-- [ ] T051 [US1] Implement filename colorization — resolve file color via Config::get_text_attr_for_file (priority: file attribute color → extension color → default), apply color to filename output — in src/results_displayer.rs
+- [X] T051 [US1] Implement filename colorization — resolve file color via Config::get_text_attr_for_file (priority: file attribute color → extension color → default), apply color to filename output — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → filename color resolution within `DisplayFileEntry()`
-- [ ] T052 [US1] Implement per-file line assembly — combine date + time + AM/PM + size + attributes + filename into single formatted line with correct column widths and spacing per A.4.1 — in src/results_displayer.rs
+- [X] T052 [US1] Implement per-file line assembly — combine date + time + AM/PM + size + attributes + filename into single formatted line with correct column widths and spacing per A.4.1 — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerNormal.cpp` → `DisplayFileEntry()` full line layout
-- [ ] T053 [US1] Implement directory footer — "X File(s)  Y bytes" line with locale-formatted numbers, free space line "Z bytes free" with locale-formatted number — in src/results_displayer.rs
+- [X] T053 [US1] Implement directory footer — "X File(s)  Y bytes" line with locale-formatted numbers, free space line "Z bytes free" with locale-formatted number — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → `DisplayFooter()`
-- [ ] T054 [US1] Implement separator lines — horizontal line between directories, blank line rules per A.12 — in src/results_displayer.rs
+- [X] T054 [US1] Implement separator lines — horizontal line between directories, blank line rules per A.12 — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → separator logic in `DisplayResults()`
-- [ ] T054a [US1] Implement empty-directory and no-match messages — "Directory is empty." when all specs are `*`, "No files matching '...' found." for specific file specs per D.4.2 — in src/results_displayer.rs
+- [X] T054a [US1] Implement empty-directory and no-match messages — "Directory is empty." when all specs are `*`, "No files matching '...' found." for specific file specs per D.4.2 — in src/results_displayer.rs
   📖 Port from: `ResultsDisplayerWithHeaderAndFooter.cpp` → `DisplayResults()` empty-directory branch
 
 ### Main Orchestration
 
-- [ ] T055 [US1] Wire single-directory listing loop into lib::run() — parse args, init Config with defaults, apply_config_defaults, group masks, for each MaskGroup: get DriveInfo, create DirectoryInfo, enumerate, sort (default order), display via NormalDisplayer, flush Console — in src/lib.rs
+- [X] T055 [US1] Wire single-directory listing loop into lib::run() — parse args, init Config with defaults, apply_config_defaults, group masks, for each MaskGroup: get DriveInfo, create DirectoryInfo, enumerate, sort (default order), display via NormalDisplayer, flush Console — in src/lib.rs
   📖 Port from: `TCDir.cpp` → `wmain()` main listing orchestration loop
 
 **Checkpoint**: `rcdir` produces colorized directory listing matching TCDir for a single directory; `rcdir *.rs *.toml` groups masks correctly; colors match spec defaults
@@ -217,11 +217,11 @@
 
 **Independent Test**: `cargo run -- /o:s` sorts by size ascending; `cargo run -- /o:-d` sorts by date descending
 
-- [ ] T056 [US2] Implement `FileComparator` sort dispatch — closure-based sort_by dispatching on SortOrder enum, directories-first partitioning (dirs sorted separately from files, dirs always listed first) — in src/file_comparator.rs
+- [X] T056 [US2] Implement `FileComparator` sort dispatch — closure-based sort_by dispatching on SortOrder enum, directories-first partitioning (dirs sorted separately from files, dirs always listed first) — in src/file_comparator.rs
   📖 Port from: `FileComparator.h`, `FileComparator.cpp` → `CFileComparator::Sort()`, `CompareEntries()`
-- [ ] T057 [US2] Implement name/extension comparison — lstrcmpiW via windows crate for locale-aware case-insensitive string comparison (not Rust .cmp()), extract extension from filename for extension sort — in src/file_comparator.rs
+- [X] T057 [US2] Implement name/extension comparison — lstrcmpiW via windows crate for locale-aware case-insensitive string comparison (not Rust .cmp()), extract extension from filename for extension sort — in src/file_comparator.rs
   📖 Port from: `FileComparator.cpp` → `CompareName()`, `CompareExtension()`
-- [ ] T058 [US2] Implement size/date comparison and tiebreaker chain — u64 compare for size, CompareFileTime for dates respecting TimeField selection, tiebreaker fallback order per A.6.2 (primary → name → date → extension → size), ascending/descending via SortDirection — in src/file_comparator.rs
+- [X] T058 [US2] Implement size/date comparison and tiebreaker chain — u64 compare for size, CompareFileTime for dates respecting TimeField selection, tiebreaker fallback order per A.6.2 (primary → name → date → extension → size), ascending/descending via SortDirection — in src/file_comparator.rs
   📖 Port from: `FileComparator.cpp` → `CompareSize()`, `CompareDate()`, tiebreaker chain in `CompareEntries()`
 - [ ] T059 [US2] Wire sorting into directory_lister — call FileComparator::sort on DirectoryInfo.matches after enumeration, before passing to displayer — in src/directory_lister.rs
   📖 Port from: `DirectoryLister.cpp` → sort call after `EnumerateFiles()`

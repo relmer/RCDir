@@ -19,6 +19,7 @@ use crate::directory_info::DirectoryInfo;
 use crate::drive_info::DriveInfo;
 use crate::file_info::{FileInfo, FILE_ATTRIBUTE_MAP};
 use crate::listing_totals::ListingTotals;
+use crate::owner;
 
 /// Directory level for display formatting.
 /// Port of: IResultsDisplayer::EDirectoryLevel
@@ -206,7 +207,14 @@ fn display_file_results(
     let max_size_width = get_string_length_of_max_file_size(dir_info.largest_file_size);
     let in_sync_root = cloud_status::is_under_sync_root(dir_info.dir_path.as_os_str());
 
-    for file_info in &dir_info.matches {
+    // Collect file owners if --owner is enabled (two-pass: first collect, then display)
+    let (owners, max_owner_len) = if cmd.show_owner {
+        owner::get_file_owners(dir_info)
+    } else {
+        (Vec::new(), 0)
+    };
+
+    for (idx, file_info) in dir_info.matches.iter().enumerate() {
         let text_attr = config.get_text_attr_for_file(file_info.file_attributes, &file_info.file_name);
 
         // Date and time
@@ -222,6 +230,13 @@ fn display_file_results(
         // Cloud status symbol
         let cloud = cloud_status::get_cloud_status(file_info.file_attributes, in_sync_root);
         display_cloud_status_symbol(console, config, cloud);
+
+        // Owner column (if --owner)
+        if cmd.show_owner {
+            if let Some(owner_str) = owners.get(idx) {
+                display_file_owner(console, config, owner_str, max_owner_len);
+            }
+        }
 
         // Filename
         let name_str = file_info.file_name.to_string_lossy();
@@ -372,6 +387,15 @@ fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: C
 
     let color = config.attributes[attr as usize];
     console.printf(color, &format!("{} ", symbol));
+}
+
+/// Display a file owner string, padded to `max_width`.
+///
+/// Port of: CResultsDisplayerNormal::DisplayFileOwner
+fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_width: usize) {
+    let color = config.attributes[Attribute::Owner as usize];
+    let padding = if max_width > owner.len() { max_width - owner.len() } else { 0 };
+    console.printf(color, &format!("{}{:width$} ", owner, "", width = padding));
 }
 
 // ── Directory summary ─────────────────────────────────────────────────────────

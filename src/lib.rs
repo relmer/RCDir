@@ -196,6 +196,11 @@ pub fn run() -> Result<(), AppError> {
         console = displayer.into_console();
     }
 
+    // Display any RCDIR env var parsing errors at end of output
+    // Port of: TCDir.cpp → DisplayEnvVarIssues at end of wmain()
+    usage::display_env_var_issues(&mut console, cmd.switch_prefix, true);
+    console.flush()?;
+
     // Performance timer output — spec A.11: "RCDir time elapsed:  X.XX msec\n"
     if cmd.perf_timer {
         timer.stop();

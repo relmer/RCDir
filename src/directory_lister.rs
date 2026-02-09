@@ -19,6 +19,7 @@ use crate::config::Config;
 use crate::directory_info::DirectoryInfo;
 use crate::file_info::{FileInfo, FindHandle, FILE_ATTRIBUTE_DIRECTORY};
 use crate::listing_totals::ListingTotals;
+use crate::streams;
 
 /// Collect matching files and directories for a single directory + file spec.
 ///
@@ -72,6 +73,11 @@ pub fn collect_matching_files(
         if success.is_err() {
             break;
         }
+    }
+
+    // Enumerate alternate data streams if --streams enabled
+    if cmd.show_streams {
+        streams::enumerate_streams(di, totals);
     }
 }
 

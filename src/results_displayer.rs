@@ -241,6 +241,12 @@ fn display_file_results(
         // Filename
         let name_str = file_info.file_name.to_string_lossy();
         console.printf(text_attr, &format!("{}\n", name_str));
+
+        // Streams (if --streams and this is a file, not a directory)
+        if cmd.show_streams && !file_info.streams.is_empty() {
+            let owner_width = if cmd.show_owner { max_owner_len } else { 0 };
+            display_file_streams(console, config, file_info, max_size_width, owner_width);
+        }
     }
 }
 
@@ -396,6 +402,38 @@ fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_w
     let color = config.attributes[Attribute::Owner as usize];
     let padding = if max_width > owner.len() { max_width - owner.len() } else { 0 };
     console.printf(color, &format!("{}{:width$} ", owner, "", width = padding));
+}
+
+/// Display alternate data streams below a file entry.
+///
+/// Format: 30 spaces indentation + formatted size + owner padding + filename:streamname
+///
+/// Port of: CResultsDisplayerNormal::DisplayFileStreams
+fn display_file_streams(
+    console: &mut Console,
+    config: &Config,
+    file_info: &FileInfo,
+    max_size_width: usize,
+    owner_width: usize,
+) {
+    let size_field_width = max_size_width.max(5);
+    let file_name = file_info.file_name.to_string_lossy();
+    let stream_color = config.attributes[Attribute::Stream as usize];
+    let size_color = config.attributes[Attribute::Size as usize];
+    let owner_padding = if owner_width > 0 { owner_width + 1 } else { 0 };
+
+    let default_color = config.attributes[Attribute::Default as usize];
+
+    for si in &file_info.streams {
+        let formatted_size = format_number_with_separators(si.size as u64);
+
+        // 30 chars indentation (date/time 21 + attributes 9)
+        // Then size field with padding, 2 spaces cloud placeholder, owner padding, then filename:stream
+        console.printf(default_color, &format!("{:30}", ""));
+        console.printf(size_color, &format!(" {:>width$} ", formatted_size, width = size_field_width));
+        console.printf(default_color, &format!("  {:width$}", "", width = owner_padding));
+        console.printf(stream_color, &format!("{}{}\n", file_name, si.name));
+    }
 }
 
 // ── Directory summary ─────────────────────────────────────────────────────────

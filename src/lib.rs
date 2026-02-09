@@ -24,6 +24,9 @@ pub mod streams;
 pub mod owner;
 pub mod usage;
 
+use std::ffi::OsStr;
+use std::os::windows::ffi::OsStringExt;
+use std::path::Path;
 use std::sync::Arc;
 
 use ehm::AppError;
@@ -72,7 +75,98 @@ pub fn run() -> Result<(), AppError> {
         return Ok(());
     }
 
-    // TODO: US-1 directory listing pipeline will go here
+    // ── US-1: Directory listing pipeline ─────────────────────────────────────
+
+    let cmd = Arc::new(cmd);
+
+    // Default mask: "*" if none specified
+    let masks = if cmd.masks.is_empty() {
+        vec![std::ffi::OsString::from("*")]
+    } else {
+        cmd.masks.clone()
+    };
+
+    // Group masks by their target directories
+    let groups = mask_grouper::group_masks_by_directory(&masks);
+
+    let mut totals = listing_totals::ListingTotals::default();
+
+    for group in &groups {
+        let (dir_path, file_specs) = group;
+
+        // Validate directory exists
+        if !dir_path.exists() || !dir_path.is_dir() {
+            console.color_printf(&format!(
+                "{{Error}}Error:   {{InformationHighlight}}{}{{Error}} does not exist\n",
+                dir_path.display(),
+            ));
+            continue;
+        }
+
+        console.puts(config::Attribute::Default, "");
+
+        let drive_info = match drive_info::DriveInfo::new(dir_path) {
+            Ok(di) => di,
+            Err(_) => {
+                console.color_printf(&format!(
+                    "{{Error}}Error:   Unable to get drive info for {{InformationHighlight}}{}\n",
+                    dir_path.display(),
+                ));
+                continue;
+            }
+        };
+
+        // Create the displayer for this listing
+        let mut displayer = results_displayer::NormalDisplayer::new(
+            console,
+            Arc::clone(&cmd),
+            Arc::clone(&cfg),
+        );
+
+        for file_spec in file_specs {
+            let spec_str = file_spec.to_string_lossy().to_string();
+            let mut di = directory_info::DirectoryInfo::new(dir_path.clone(), spec_str);
+
+            // Enumerate matching files
+            directory_lister::collect_matching_files(
+                dir_path,
+                file_spec.as_os_str(),
+                &mut di,
+                &cmd,
+                &mut totals,
+                &cfg,
+            );
+
+            // Track directory count in totals
+            totals.directory_count += di.subdirectory_count;
+
+            // Sort results
+            file_comparator::sort_files(&mut di.matches, &cmd);
+
+            // Display results
+            use results_displayer::{ResultsDisplayer, DirectoryLevel};
+            displayer.display_results(&drive_info, &di, DirectoryLevel::Initial);
+
+            // Recurse into subdirectories if /S switch
+            if cmd.recurse {
+                recurse_into_subdirectories(
+                    &drive_info,
+                    dir_path,
+                    file_spec.as_os_str(),
+                    &cmd,
+                    &cfg,
+                    &mut totals,
+                    &mut displayer,
+                );
+
+                // Show recursive summary at the end of the initial directory
+                displayer.display_recursive_summary(&di, &totals);
+            }
+        }
+
+        // Recover the console from the displayer
+        console = displayer.into_console();
+    }
 
     // Performance timer output — spec A.11: "RCDir time elapsed:  X.XX msec\n"
     if cmd.perf_timer {
@@ -82,4 +176,84 @@ pub fn run() -> Result<(), AppError> {
     }
 
     Ok(())
+}
+
+/// Recurse into subdirectories applying the same file spec.
+///
+/// Port of: CDirectoryLister::RecurseIntoSubdirectories
+fn recurse_into_subdirectories(
+    drive_info: &drive_info::DriveInfo,
+    dir_path: &Path,
+    file_spec: &OsStr,
+    cmd: &Arc<command_line::CommandLine>,
+    cfg: &Arc<config::Config>,
+    totals: &mut listing_totals::ListingTotals,
+    displayer: &mut results_displayer::NormalDisplayer,
+) {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::Storage::FileSystem::{FindFirstFileW, FindNextFileW, WIN32_FIND_DATAW};
+    use crate::file_info::{FindHandle, FILE_ATTRIBUTE_DIRECTORY};
+    use crate::results_displayer::{ResultsDisplayer, DirectoryLevel};
+
+    // Search for all entries with "*" to find subdirectories
+    let mut search_path = dir_path.to_path_buf();
+    search_path.push("*");
+    let search_wide: Vec<u16> = search_path.as_os_str().encode_wide().chain(Some(0)).collect();
+
+    let mut wfd = WIN32_FIND_DATAW::default();
+    let handle = unsafe { FindFirstFileW(windows::core::PCWSTR(search_wide.as_ptr()), &mut wfd) };
+    let handle = match handle {
+        Ok(h) if !h.is_invalid() => h,
+        _ => return,
+    };
+    let _find_handle = FindHandle(handle);
+
+    loop {
+        // Check if this is a directory (not "." or "..")
+        if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 {
+            let name_len = wfd.cFileName.iter().position(|&c| c == 0).unwrap_or(0);
+            let name = std::ffi::OsString::from_wide(&wfd.cFileName[..name_len]);
+            let name_str = name.to_string_lossy();
+
+            if name_str != "." && name_str != ".." {
+                let subdir_path = dir_path.join(&name);
+                let spec_str = file_spec.to_string_lossy().to_string();
+                let mut di = directory_info::DirectoryInfo::new(subdir_path.clone(), spec_str);
+
+                // Enumerate matching files in subdirectory
+                directory_lister::collect_matching_files(
+                    &subdir_path,
+                    file_spec,
+                    &mut di,
+                    cmd,
+                    totals,
+                    cfg,
+                );
+
+                totals.directory_count += di.subdirectory_count;
+
+                // Sort results
+                file_comparator::sort_files(&mut di.matches, cmd);
+
+                // Display results (Subdirectory level — skips empty dirs)
+                displayer.display_results(drive_info, &di, DirectoryLevel::Subdirectory);
+
+                // Continue recursion depth-first
+                recurse_into_subdirectories(
+                    drive_info,
+                    &subdir_path,
+                    file_spec,
+                    cmd,
+                    cfg,
+                    totals,
+                    displayer,
+                );
+            }
+        }
+
+        let success = unsafe { FindNextFileW(handle, &mut wfd) };
+        if success.is_err() {
+            break;
+        }
+    }
 }

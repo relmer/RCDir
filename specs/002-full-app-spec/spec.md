@@ -93,7 +93,7 @@ As a user searching for specific files, I want to filter directory listings by f
 3. **Given** system files exist, **When** user runs `rcdir /a:s`, **Then** only system files are displayed
 4. **Given** read-only files exist, **When** user runs `rcdir /a:r`, **Then** only read-only files are displayed
 5. **Given** any attribute filter, **When** user prefixes with `-` (e.g., `/a:-h`), **Then** files with that attribute are excluded
-6. **Given** multiple attributes specified (e.g., `/a:hs`), **When** user runs the command, **Then** files matching ANY specified attribute are included
+6. **Given** multiple attributes specified (e.g., `/a:hs`), **When** user runs the command, **Then** only files having ALL specified attributes are displayed
 
 ---
 
@@ -809,8 +809,9 @@ entry           = switch | color_override
 switch          = switch_name [ "-" ]
 switch_name     = "W" | "S" | "P" | "M" | "B" | "Owner" | "Streams"
 color_override  = key "=" color_spec
-key             = display_attr | file_ext | file_attr
+key             = display_attr | cloud_attr | file_ext | file_attr
 display_attr    = "D" | "T" | "A" | "-" | "S" | "R" | "I" | "H" | "E" | "F" | "O" | "M"
+cloud_attr      = "CloudOnly" | "LocallyAvailable" | "AlwaysLocallyAvailable"
 file_ext        = "." identifier
 file_attr       = "Attr:" attr_char
 attr_char       = "R" | "H" | "S" | "A" | "T" | "E" | "C" | "P" | "0"
@@ -1333,21 +1334,25 @@ const FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS: u32 = 0x400000;
 
 # Appendix C: Rust Implementation Notes
 
-## C.1 Recommended Crates
+## C.1 Crate Decisions
 
-| Purpose | Crate | Notes |
-|---------|-------|-------|
-| Windows APIs | `windows` | Official Microsoft crate |
-| Console output | `crossterm` or raw Win32 | For ANSI sequences |
-| Argument parsing | `clap` | Command-line parsing |
-| Threading | `rayon` or `std::thread` | Parallel directory enumeration |
-| Number formatting | `num-format` | Locale-aware thousands separators |
+All crate and library decisions are documented in [research.md](../master/research.md):
+
+- **R-01**: CLI parser — custom (no `clap`)
+- **R-02**: Windows APIs — `windows` crate v0.62.x (not `windows-sys`)
+- **R-03**: Console output — direct ANSI SGR (no `crossterm`)
+- **R-04**: Threading — `std::thread` + `Mutex`/`Condvar` (no `rayon`)
+- **R-05**: Number formatting — Win32 `GetNumberFormatEx` (no `num-format`)
+- **R-07**: String handling — `widestring` crate
+- **R-12**: Summary — total external crates: 2 (`windows`, `widestring`)
+
+See [research.md](../master/research.md) for full rationale and alternatives considered.
 
 ## C.2 Architecture Mapping
 
 | C++ Class | Rust Equivalent |
 |-----------|-----------------|
-| `CCommandLine` | `Args` struct with `clap` derive |
+| `CCommandLine` | `CommandLine` struct with custom parser |
 | `CConfig` | `Config` struct with `Default` impl |
 | `CConsole` | `Console` struct wrapping stdout |
 | `CDirectoryLister` | `DirectoryLister` trait + impls |
@@ -1490,6 +1495,7 @@ Different syntax shown based on detected shell (checks for `PSModulePath` env va
 
   {InformationHighlight}<Switch>{Information}    A command-line switch:
                   {InformationHighlight}W{Information}        Wide listing format
+                  {InformationHighlight}B{Information}        Bare listing format
                   {InformationHighlight}P{Information}        Display performance timing information
                   {InformationHighlight}S{Information}        Recurse into subdirectories
                   {InformationHighlight}M{Information}        Enables multi-threaded enumeration (default); use {InformationHighlight}M-{Information} to disable
@@ -1500,6 +1506,7 @@ Different syntax shown based on detected shell (checks for `PSModulePath` env va
                   {InformationHighlight}D{Information}  Date                     {InformationHighlight}T{Information}  Time
                   {InformationHighlight}S{Information}  Size                     {InformationHighlight}R{Information}  Directory name
                   {InformationHighlight}I{Information}  Information              {InformationHighlight}H{Information}  Information highlight
+                  {InformationHighlight}A{Information}  File attribute present   {InformationHighlight}-{Information}  File attribute absent
                   {InformationHighlight}E{Information}  Error                    {InformationHighlight}F{Information}  File (default)
                   {InformationHighlight}O{Information}  Owner                    {InformationHighlight}M{Information}  Stream
 
@@ -1730,8 +1737,8 @@ Error descriptions:
 - `Invalid background color`  
 - `Invalid entry format (expected key = value)`
 - `Invalid key (expected single character, .extension, or attr:x)`
-- `Invalid display attribute character (valid: D,T,A,-,S,R,I,H,E,F,O)`
+- `Invalid display attribute character (valid: D,T,A,-,S,R,I,H,E,F,O,M)`
 - `Invalid file attribute key (expected attr:<x>)`
 - `Invalid file attribute character (expected R, H, S, A, T, E, C, P or 0)`
-- `Invalid switch (expected W, S, P, M, Owner, or Streams)`
+- `Invalid switch (expected W, B, S, P, M, Owner, or Streams)`
 - `Switch prefixes (/, -, --) are not allowed in env var`

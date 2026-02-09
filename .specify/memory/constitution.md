@@ -65,7 +65,7 @@ Performance is a core feature, not an afterthought:
 
 - **Console API**: Use Windows Console API directly via the `windows` crate for optimal performance
 - **Buffering Strategy**: Use large internal buffers to minimize system calls; flush strategically, not per-write
-- **Multi-Threading**: Default to multi-threaded enumeration using `rayon` or equivalent; single-threaded mode available via `/M-`
+- **Multi-Threading**: Default to multi-threaded enumeration using `std::thread` workers with work queue and `Condvar`; single-threaded mode available via `/M-`
 - **Measurable**: Use `/P` flag infrastructure to measure and report performance; major features MUST NOT regress timing
 - **Zero-Cost Abstractions**: Leverage Rust's zero-cost abstractions; avoid unnecessary allocations in hot paths
 

@@ -60,7 +60,7 @@ specs/master/
 src/
 ├── main.rs              # Entry point (thin wrapper calling lib)
 ├── lib.rs               # Library root, module declarations, run()
-├── command_line.rs       # CLI argument parsing (clap)
+├── command_line.rs       # CLI argument parsing (custom)
 ├── config.rs            # Color/switch configuration from RCDIR env var
 ├── console.rs           # Console output (WriteConsoleW, buffering, color)
 ├── ansi_codes.rs         # ANSI escape sequence constants

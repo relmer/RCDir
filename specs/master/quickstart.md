@@ -111,7 +111,7 @@ src/
 ├── file_comparator.rs    # Sort logic
 ├── drive_info.rs         # Volume information
 ├── mask_grouper.rs       # Multi-mask directory grouping
-├── multi_threaded_lister.rs  # Parallel enumeration (rayon)
+├── multi_threaded_lister.rs  # Parallel enumeration (std::thread + Condvar)
 ├── results_displayer.rs  # Display trait + Normal/Wide/Bare impls
 ├── listing_totals.rs     # Running totals
 ├── cloud_status.rs       # Cloud Files API

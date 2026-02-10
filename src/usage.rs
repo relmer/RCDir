@@ -7,16 +7,11 @@ use crate::color::*;
 use crate::config::{Attribute, AttributeSource, RCDIR_ENV_VAR_NAME};
 use crate::console::Console;
 
-// ── Version constants ─────────────────────────────────────────────────────────
+// ── Version constants (injected by build.rs from Version.toml) ─────────────────
 
-pub const VERSION_MAJOR: u32 = 0;
-pub const VERSION_MINOR: u32 = 1;
-pub const VERSION_BUILD: u32 = 1;
-pub const VERSION_YEAR:  &str = "2026";
-
-pub fn version_string() -> String {
-    format!("{}.{}.{}", VERSION_MAJOR, VERSION_MINOR, VERSION_BUILD)
-}
+pub const VERSION_STRING:    &str = env!("RCDIR_VERSION_STRING");
+pub const VERSION_YEAR:      &str = env!("RCDIR_VERSION_YEAR");
+pub const BUILD_TIMESTAMP:   &str = env!("RCDIR_BUILD_TIMESTAMP");
 
 fn architecture() -> &'static str {
     if cfg!(target_arch = "x86_64") {
@@ -129,14 +124,14 @@ pub fn display_usage(console: &mut Console, prefix: char) {
 
     // "Technicolor" with rainbow per-character cycling
     console.puts(Attribute::Default, "");
-    console.print_colorful_string("Technicolor");
+    console.print_colorful_string("Rusticolor");
 
     // Header: product name continuation, version, copyright
-    console.color_puts(&format!(
-        "{{Information}} Directory version {} {} (RCDir)\n\
-         Copyright {} 2004-{} by Robert Elmer\n\
-         \n\
-         {{InformationHighlight}}RCDIR{{Information}} \
+    console.color_puts(&format!("\
+{{Information}} Directory version {ver} {arch} ({ts})
+Copyright {copy} 2004-{year} by Robert Elmer
+
+{{InformationHighlight}}RCDIR{{Information}} \
          [{{InformationHighlight}}drive:{{Information}}]\
          [{{InformationHighlight}}path{{Information}}]\
          [{{InformationHighlight}}filename{{Information}}] \
@@ -152,7 +147,11 @@ pub fn display_usage(console: &mut Console, prefix: char) {
          [{{InformationHighlight}}{long}Config{{Information}}] \
          [{{InformationHighlight}}{long}Owner{{Information}}] \
          [{{InformationHighlight}}{long}Streams{{Information}}]",
-        version_string(), architecture(), COPYRIGHT, VERSION_YEAR,
+        ver  = VERSION_STRING,
+        arch = architecture(),
+        ts   = BUILD_TIMESTAMP,
+        copy = COPYRIGHT,
+        year = VERSION_YEAR,
     ));
 
     #[cfg(debug_assertions)]
@@ -163,56 +162,46 @@ pub fn display_usage(console: &mut Console, prefix: char) {
     console.color_puts("\n");
 
     // Body: switch descriptions, attribute codes, cloud symbols, sort/time fields
-    console.color_puts(&format!(
-        "{{Information}}\n\
-  [drive:][path][filename]\n\
-              Specifies drive, directory, and/or files to list.\n\
-\n\
-  {{InformationHighlight}}{short}A{{Information}}          Displays files with specified attributes.\n\
-  attributes   {{InformationHighlight}}D{{Information}}  Directories                \
-{{InformationHighlight}}R{{Information}}  Read-only files\n\
-               {{InformationHighlight}}H{{Information}}  Hidden files               \
-{{InformationHighlight}}A{{Information}}  Files ready for archiving\n\
-               {{InformationHighlight}}S{{Information}}  System files               \
-{{InformationHighlight}}T{{Information}}  Temporary files\n\
-               {{InformationHighlight}}E{{Information}}  Encrypted files            \
-{{InformationHighlight}}C{{Information}}  Compressed files\n\
-               {{InformationHighlight}}P{{Information}}  Reparse points             \
-{{InformationHighlight}}0{{Information}}  Sparse files\n\
-               {{InformationHighlight}}X{{Information}}  Not content indexed        \
-{{InformationHighlight}}I{{Information}}  Integrity stream (ReFS)\n\
-               {{InformationHighlight}}B{{Information}}  No scrub data (ReFS)       \
-{{InformationHighlight}}O{{Information}}  Cloud-only (not local)\n\
-               {{InformationHighlight}}L{{Information}}  Locally available          \
-{{InformationHighlight}}V{{Information}}  Always locally available\n\
-               {{InformationHighlight}}-{{Information}}  Prefix meaning not\n\
-\n\
-  Cloud status symbols shown between file size and name:\n\
-               {{CloudStatusCloudOnly}}{CIRCLE_HOLLOW}{{Information}}  Cloud-only (not locally available)\n\
-               {{CloudStatusLocallyAvailable}}{CIRCLE_HALF_FILLED}{{Information}}  Locally available (can be freed)\n\
-               {{CloudStatusAlwaysLocallyAvailable}}{CIRCLE_FILLED}{{Information}}  Always locally available (pinned)\n\
-\n\
-  {{InformationHighlight}}{short}O{{Information}}          List by files in sorted order.\n\
-  sortorder    {{InformationHighlight}}N{{Information}}  By name (alphabetic)       \
-{{InformationHighlight}}S{{Information}}  By size (smallest first)\n\
-               {{InformationHighlight}}E{{Information}}  By extension (alphabetic)  \
-{{InformationHighlight}}D{{Information}}  By date/time (oldest first)\n\
-               {{InformationHighlight}}-{{Information}}  Prefix to reverse order\n\
-\n\
-  {{InformationHighlight}}{short}T{{Information}}          Selects the time field for display and sorting.\n\
-  timefield    {{InformationHighlight}}C{{Information}}  Creation time              \
-{{InformationHighlight}}A{{Information}}  Last access time\n\
-               {{InformationHighlight}}W{{Information}}  Last write time (default)\n\
-\n\
-  {{InformationHighlight}}{short}S{{Information}}          Displays files in specified directory and all subdirectories.\n\
-  {{InformationHighlight}}{short}W{{Information}}          Displays results in a wide listing format.\n\
-  {{InformationHighlight}}{short}B{{Information}}          Displays bare file names only (no headers, footers, or details).\n\
-  {{InformationHighlight}}{short}P{{Information}}          Displays performance timing information.\n\
-  {{InformationHighlight}}{short}M{{Information}}          Enables multi-threaded enumeration (default). \
-Use{{InformationHighlight}}{m_dis}{{Information}} to disable.\n\
-  {{InformationHighlight}}{long}Env{{Information}}       {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.\n\
-  {{InformationHighlight}}{long}Config{{Information}}    {lpad}Displays current color configuration for all items and extensions.\n\
-  {{InformationHighlight}}{long}Owner{{Information}}     {lpad}Displays file owner (DOMAIN\\User) for each file.\n\
+    // Multiline string literal — source indentation = output indentation (WYSIWYG).
+    // Only \ continuation is used mid-line to join two-column attribute pairs.
+    console.color_puts(&format!("\
+{{Information}}
+  [drive:][path][filename]
+              Specifies drive, directory, and/or files to list.
+
+  {{InformationHighlight}}{short}A{{Information}}          Displays files with specified attributes.
+  attributes   {{InformationHighlight}}D{{Information}}  Directories                {{InformationHighlight}}R{{Information}}  Read-only files
+               {{InformationHighlight}}H{{Information}}  Hidden files               {{InformationHighlight}}A{{Information}}  Files ready for archiving
+               {{InformationHighlight}}S{{Information}}  System files               {{InformationHighlight}}T{{Information}}  Temporary files
+               {{InformationHighlight}}E{{Information}}  Encrypted files            {{InformationHighlight}}C{{Information}}  Compressed files
+               {{InformationHighlight}}P{{Information}}  Reparse points             {{InformationHighlight}}0{{Information}}  Sparse files
+               {{InformationHighlight}}X{{Information}}  Not content indexed        {{InformationHighlight}}I{{Information}}  Integrity stream (ReFS)
+               {{InformationHighlight}}B{{Information}}  No scrub data (ReFS)       {{InformationHighlight}}O{{Information}}  Cloud-only (not local)
+               {{InformationHighlight}}L{{Information}}  Locally available          {{InformationHighlight}}V{{Information}}  Always locally available
+               {{InformationHighlight}}-{{Information}}  Prefix meaning not
+
+  Cloud status symbols shown between file size and name:
+               {{CloudStatusCloudOnly}}{CIRCLE_HOLLOW}{{Information}}  Cloud-only (not locally available)
+               {{CloudStatusLocallyAvailable}}{CIRCLE_HALF_FILLED}{{Information}}  Locally available (can be freed)
+               {{CloudStatusAlwaysLocallyAvailable}}{CIRCLE_FILLED}{{Information}}  Always locally available (pinned)
+
+  {{InformationHighlight}}{short}O{{Information}}          List by files in sorted order.
+  sortorder    {{InformationHighlight}}N{{Information}}  By name (alphabetic)       {{InformationHighlight}}S{{Information}}  By size (smallest first)
+               {{InformationHighlight}}E{{Information}}  By extension (alphabetic)  {{InformationHighlight}}D{{Information}}  By date/time (oldest first)
+               {{InformationHighlight}}-{{Information}}  Prefix to reverse order
+
+  {{InformationHighlight}}{short}T{{Information}}          Selects the time field for display and sorting.
+  timefield    {{InformationHighlight}}C{{Information}}  Creation time              {{InformationHighlight}}A{{Information}}  Last access time
+               {{InformationHighlight}}W{{Information}}  Last write time (default)
+
+  {{InformationHighlight}}{short}S{{Information}}          Displays files in specified directory and all subdirectories.
+  {{InformationHighlight}}{short}W{{Information}}          Displays results in a wide listing format.
+  {{InformationHighlight}}{short}B{{Information}}          Displays bare file names only (no headers, footers, or details).
+  {{InformationHighlight}}{short}P{{Information}}          Displays performance timing information.
+  {{InformationHighlight}}{short}M{{Information}}          Enables multi-threaded enumeration (default). Use{{InformationHighlight}}{m_dis}{{Information}} to disable.
+  {{InformationHighlight}}{long}Env{{Information}}       {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.
+  {{InformationHighlight}}{long}Config{{Information}}    {lpad}Displays current color configuration for all items and extensions.
+  {{InformationHighlight}}{long}Owner{{Information}}     {lpad}Displays file owner (DOMAIN\\User) for each file.
   {{InformationHighlight}}{long}Streams{{Information}}   {lpad}Displays alternate data streams (NTFS only)."
     ));
 
@@ -241,46 +230,47 @@ pub fn display_env_var_help(console: &mut Console, prefix: char) {
         )
     };
 
-    console.color_puts(&format!(
-        "\n\
-{{Information}}Set the {{InformationHighlight}}{RCDIR_ENV_VAR_NAME}{{Information}} environment variable to override default colors for display\
- items, file attributes, or file extensions:\n\
+    // Multiline string literal — source indentation = output indentation (WYSIWYG).
+    // The syntax line uses \\ continuation to build a single long output line.
+    console.color_puts(&format!("
+{{Information}}Set the {{InformationHighlight}}{RCDIR_ENV_VAR_NAME}{{Information}} environment variable to override default colors for \
+display items, file attributes, or file extensions:
 {syntax_cmd}[{{InformationHighlight}}<Switch>{{Information}}] | \
 [{{InformationHighlight}}<Item>{{Information}} | \
 {{InformationHighlight}}Attr:<fileattr>{{Information}} | \
 {{InformationHighlight}}<.ext>{{Information}}] = \
 {{InformationHighlight}}<Fore>{{Information}} [on {{InformationHighlight}}<Back>{{Information}}][;...]\
-{syntax_suffix}\n\
-\n\
-  {{InformationHighlight}}<Switch>{{Information}}    A command-line switch:\n\
-                  {{InformationHighlight}}W{{Information}}        Wide listing format\n\
-                  {{InformationHighlight}}P{{Information}}        Display performance timing information\n\
-                  {{InformationHighlight}}S{{Information}}        Recurse into subdirectories\n\
-                  {{InformationHighlight}}M{{Information}}        Enables multi-threaded enumeration (default); use {{InformationHighlight}}M-{{Information}} to disable\n\
-                  {{InformationHighlight}}Owner{{Information}}    Display file ownership\n\
-                  {{InformationHighlight}}Streams{{Information}}  Display alternate data streams (NTFS)\n\
-\n\
-  {{InformationHighlight}}<Item>{{Information}}      A display item:\n\
-                  {{InformationHighlight}}D{{Information}}  Date                     {{InformationHighlight}}T{{Information}}  Time\n\
-                  {{InformationHighlight}}S{{Information}}  Size                     {{InformationHighlight}}R{{Information}}  Directory name\n\
-                  {{InformationHighlight}}I{{Information}}  Information              {{InformationHighlight}}H{{Information}}  Information highlight\n\
-                  {{InformationHighlight}}E{{Information}}  Error                    {{InformationHighlight}}F{{Information}}  File (default)\n\
-                  {{InformationHighlight}}O{{Information}}  Owner                    {{InformationHighlight}}M{{Information}}  Stream\n\
-\n\
-              Cloud status (use full name, e.g., {{InformationHighlight}}CloudOnly=Blue{{Information}}):\n\
-                  {{InformationHighlight}}CloudOnly{{Information}}                   {{InformationHighlight}}LocallyAvailable{{Information}}\n\
-                  {{InformationHighlight}}AlwaysLocallyAvailable{{Information}}\n\
-\n\
-  {{InformationHighlight}}<.ext>{{Information}}      A file extension, including the leading period.\n\
-\n\
-  {{InformationHighlight}}<FileAttr>{{Information}}  A file attribute (see file attributes below)\n\
-                  {{InformationHighlight}}R{{Information}}  Read-only                {{InformationHighlight}}H{{Information}}  Hidden\n\
-                  {{InformationHighlight}}S{{Information}}  System                   {{InformationHighlight}}A{{Information}}  Archive\n\
-                  {{InformationHighlight}}T{{Information}}  Temporary                {{InformationHighlight}}E{{Information}}  Encrypted\n\
-                  {{InformationHighlight}}C{{Information}}  Compressed               {{InformationHighlight}}P{{Information}}  Reparse point\n\
-                  {{InformationHighlight}}0{{Information}}  Sparse file\n\
-\n\
-  {{InformationHighlight}}<Fore>{{Information}}      Foreground color\n\
+{syntax_suffix}
+
+  {{InformationHighlight}}<Switch>{{Information}}    A command-line switch:
+                  {{InformationHighlight}}W{{Information}}        Wide listing format
+                  {{InformationHighlight}}P{{Information}}        Display performance timing information
+                  {{InformationHighlight}}S{{Information}}        Recurse into subdirectories
+                  {{InformationHighlight}}M{{Information}}        Enables multi-threaded enumeration (default); use {{InformationHighlight}}M-{{Information}} to disable
+                  {{InformationHighlight}}Owner{{Information}}    Display file ownership
+                  {{InformationHighlight}}Streams{{Information}}  Display alternate data streams (NTFS)
+
+  {{InformationHighlight}}<Item>{{Information}}      A display item:
+                  {{InformationHighlight}}D{{Information}}  Date                     {{InformationHighlight}}T{{Information}}  Time
+                  {{InformationHighlight}}S{{Information}}  Size                     {{InformationHighlight}}R{{Information}}  Directory name
+                  {{InformationHighlight}}I{{Information}}  Information              {{InformationHighlight}}H{{Information}}  Information highlight
+                  {{InformationHighlight}}E{{Information}}  Error                    {{InformationHighlight}}F{{Information}}  File (default)
+                  {{InformationHighlight}}O{{Information}}  Owner                    {{InformationHighlight}}M{{Information}}  Stream
+
+              Cloud status (use full name, e.g., {{InformationHighlight}}CloudOnly=Blue{{Information}}):
+                  {{InformationHighlight}}CloudOnly{{Information}}                   {{InformationHighlight}}LocallyAvailable{{Information}}
+                  {{InformationHighlight}}AlwaysLocallyAvailable{{Information}}
+
+  {{InformationHighlight}}<.ext>{{Information}}      A file extension, including the leading period.
+
+  {{InformationHighlight}}<FileAttr>{{Information}}  A file attribute (see file attributes below)
+                  {{InformationHighlight}}R{{Information}}  Read-only                {{InformationHighlight}}H{{Information}}  Hidden
+                  {{InformationHighlight}}S{{Information}}  System                   {{InformationHighlight}}A{{Information}}  Archive
+                  {{InformationHighlight}}T{{Information}}  Temporary                {{InformationHighlight}}E{{Information}}  Encrypted
+                  {{InformationHighlight}}C{{Information}}  Compressed               {{InformationHighlight}}P{{Information}}  Reparse point
+                  {{InformationHighlight}}0{{Information}}  Sparse file
+
+  {{InformationHighlight}}<Fore>{{Information}}      Foreground color
   {{InformationHighlight}}<Back>{{Information}}      Background color"
     ));
 
@@ -306,10 +296,6 @@ pub fn display_env_var_help(console: &mut Console, prefix: char) {
 pub fn display_current_configuration(console: &mut Console, prefix: char) {
     if is_env_var_set(RCDIR_ENV_VAR_NAME) {
         display_env_var_issues(console, prefix, true);
-    } else {
-        console.color_puts(&format!(
-            "\n  {{Information}}{RCDIR_ENV_VAR_NAME}{{Default}} environment variable is not set; showing default configuration."
-        ));
     }
 
     display_configuration_table(console);
@@ -365,7 +351,7 @@ fn display_configuration_table(console: &mut Console) {
 }
 
 fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_source: usize) {
-    console.puts(Attribute::Information, "\nCurrent display item configuration:");
+    console.puts(Attribute::Information, "\nCurrent display item configuration:\n");
 
     let config = console.config_arc();
 
@@ -386,7 +372,7 @@ fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_s
 }
 
 fn display_file_attribute_configuration(console: &mut Console, col_attr: usize, col_source: usize) {
-    console.puts(Attribute::Information, "\nFile attribute color configuration:");
+    console.puts(Attribute::Information, "\nFile attribute color configuration:\n");
 
     let config = console.config_arc();
 
@@ -495,12 +481,20 @@ fn display_extension_multi_column(
     console.puts(Attribute::Default, "");
 }
 
+/// Returns the display width (in terminal columns) of a string.
+/// Uses char count rather than byte length so that multi-byte Unicode
+/// symbols like ○ ◐ ● (each 3 bytes, 1 column) are measured correctly.
+fn display_width(s: &str) -> usize {
+    s.chars().count()
+}
+
 fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env: bool, col_item: usize, col_source: usize) {
     let config = console.config_arc();
     let bg_attr = config.attributes[Attribute::Default as usize] & BC_MASK;
     let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
     let source = if is_env { "Environment" } else { "Default" };
-    let pad = if col_item > item.len() { col_item - item.len() } else { 0 };
+    let item_width = display_width(item);
+    let pad = col_item.saturating_sub(item_width);
 
     console.printf_attr(Attribute::Information, "  ");
     console.printf(attr, item);
@@ -524,8 +518,6 @@ fn display_color_chart(console: &mut Console) {
     ];
 
     const LEFT_WIDTH: usize = 18;
-
-    console.puts(Attribute::Default, "");
 
     for &(left, right) in ROWS {
         let left_attr = get_color_attribute(console, left);

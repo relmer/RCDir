@@ -10,9 +10,19 @@ use std::os::windows::ffi::OsStrExt;
 
 use crate::directory_info::DirectoryInfo;
 
-/// Get the owner of a single file as "DOMAIN\User" string.
-///
-/// Port of: CResultsDisplayerNormal::GetFileOwner
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_file_owner
+//
+//  Get the owner of a single file as "DOMAIN\User" string.
+//  Port of: CResultsDisplayerNormal::GetFileOwner
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn get_file_owner(file_path: &OsStr) -> String {
     use windows::Win32::Security::{
         LookupAccountSidW,
@@ -86,11 +96,20 @@ pub fn get_file_owner(file_path: &OsStr) -> String {
     }
 }
 
-/// Get owners for all files in a DirectoryInfo.
-///
-/// Port of: CResultsDisplayerNormal::GetFileOwners
-///
-/// Returns (owners_vec, max_owner_length) for column alignment.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_file_owners
+//
+//  Get owners for all files in a DirectoryInfo.
+//  Port of: CResultsDisplayerNormal::GetFileOwners
+//  Returns (owners_vec, max_owner_length) for column alignment.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn get_file_owners(di: &DirectoryInfo) -> (Vec<String>, usize) {
     let mut owners = Vec::with_capacity(di.matches.len());
     let mut max_len = 0usize;
@@ -105,9 +124,21 @@ pub fn get_file_owners(di: &DirectoryInfo) -> (Vec<String>, usize) {
     (owners, max_len)
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  get_owner_of_current_exe
+    //
+    //  The current executable should have a valid owner.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn get_owner_of_current_exe() {
@@ -119,6 +150,18 @@ mod tests {
         // If running in CI or as a real user, should contain a backslash or be "Unknown"
         assert!(owner.contains('\\') || owner == "Unknown" || !owner.is_empty());
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  get_owner_of_nonexistent_file
+    //
+    //  Test that a nonexistent file returns "Unknown".
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn get_owner_of_nonexistent_file() {

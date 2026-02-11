@@ -11,9 +11,19 @@ use std::cmp::Ordering;
 use crate::command_line::{CommandLine, SortOrder, SortDirection, TimeField};
 use crate::file_info::{FileInfo, FILE_ATTRIBUTE_DIRECTORY};
 
-/// Sort a slice of FileInfo entries according to the CommandLine sort preferences.
-///
-/// Port of: std::sort with FileComparator
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  sort_files
+//
+//  Sort a slice of FileInfo entries according to the CommandLine sort
+//  preferences.  Port of: std::sort with FileComparator.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn sort_files(matches: &mut [FileInfo], cmd: &CommandLine) {
     if cmd.sort_order == SortOrder::Default && cmd.sort_direction == SortDirection::Ascending {
         // Default sort = name ascending (matches TCDir behavior)
@@ -23,12 +33,20 @@ pub fn sort_files(matches: &mut [FileInfo], cmd: &CommandLine) {
     }
 }
 
-/// Compare two FileInfo entries for sorting.
-/// Directories always sort before files.
-/// Then walks the sort_preference tiebreaker chain.
-/// Only respects reverse direction for the primary sort attribute.
-///
-/// Port of: FileComparator::operator()
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_entries
+//
+//  Compare two FileInfo entries for sorting.  Directories always sort before
+//  files, then walks the sort_preference tiebreaker chain.
+//  Port of: FileComparator::operator()
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn compare_entries(lhs: &FileInfo, rhs: &FileInfo, cmd: &CommandLine) -> Ordering {
     let lhs_is_dir = (lhs.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     let rhs_is_dir = (rhs.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
@@ -62,9 +80,19 @@ fn compare_entries(lhs: &FileInfo, rhs: &FileInfo, cmd: &CommandLine) -> Orderin
     Ordering::Equal
 }
 
-/// Compare by name using case-insensitive comparison.
-///
-/// Port of: FileComparator::CompareName (uses lstrcmpiW)
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_name
+//
+//  Compare by name using locale-aware case-insensitive comparison.
+//  Port of: FileComparator::CompareName (uses lstrcmpiW)
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn compare_name(lhs: &FileInfo, rhs: &FileInfo) -> Ordering {
     // Use locale-aware comparison via Win32 lstrcmpiW for exact TCDir parity
     use std::os::windows::ffi::OsStrExt;
@@ -82,9 +110,19 @@ fn compare_name(lhs: &FileInfo, rhs: &FileInfo) -> Ordering {
     result.cmp(&0)
 }
 
-/// Compare by date based on the selected time field.
-///
-/// Port of: FileComparator::CompareDate
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_date
+//
+//  Compare by date based on the selected time field.
+//  Port of: FileComparator::CompareDate
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn compare_date(lhs: &FileInfo, rhs: &FileInfo, time_field: TimeField) -> Ordering {
     let (lhs_time, rhs_time) = match time_field {
         TimeField::Creation => (lhs.creation_time, rhs.creation_time),
@@ -95,9 +133,19 @@ fn compare_date(lhs: &FileInfo, rhs: &FileInfo, time_field: TimeField) -> Orderi
     lhs_time.cmp(&rhs_time)
 }
 
-/// Compare by file extension (case-insensitive).
-///
-/// Port of: FileComparator::CompareExtension
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_extension
+//
+//  Compare by file extension using case-insensitive comparison.
+//  Port of: FileComparator::CompareExtension
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn compare_extension(lhs: &FileInfo, rhs: &FileInfo) -> Ordering {
     let lhs_name = lhs.file_name.to_string_lossy();
     let rhs_name = rhs.file_name.to_string_lossy();
@@ -121,17 +169,39 @@ fn compare_extension(lhs: &FileInfo, rhs: &FileInfo) -> Ordering {
     result.cmp(&0)
 }
 
-/// Compare by file size.
-///
-/// Port of: FileComparator::CompareSize
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_size
+//
+//  Compare by file size.
+//  Port of: FileComparator::CompareSize
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn compare_size(lhs: &FileInfo, rhs: &FileInfo) -> Ordering {
     lhs.file_size.cmp(&rhs.file_size)
 }
+
+
+
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::ffi::OsString;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  make_file
+    //
+    //  Creates a FileInfo with the given name, attributes, and size.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     fn make_file(name: &str, attrs: u32, size: u64) -> FileInfo {
         FileInfo {
@@ -145,6 +215,18 @@ mod tests {
             streams:         Vec::new(),
         }
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  directories_before_files
+    //
+    //  Verifies that directories sort before files.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn directories_before_files() {
@@ -161,6 +243,18 @@ mod tests {
         assert!(!files[2].is_directory());
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sort_by_name_default
+    //
+    //  Verifies default sort order is ascending by name.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn sort_by_name_default() {
         let cmd = CommandLine::default();
@@ -175,6 +269,18 @@ mod tests {
         assert_eq!(files[1].file_name, "bravo.txt");
         assert_eq!(files[2].file_name, "charlie.txt");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sort_by_size
+    //
+    //  Verifies ascending sort by size.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     #[allow(clippy::field_reassign_with_default)]
@@ -193,6 +299,18 @@ mod tests {
         assert_eq!(files[1].file_name, "medium.txt");
         assert_eq!(files[2].file_name, "big.txt");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sort_by_size_descending
+    //
+    //  Verifies descending sort by size.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     #[allow(clippy::field_reassign_with_default)]

@@ -9,14 +9,27 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+
+
+
+
 /// A group of file specs for a single directory.
 /// Port of: MaskGroup (pair<path, vector<path>>)
 pub type MaskGroup = (PathBuf, Vec<OsString>);
 
-/// Check if a mask is "pure" — has no directory component.
-/// Pure masks have no path separator (\ or /) and no drive letter prefix.
-///
-/// Port of: CMaskGrouper::IsPureMask
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  is_pure_mask
+//
+//  Check if a mask is "pure" — has no directory component.
+//  Port of: CMaskGrouper::IsPureMask
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn is_pure_mask(mask: &str) -> bool {
     // Check for path separators
     if mask.contains('\\') || mask.contains('/') {
@@ -32,12 +45,19 @@ pub fn is_pure_mask(mask: &str) -> bool {
     true
 }
 
-/// Split a mask into a directory path and file specification.
-/// Pure masks use the current working directory. Directory-qualified masks
-/// are made absolute and split into dir + filespec. Directory-only masks
-/// (trailing separator or existing directory) use "*" as the filespec.
-///
-/// Port of: CMaskGrouper::SplitMaskIntoDirAndFileSpec
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  split_mask_into_dir_and_filespec
+//
+//  Split a mask into a directory path and file specification.
+//  Port of: CMaskGrouper::SplitMaskIntoDirAndFileSpec
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn split_mask_into_dir_and_filespec(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
     if is_pure_mask(mask) {
         // Pure mask — use CWD
@@ -82,11 +102,19 @@ fn split_mask_into_dir_and_filespec(mask: &str, cwd: &std::path::Path) -> (PathB
     }
 }
 
-/// Add a directory/filespec pair to the groups collection.
-/// If a group for the directory already exists (case-insensitive match),
-/// the filespec is appended. Otherwise a new group is created.
-///
-/// Port of: CMaskGrouper::AddMaskToGroups
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  add_mask_to_groups
+//
+//  Add a directory/filespec pair to the groups collection.
+//  Port of: CMaskGrouper::AddMaskToGroups
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn add_mask_to_groups(
     dir_path: PathBuf,
     file_spec: OsString,
@@ -113,20 +141,19 @@ fn add_mask_to_groups(
     groups.push((dir_path, vec![file_spec]));
 }
 
-/// Group command-line masks by their target directory.
-/// Pure masks (no path component) are combined into a single group for CWD.
-/// Masks targeting the same directory (case-insensitive) are also combined.
-///
-/// If no masks are provided, returns a single group for CWD with "*".
-///
-/// Port of: CMaskGrouper::GroupMasksByDirectory
-///
-/// Input:  ["*.rs", "*.toml", "foo\\*.txt", "bar\\"]
-/// Output: [
-///   (CWD, ["*.rs", "*.toml"]),
-///   (CWD/foo, ["*.txt"]),
-///   (CWD/bar, ["*"])
-/// ]
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  group_masks_by_directory
+//
+//  Group command-line masks by their target directory.
+//  Port of: CMaskGrouper::GroupMasksByDirectory
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn group_masks_by_directory(masks: &[OsString]) -> Vec<MaskGroup> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
@@ -147,9 +174,21 @@ pub fn group_masks_by_directory(masks: &[OsString]) -> Vec<MaskGroup> {
     groups
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pure_mask_simple_wildcard
+    //
+    //  Verifies pure masks with simple wildcards.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn pure_mask_simple_wildcard() {
@@ -159,17 +198,53 @@ mod tests {
         assert!(is_pure_mask("*"));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pure_mask_with_path_separator
+    //
+    //  Verifies masks with path separators are not pure.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn pure_mask_with_path_separator() {
         assert!(!is_pure_mask("foo\\*.rs"));
         assert!(!is_pure_mask("foo/bar.txt"));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pure_mask_with_drive_letter
+    //
+    //  Verifies masks with drive letter prefix are not pure.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn pure_mask_with_drive_letter() {
         assert!(!is_pure_mask("C:file.txt"));
         assert!(!is_pure_mask("D:*.rs"));
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_empty_masks_returns_cwd_star
+    //
+    //  Verifies empty mask list returns CWD with "*".
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn group_empty_masks_returns_cwd_star() {
@@ -179,6 +254,18 @@ mod tests {
         assert_eq!(groups[0].1[0], OsString::from("*"));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_pure_masks_same_dir
+    //
+    //  Verifies pure masks are grouped under the same directory.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn group_pure_masks_same_dir() {
         let masks = vec![OsString::from("*.rs"), OsString::from("*.toml")];
@@ -186,6 +273,18 @@ mod tests {
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].1.len(), 2);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_single_mask
+    //
+    //  Verifies a single mask is grouped correctly.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn group_single_mask() {

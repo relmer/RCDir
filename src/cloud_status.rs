@@ -17,7 +17,11 @@ use windows::Win32::Storage::FileSystem::{
     FILE_ATTRIBUTE_UNPINNED,
 };
 
-// ── Unicode symbols ───────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 // Port of: UnicodeSymbols.h
 
 /// ○ Cloud-only (not locally available)
@@ -27,7 +31,11 @@ pub const CIRCLE_HALF_FILLED: char = '\u{25D0}';
 /// ● Always locally available (pinned)
 pub const CIRCLE_FILLED: char      = '\u{25CF}';
 
-// ── Cloud status enum ─────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 // Port of: ECloudStatus in ResultsDisplayerNormal.h
 
 /// Cloud sync status for a file.
@@ -43,8 +51,19 @@ pub enum CloudStatus {
     Pinned,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl CloudStatus
+//
+//  Get the display symbol for this cloud status.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl CloudStatus {
-    /// Get the display symbol for this cloud status.
     pub fn symbol(self) -> char {
         match self {
             CloudStatus::None      => ' ',
@@ -55,13 +74,22 @@ impl CloudStatus {
     }
 }
 
-// ── Sync root detection ───────────────────────────────────────────────────────
 
-/// Check whether a directory path is under a cloud sync root (OneDrive, iCloud, etc.).
-///
-/// Port of: CResultsDisplayerNormal::IsUnderSyncRoot
-///
-/// Uses CfGetSyncRootInfoByPath — if it succeeds, the path is under a sync root.
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  is_under_sync_root
+//
+//  Check whether a directory path is under a cloud sync root (OneDrive,
+//  iCloud, etc.).  Uses CfGetSyncRootInfoByPath — if it succeeds, the path
+//  is under a sync root.
+//
+//  Port of: CResultsDisplayerNormal::IsUnderSyncRoot
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn is_under_sync_root(path: &OsStr) -> bool {
     use windows::Win32::Storage::CloudFilters::{
         CfGetSyncRootInfoByPath, CF_SYNC_ROOT_INFO_BASIC,
@@ -83,13 +111,21 @@ pub fn is_under_sync_root(path: &OsStr) -> bool {
     hr.is_ok()
 }
 
-// ── Per-file cloud status ─────────────────────────────────────────────────────
 
-/// Determine the cloud status of a file from its attributes.
-///
-/// Port of: CResultsDisplayerNormal::GetCloudStatus
-///
-/// Only meaningful when the directory is under a sync root (call is_under_sync_root first).
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_cloud_status
+//
+//  Determine the cloud status of a file from its attributes.  Only meaningful
+//  when the directory is under a sync root (call is_under_sync_root first).
+//
+//  Port of: CResultsDisplayerNormal::GetCloudStatus
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn get_cloud_status(file_attributes: u32, in_sync_root: bool) -> CloudStatus {
     if !in_sync_root {
         return CloudStatus::None;
@@ -112,9 +148,21 @@ pub fn get_cloud_status(file_attributes: u32, in_sync_root: bool) -> CloudStatus
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  cloud_status_none_when_not_in_sync_root
+    //
+    //  Verify None is returned when not in a sync root.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn cloud_status_none_when_not_in_sync_root() {
@@ -122,11 +170,35 @@ mod tests {
         assert_eq!(get_cloud_status(FILE_ATTRIBUTE_PINNED.0, false), CloudStatus::None);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  cloud_status_pinned_takes_priority
+    //
+    //  Verify Pinned takes priority over other cloud attributes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn cloud_status_pinned_takes_priority() {
         let attrs = FILE_ATTRIBUTE_PINNED.0 | FILE_ATTRIBUTE_UNPINNED.0;
         assert_eq!(get_cloud_status(attrs, true), CloudStatus::Pinned);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  cloud_status_cloud_only
+    //
+    //  Verify CloudOnly is returned for offline/recall attributes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn cloud_status_cloud_only() {
@@ -135,15 +207,51 @@ mod tests {
         assert_eq!(get_cloud_status(FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS.0, true), CloudStatus::CloudOnly);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  cloud_status_local_when_unpinned
+    //
+    //  Verify Local is returned for unpinned files.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn cloud_status_local_when_unpinned() {
         assert_eq!(get_cloud_status(FILE_ATTRIBUTE_UNPINNED.0, true), CloudStatus::Local);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  cloud_status_local_when_no_cloud_attrs
+    //
+    //  Verify Local is returned when no cloud attributes are set.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn cloud_status_local_when_no_cloud_attrs() {
         assert_eq!(get_cloud_status(0x20, true), CloudStatus::Local); // FILE_ATTRIBUTE_ARCHIVE
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  symbol_mapping
+    //
+    //  Verify each CloudStatus variant maps to its expected symbol.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn symbol_mapping() {

@@ -13,13 +13,45 @@ pub struct ListingTotals {
     pub stream_bytes:     u64,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl ListingTotals
+//
+//  Accumulated listing statistics.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl ListingTotals {
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Creates a new zeroed ListingTotals.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Accumulate totals from another ListingTotals.
-    /// Port of: SListingTotals::Add
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  add
+    //
+    //  Accumulate totals from another ListingTotals.
+    //  Port of: SListingTotals::Add
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn add(&mut self, other: &ListingTotals) {
         self.file_count      += other.file_count;
         self.directory_count += other.directory_count;
@@ -29,9 +61,21 @@ impl ListingTotals {
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_is_zero
+    //
+    //  Verifies that a new ListingTotals has all zero values.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn default_is_zero() {
@@ -40,6 +84,18 @@ mod tests {
         assert_eq!(t.directory_count, 0);
         assert_eq!(t.file_bytes, 0);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  add_accumulates
+    //
+    //  Verifies that add accumulates counts and bytes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn add_accumulates() {

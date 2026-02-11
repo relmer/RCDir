@@ -9,6 +9,40 @@
 - **NEVER** delete blank lines between field declaration blocks in structs
 - Preserve all existing vertical spacing in code
 
+### Vertical Spacing Between Top-Level Constructs
+- Use **exactly 5 blank lines** between top-level constructs:
+  - Between functions
+  - Between `impl` blocks
+  - Between `struct`/`enum`/`trait` definitions
+  - Between `mod` declarations/blocks
+  - Between groups of `use` statements and the next construct
+  - Between global/static constants and the next construct
+- This applies everywhere: file-level constructs, inside `impl` blocks, inside `mod` blocks (including `mod tests`)
+- Section-divider comment blocks (e.g., `////////////////...`) count as part of the construct below them — the 5 blank lines go **above** the divider
+
+### Function Call and Macro Parenthesis Spacing
+- **With arguments**: place a space before the opening parenthesis: `func (with, args)`
+- **Without arguments**: NO space before the opening parenthesis: `func()`
+- This applies to function calls, method calls, and macro invocations
+- Examples:
+  ```rust
+  // CORRECT:
+  println! ("Hello, {}", name);
+  writeln! (f, "{}", value)?;
+  some_function (arg1, arg2);
+  foo.method (x, y);
+  Vec::with_capacity (16);
+  result.unwrap();
+  String::new();
+  vec.len();
+
+  // WRONG:
+  println!("Hello, {}", name);    // missing space before (
+  some_function(arg1, arg2);       // missing space before (
+  result.unwrap ();                // unwanted space before ()
+  String::new ();                  // unwanted space before ()
+  ```
+
 ### **NEVER** Break Column Alignment
 - **NEVER** break existing column alignment in struct field declarations
 - **NEVER** break alignment of:
@@ -70,6 +104,24 @@ console.print_error(&format!("Error: {}", msg));
 ---
 
 ## Rust Specific Guidelines
+
+### Function Header Comments
+- Every function must have a TCDir-style header comment block above it
+- Top-level functions use 80-slash dividers; indented functions (inside `impl` blocks) use 76-slash dividers (4 spaces + 76 = 80 chars)
+- Format:
+  ```rust
+  ////////////////////////////////////////////////////////////////////////////////
+  //
+  //  function_name
+  //
+  //  Brief description of what the function does.
+  //
+  ////////////////////////////////////////////////////////////////////////////////
+  ```
+- **Trait impls with a single function**: use one header block describing the trait impl above the `impl` line; no separate function header inside
+- **Trait impls with multiple functions**: the `impl` block gets a header, and each function inside also gets its own function header
+- The header block goes above `#[test]` or other attributes when present
+- 1 blank line between the closing divider and the `fn` (or its attribute)
 
 ### Module Organization
 - Use `mod.rs` or direct file naming based on existing project convention
@@ -187,7 +239,7 @@ perf(enumerate): use parallel iteration for recursive listing
 
 ---
 
-*Last Updated: 2026-02-08*
+*Last Updated: 2026-02-10*
 *These rules apply globally to all RCDir work*
 
 ````

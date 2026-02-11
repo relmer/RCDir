@@ -7,11 +7,27 @@ use crate::color::*;
 use crate::config::{Attribute, AttributeSource, RCDIR_ENV_VAR_NAME};
 use crate::console::Console;
 
-// ── Version constants (injected by build.rs from Version.toml) ─────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub const VERSION_STRING:    &str = env!("RCDIR_VERSION_STRING");
 pub const VERSION_YEAR:      &str = env!("RCDIR_VERSION_YEAR");
 pub const BUILD_TIMESTAMP:   &str = env!("RCDIR_BUILD_TIMESTAMP");
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  architecture
+//
+//  Returns the current CPU architecture as a display string.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn architecture() -> &'static str {
     if cfg!(target_arch = "x86_64") {
@@ -25,7 +41,11 @@ fn architecture() -> &'static str {
     }
 }
 
-// ── Unicode symbols ───────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub const CIRCLE_HOLLOW:      char = '\u{25CB}';  // ○ Cloud-only
 pub const CIRCLE_HALF_FILLED: char = '\u{25D0}';  // ◐ Locally available
@@ -34,28 +54,42 @@ pub const LINE_HORIZONTAL:    char = '\u{2500}';  // ─ Horizontal line
 pub const COPYRIGHT:          char = '\u{00A9}';  // ©
 pub const OVERLINE:           char = '\u{203E}';  // ‾
 
-// ── Display info tables ───────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 struct DisplayItemInfo {
     name: &'static str,
     attr: Attribute,
 }
 
+
+
+
+
 const DISPLAY_ITEM_INFOS: &[DisplayItemInfo] = &[
-    DisplayItemInfo { name: "Default",                attr: Attribute::Default },
-    DisplayItemInfo { name: "Date",                   attr: Attribute::Date },
-    DisplayItemInfo { name: "Time",                   attr: Attribute::Time },
+    DisplayItemInfo { name: "Default",                 attr: Attribute::Default },
+    DisplayItemInfo { name: "Date",                    attr: Attribute::Date },
+    DisplayItemInfo { name: "Time",                    attr: Attribute::Time },
     DisplayItemInfo { name: "File attribute present",  attr: Attribute::FileAttributePresent },
     DisplayItemInfo { name: "File attribute absent",   attr: Attribute::FileAttributeNotPresent },
-    DisplayItemInfo { name: "Size",                   attr: Attribute::Size },
-    DisplayItemInfo { name: "Directory",              attr: Attribute::Directory },
-    DisplayItemInfo { name: "Information",            attr: Attribute::Information },
+    DisplayItemInfo { name: "Size",                    attr: Attribute::Size },
+    DisplayItemInfo { name: "Directory",               attr: Attribute::Directory },
+    DisplayItemInfo { name: "Information",             attr: Attribute::Information },
     DisplayItemInfo { name: "Info highlight",          attr: Attribute::InformationHighlight },
     DisplayItemInfo { name: "Separator line",          attr: Attribute::SeparatorLine },
-    DisplayItemInfo { name: "Error",                  attr: Attribute::Error },
-    DisplayItemInfo { name: "Owner",                  attr: Attribute::Owner },
-    DisplayItemInfo { name: "Stream",                 attr: Attribute::Stream },
+    DisplayItemInfo { name: "Error",                   attr: Attribute::Error },
+    DisplayItemInfo { name: "Owner",                   attr: Attribute::Owner },
+    DisplayItemInfo { name: "Stream",                  attr: Attribute::Stream },
 ];
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 struct CloudStatusInfo {
     attr:      Attribute,
@@ -63,17 +97,31 @@ struct CloudStatusInfo {
     symbol:    char,
 }
 
+
+
+
+
 const CLOUD_STATUS_INFOS: &[CloudStatusInfo] = &[
     CloudStatusInfo { attr: Attribute::CloudStatusCloudOnly,              base_name: "CloudOnly",              symbol: CIRCLE_HOLLOW },
     CloudStatusInfo { attr: Attribute::CloudStatusLocallyAvailable,       base_name: "LocallyAvailable",       symbol: CIRCLE_HALF_FILLED },
     CloudStatusInfo { attr: Attribute::CloudStatusAlwaysLocallyAvailable, base_name: "AlwaysLocallyAvailable", symbol: CIRCLE_FILLED },
 ];
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 struct FileAttrInfo {
     name:      &'static str,
     letter:    char,
     attribute: u32,
 }
+
+
+
+
 
 const FILE_ATTR_INFOS: &[FileAttrInfo] = &[
     FileAttrInfo { name: "Read-only",     letter: 'R', attribute: 0x0001 },
@@ -87,10 +135,20 @@ const FILE_ATTR_INFOS: &[FileAttrInfo] = &[
     FileAttrInfo { name: "Sparse file",   letter: '0', attribute: 0x0200 },
 ];
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 struct SwitchInfo {
     name:        &'static str,
     description: &'static str,
 }
+
+
+
+
 
 const SWITCH_INFOS: &[SwitchInfo] = &[
     SwitchInfo { name: "W",       description: "Wide listing format" },
@@ -102,20 +160,51 @@ const SWITCH_INFOS: &[SwitchInfo] = &[
     SwitchInfo { name: "Streams", description: "Display alternate data streams" },
 ];
 
-// ── Shell detection ───────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  is_powershell
+//
+//  Check whether the current shell is PowerShell.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn is_powershell() -> bool {
     std::env::var("PSModulePath").is_ok()
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  is_env_var_set
+//
+//  Check whether an environment variable is defined.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn is_env_var_set(name: &str) -> bool {
     std::env::var(name).is_ok()
 }
 
-// ── DisplayUsage (T031 + T032 + T033) ─────────────────────────────────────────
 
-/// Display the main usage/help screen.
-/// Port of: CUsage::DisplayUsage
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_usage
+//
+//  Display the main usage/help screen.
+//  Port of: CUsage::DisplayUsage
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn display_usage(console: &mut Console, prefix: char) {
     let short = if prefix == '-' { "-" } else { "/" };
     let long  = if prefix == '-' { "--" } else { "/" };
@@ -211,10 +300,20 @@ Copyright {copy} 2004-{year} by Robert Elmer
     ));
 }
 
-// ── DisplayEnvVarHelp (T034) ──────────────────────────────────────────────────
 
-/// Display RCDIR environment variable help with syntax, colors, example, current value.
-/// Port of: CUsage::DisplayEnvVarHelp
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_env_var_help
+//
+//  Display RCDIR environment variable help with syntax, colors, example,
+//  current value.
+//  Port of: CUsage::DisplayEnvVarHelp
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn display_env_var_help(console: &mut Console, prefix: char) {
     let (syntax_cmd, syntax_suffix, example_cmd) = if is_powershell() {
         (
@@ -289,10 +388,19 @@ display items, file attributes, or file extensions:
     }
 }
 
-// ── DisplayCurrentConfiguration (T034 partial — config display) ───────────────
 
-/// Display current color configuration with source tracking.
-/// Port of: CUsage::DisplayCurrentConfiguration
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_current_configuration
+//
+//  Display current color configuration with source tracking.
+//  Port of: CUsage::DisplayCurrentConfiguration
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn display_current_configuration(console: &mut Console, prefix: char) {
     if is_env_var_set(RCDIR_ENV_VAR_NAME) {
         display_env_var_issues(console, prefix, true);
@@ -301,10 +409,19 @@ pub fn display_current_configuration(console: &mut Console, prefix: char) {
     display_configuration_table(console);
 }
 
-// ── DisplayEnvVarIssues (T035 partial) ────────────────────────────────────────
 
-/// Display validation errors from the RCDIR env var.
-/// Port of: CUsage::DisplayEnvVarIssues
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_env_var_issues
+//
+//  Display validation errors from the RCDIR env var.
+//  Port of: CUsage::DisplayEnvVarIssues
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn display_env_var_issues(console: &mut Console, prefix: char, show_hint: bool) {
     let long = if prefix == '-' { "--" } else { "/" };
 
@@ -339,7 +456,17 @@ pub fn display_env_var_issues(console: &mut Console, prefix: char, show_hint: bo
     }
 }
 
-// ── Configuration tables ──────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_configuration_table
+//
+//  Display color configuration sections (display items, file attrs, extensions).
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_configuration_table(console: &mut Console) {
     let column_width_attr   = 27;
@@ -349,6 +476,18 @@ fn display_configuration_table(console: &mut Console) {
     display_file_attribute_configuration(console, column_width_attr, column_width_source);
     display_extension_configuration(console, column_width_attr, column_width_source);
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_attribute_configuration
+//
+//  Display current display-item color assignments with source tracking.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_source: usize) {
     console.puts(Attribute::Information, "\nCurrent display item configuration:\n");
@@ -371,6 +510,18 @@ fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_s
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_file_attribute_configuration
+//
+//  Display file-attribute color configuration with source tracking.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_file_attribute_configuration(console: &mut Console, col_attr: usize, col_source: usize) {
     console.puts(Attribute::Information, "\nFile attribute color configuration:\n");
 
@@ -385,6 +536,18 @@ fn display_file_attribute_configuration(console: &mut Console, col_attr: usize, 
         }
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_extension_configuration
+//
+//  Display file-extension color configuration.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col_source: usize) {
     console.puts(Attribute::Information, "\nFile extension color configuration:");
@@ -418,6 +581,18 @@ fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col
         display_extension_multi_column(console, &extensions, max_ext_len, source_width, available, columns);
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_extension_multi_column
+//
+//  Render extension colors in a multi-column layout.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_extension_multi_column(
     console: &mut Console,
@@ -481,12 +656,35 @@ fn display_extension_multi_column(
     console.puts(Attribute::Default, "");
 }
 
-/// Returns the display width (in terminal columns) of a string.
-/// Uses char count rather than byte length so that multi-byte Unicode
-/// symbols like ○ ◐ ● (each 3 bytes, 1 column) are measured correctly.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_width
+//
+//  Returns the display width (in terminal columns) of a string.
+//  Uses char count rather than byte length so that multi-byte Unicode
+//  symbols like ○ ◐ ● (each 3 bytes, 1 column) are measured correctly.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_width(s: &str) -> usize {
     s.chars().count()
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_item_and_source
+//
+//  Display a configuration item name with its color and source label.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env: bool, col_item: usize, col_source: usize) {
     let config = console.config_arc();
@@ -503,7 +701,17 @@ fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env:
     console.printf(config.attributes[Attribute::Default as usize], "\n");
 }
 
-// ── Color chart ───────────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_color_chart
+//
+//  Display the 16-color chart showing all foreground color names.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_color_chart(console: &mut Console) {
     const ROWS: &[(&str, &str)] = &[
@@ -534,6 +742,18 @@ fn display_color_chart(console: &mut Console) {
     console.puts(Attribute::Default, "");
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  ensure_visible_color_attr
+//
+//  Adjust a color attribute so foreground is visible against the background.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn ensure_visible_color_attr(color_attr: u16, default_attr: u16) -> u16 {
     let fore = color_attr & FC_MASK;
     let mut back = color_attr & BC_MASK;
@@ -552,13 +772,35 @@ fn ensure_visible_color_attr(color_attr: u16, default_attr: u16) -> u16 {
     fore | back
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_color_attribute
+//
+//  Parse a color name and return a visible console attribute.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn get_color_attribute(console: &Console, color_name: &str) -> u16 {
     let default_attr = console.config().attributes[Attribute::Default as usize];
     let fore = parse_color_name(color_name, false).unwrap_or(FC_LIGHT_GREY);
     ensure_visible_color_attr(fore, default_attr)
 }
 
-// ── Env var current value display ─────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_env_var_current_value
+//
+//  Display the current value of the RCDIR env var with color-coded segments.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_env_var_current_value(console: &mut Console, env_name: &str) {
     let env_value = match std::env::var(env_name) {
@@ -594,6 +836,18 @@ fn display_env_var_current_value(console: &mut Console, env_name: &str) {
     console.puts(Attribute::Default, "\"");
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_env_var_segment
+//
+//  Display a single semicolon-delimited segment of the env var value.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_env_var_segment(console: &mut Console, segment: &str) {
     let default_attr = console.config().attributes[Attribute::Default as usize];
 
@@ -622,7 +876,17 @@ fn display_env_var_segment(console: &mut Console, segment: &str) {
     }
 }
 
-// ── Decoded settings display ──────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_env_var_decoded_settings
+//
+//  Display decoded switch and color settings from the env var.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 fn display_env_var_decoded_settings(console: &mut Console) {
     let config = console.config_arc();

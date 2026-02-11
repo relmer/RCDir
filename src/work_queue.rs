@@ -7,6 +7,10 @@
 use std::collections::VecDeque;
 use std::sync::{Condvar, Mutex};
 
+
+
+
+
 /// Thread-safe FIFO work queue.
 ///
 /// Port of: CWorkQueue<T>
@@ -15,18 +19,46 @@ pub struct WorkQueue<T> {
     cv:    Condvar,
 }
 
+
+
+
+
 struct WorkQueueInner<T> {
     queue: VecDeque<T>,
     done:  bool,
 }
 
+
+
+
+
 impl<T> Default for WorkQueue<T> {
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default
+    //
+    //  Default constructor — delegates to new().
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn default() -> Self {
         Self::new()
     }
 }
 
+
+
+
+
 impl<T> WorkQueue<T> {
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a new empty WorkQueue.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new() -> Self {
         WorkQueue {
             inner: Mutex::new(WorkQueueInner {
@@ -37,7 +69,18 @@ impl<T> WorkQueue<T> {
         }
     }
 
-    /// Push an item onto the queue. Ignored if done.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  push
+    //
+    //  Push an item onto the queue. Ignored if done.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn push(&self, item: T) {
         let mut inner = self.inner.lock().unwrap();
 
@@ -47,8 +90,19 @@ impl<T> WorkQueue<T> {
         }
     }
 
-    /// Pop an item from the queue. Blocks until available or done.
-    /// Returns None if queue is empty and done.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pop
+    //
+    //  Pop an item from the queue. Blocks until available or done.
+    //  Returns None if queue is empty and done.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn pop(&self) -> Option<T> {
         let mut inner = self.inner.lock().unwrap();
 
@@ -65,7 +119,18 @@ impl<T> WorkQueue<T> {
         }
     }
 
-    /// Signal that no more items will be pushed.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  set_done
+    //
+    //  Signal that no more items will be pushed.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn set_done(&self) {
         let mut inner = self.inner.lock().unwrap();
         inner.done = true;
@@ -73,11 +138,23 @@ impl<T> WorkQueue<T> {
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::Arc;
     use std::thread;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  push_pop_basic
+    //
+    //  Basic push and pop operations.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn push_pop_basic() {
@@ -89,6 +166,18 @@ mod tests {
         q.set_done();
         assert_eq!(q.pop(), None);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pop_blocks_until_push
+    //
+    //  Pop should block until an item is pushed.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn pop_blocks_until_push() {
@@ -107,12 +196,36 @@ mod tests {
         q.set_done();
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pop_returns_none_when_done_empty
+    //
+    //  Pop returns None when the queue is done and empty.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn pop_returns_none_when_done_empty() {
         let q: WorkQueue<i32> = WorkQueue::new();
         q.set_done();
         assert_eq!(q.pop(), None);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  push_after_done_is_ignored
+    //
+    //  Pushing after set_done should be silently ignored.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn push_after_done_is_ignored() {

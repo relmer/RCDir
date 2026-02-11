@@ -21,12 +21,23 @@ use crate::file_info::{FileInfo, FindHandle, FILE_ATTRIBUTE_DIRECTORY};
 use crate::listing_totals::ListingTotals;
 use crate::streams;
 
-/// Collect matching files and directories for a single directory + file spec.
-///
-/// Port of: CDirectoryLister::CollectMatchingFilesAndDirectories
-///
-/// Enumerates files matching `dir_path/file_spec`, applies attribute filters,
-/// builds FileInfo entries, and populates the DirectoryInfo with matches and counters.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  collect_matching_files
+//
+//  Collect matching files and directories for a single directory + file spec.
+//  Enumerates files matching dir_path/file_spec, applies attribute filters,
+//  builds FileInfo entries, and populates the DirectoryInfo with matches and
+//  counters.
+//
+//  Port of: CDirectoryLister::CollectMatchingFilesAndDirectories
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn collect_matching_files(
     dir_path: &Path,
     file_spec: &OsStr,
@@ -81,10 +92,21 @@ pub fn collect_matching_files(
     }
 }
 
-/// Add a matched file entry to the DirectoryInfo.
-/// Tracks directory/file counts, sizes, and widest filename.
-///
-/// Port of: CDirectoryLister::AddMatchToList
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  add_match_to_list
+//
+//  Add a matched file entry to the DirectoryInfo.  Tracks directory/file
+//  counts, sizes, and widest filename.
+//
+//  Port of: CDirectoryLister::AddMatchToList
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn add_match_to_list(
     wfd: &WIN32_FIND_DATAW,
     di: &mut DirectoryInfo,
@@ -131,9 +153,20 @@ fn add_match_to_list(
     di.matches.push(file_entry);
 }
 
-/// Check if a filename is "." or ".."
-///
-/// Port of: CDirectoryLister::IsDots
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  is_dots
+//
+//  Check if a filename is "." or "..".
+//
+//  Port of: CDirectoryLister::IsDots
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn is_dots(filename: &[u16]) -> bool {
     if filename[0] == b'.' as u16 {
         if filename[1] == 0 {
@@ -146,9 +179,21 @@ fn is_dots(filename: &[u16]) -> bool {
     false
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_single_dot
+    //
+    //  Verify "." is detected as a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn is_dots_single_dot() {
@@ -156,17 +201,53 @@ mod tests {
         assert!(is_dots(&name));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_double_dot
+    //
+    //  Verify ".." is detected as a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn is_dots_double_dot() {
         let name = [b'.' as u16, b'.' as u16, 0, 0];
         assert!(is_dots(&name));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_regular_name
+    //
+    //  Verify a regular filename is not detected as a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn is_dots_regular_name() {
         let name = [b'f' as u16, b'o' as u16, b'o' as u16, 0];
         assert!(!is_dots(&name));
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_dotfile
+    //
+    //  Verify a dotfile (e.g. ".git") is not detected as a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn is_dots_dotfile() {

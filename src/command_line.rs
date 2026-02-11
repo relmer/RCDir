@@ -9,7 +9,11 @@ use std::ffi::OsString;
 use crate::config::Config;
 use crate::ehm::AppError;
 
-// ── Enums ─────────────────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SortOrder {
@@ -20,13 +24,25 @@ pub enum SortOrder {
     Date,       // /O:D — oldest first
 }
 
+
+
+
+
 pub const SORT_ORDER_COUNT: usize = 5;
+
+
+
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SortDirection {
     Ascending,
     Descending,
 }
+
+
+
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeField {
@@ -35,7 +51,11 @@ pub enum TimeField {
     Access,     // /T:A — ftLastAccessTime
 }
 
-// ── CommandLine struct ────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
 pub struct CommandLine {
@@ -59,6 +79,18 @@ pub struct CommandLine {
     pub show_streams:     bool,
     pub debug:            bool,
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Default for CommandLine
+//
+//  Returns default CommandLine values.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 impl Default for CommandLine {
     fn default() -> Self {
@@ -92,11 +124,31 @@ impl Default for CommandLine {
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl CommandLine
+//
+//  Command-line argument parsing and switch handling.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl CommandLine {
-    /// Parse command-line arguments into a CommandLine struct.
-    /// Args should NOT include argv[0] (program name).
-    ///
-    /// Port of: CCommandLine::Parse
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_from
+    //
+    //  Parse command-line arguments into a CommandLine struct.
+    //  Args should NOT include argv[0] (program name).
+    //
+    //  Port of: CCommandLine::Parse
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn parse_from<I, S>(args: I) -> Result<Self, AppError>
     where
         I: IntoIterator<Item = S>,
@@ -149,10 +201,20 @@ impl CommandLine {
         Ok(cmd)
     }
 
-    /// Apply switch defaults from Config (parsed from RCDIR environment variable).
-    /// Env defaults are applied BEFORE command-line parsing overrides them.
-    ///
-    /// Port of: CCommandLine::ApplyConfigDefaults
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_config_defaults
+    //
+    //  Apply switch defaults from Config (RCDIR environment variable).
+    //
+    //  Port of: CCommandLine::ApplyConfigDefaults
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn apply_config_defaults(&mut self, config: &Config) {
         if let Some(v) = config.wide_listing   { self.wide_listing   = v; }
         if let Some(v) = config.bare_listing   { self.bare_listing   = v; }
@@ -163,9 +225,20 @@ impl CommandLine {
         if let Some(v) = config.show_streams   { self.show_streams   = v; }
     }
 
-    /// Route a switch argument to the appropriate handler.
-    ///
-    /// Port of: CCommandLine::HandleSwitch
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  handle_switch
+    //
+    //  Route a switch argument to the appropriate handler.
+    //
+    //  Port of: CCommandLine::HandleSwitch
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn handle_switch(&mut self, switch_arg: &str) -> Result<(), AppError> {
         // Check for long switch (3+ chars, no ':' or '-' at position 1)
         if switch_arg.len() >= 3
@@ -184,12 +257,12 @@ impl CommandLine {
 
         let ch_lower = ch.to_ascii_lowercase();
         match ch_lower {
-            's' => { self.recurse       = !disable; Ok(()) }
-            'w' => { self.wide_listing  = !disable; Ok(()) }
-            'b' => { self.bare_listing  = !disable; Ok(()) }
-            'p' => { self.perf_timer    = !disable; Ok(()) }
+            's' => { self.recurse        = !disable; Ok(()) }
+            'w' => { self.wide_listing   = !disable; Ok(()) }
+            'b' => { self.bare_listing   = !disable; Ok(()) }
+            'p' => { self.perf_timer     = !disable; Ok(()) }
             'm' => { self.multi_threaded = !disable; Ok(()) }
-            '?' => { self.show_help     = true;     Ok(()) }
+            '?' => { self.show_help      = true;     Ok(()) }
             'o' => self.order_by_handler(&switch_arg[1..]),
             'a' => self.attribute_handler(&switch_arg[1..]),
             't' => self.time_field_handler(&switch_arg[1..]),
@@ -197,9 +270,20 @@ impl CommandLine {
         }
     }
 
-    /// Handle long switches: env, config, owner, streams, debug
-    ///
-    /// Port of: CCommandLine::HandleLongSwitch
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  handle_long_switch
+    //
+    //  Handle long switches: env, config, owner, streams, debug.
+    //
+    //  Port of: CCommandLine::HandleLongSwitch
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn handle_long_switch(&mut self, switch_arg: &str) -> Result<(), AppError> {
         if switch_arg.eq_ignore_ascii_case("env") {
             self.show_env_help = true;
@@ -221,10 +305,20 @@ impl CommandLine {
         }
     }
 
-    /// Handle /O sort order switch.
-    /// Format: [:][-]<key> where key is N/E/S/D (case-insensitive)
-    ///
-    /// Port of: CCommandLine::OrderByHandler
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  order_by_handler
+    //
+    //  Handle /O sort order switch.
+    //
+    //  Port of: CCommandLine::OrderByHandler
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn order_by_handler(&mut self, arg: &str) -> Result<(), AppError> {
         let mut chars = arg.chars().peekable();
 
@@ -263,10 +357,20 @@ impl CommandLine {
         Ok(())
     }
 
-    /// Handle /A attribute filter switch.
-    /// Format: [:]<chars> where chars are attribute codes, - toggles exclude mode.
-    ///
-    /// Port of: CCommandLine::AttributeHandler
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  attribute_handler
+    //
+    //  Handle /A attribute filter switch.
+    //
+    //  Port of: CCommandLine::AttributeHandler
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn attribute_handler(&mut self, arg: &str) -> Result<(), AppError> {
         let mut chars = arg.chars().peekable();
 
@@ -336,10 +440,20 @@ impl CommandLine {
         Ok(())
     }
 
-    /// Handle /T time field switch.
-    /// Format: [:]<field> where field is C/A/W (case-insensitive)
-    ///
-    /// Port of: CCommandLine::TimeFieldHandler
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  time_field_handler
+    //
+    //  Handle /T time field switch.
+    //
+    //  Port of: CCommandLine::TimeFieldHandler
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn time_field_handler(&mut self, arg: &str) -> Result<(), AppError> {
         let mut chars = arg.chars();
 
@@ -363,11 +477,21 @@ impl CommandLine {
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // ── Boolean switches ──────────────────────────────────────────────────
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_values
+    //
+    //  Verify default CommandLine values.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn default_values() {
@@ -384,6 +508,18 @@ mod tests {
         assert_eq!(cmd.switch_prefix, '-');
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_slash_switches
+    //
+    //  Verify parsing of slash-prefixed switches.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_slash_switches() {
         let cmd = CommandLine::parse_from(["/s", "/w", "/p"]).unwrap();
@@ -393,6 +529,18 @@ mod tests {
         assert_eq!(cmd.switch_prefix, '/');
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_dash_switches
+    //
+    //  Verify parsing of dash-prefixed switches.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_dash_switches() {
         let cmd = CommandLine::parse_from(["-s", "-b"]).unwrap();
@@ -401,11 +549,35 @@ mod tests {
         assert_eq!(cmd.switch_prefix, '-');
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_disable_with_trailing_dash
+    //
+    //  Verify trailing dash disables a switch.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_disable_with_trailing_dash() {
         let cmd = CommandLine::parse_from(["/m-"]).unwrap();
         assert!(!cmd.multi_threaded);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_help
+    //
+    //  Verify /? enables show_help.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_help() {
@@ -413,7 +585,17 @@ mod tests {
         assert!(cmd.show_help);
     }
 
-    // ── Sort order ────────────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_sort_name
+    //
+    //  Verify /O:N sets sort order to Name.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_sort_name() {
@@ -422,11 +604,35 @@ mod tests {
         assert_eq!(cmd.sort_direction, SortDirection::Ascending);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_sort_with_colon
+    //
+    //  Verify /O:S with colon prefix.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_sort_with_colon() {
         let cmd = CommandLine::parse_from(["/o:s"]).unwrap();
         assert_eq!(cmd.sort_order, SortOrder::Size);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_sort_descending
+    //
+    //  Verify /O:-D sets descending direction.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_sort_descending() {
@@ -435,11 +641,35 @@ mod tests {
         assert_eq!(cmd.sort_direction, SortDirection::Descending);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_sort_case_insensitive
+    //
+    //  Verify sort switch is case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_sort_case_insensitive() {
         let cmd = CommandLine::parse_from(["/O:E"]).unwrap();
         assert_eq!(cmd.sort_order, SortOrder::Extension);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_sort_empty_errors
+    //
+    //  Verify empty sort arg returns error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_sort_empty_errors() {
@@ -447,7 +677,17 @@ mod tests {
         assert!(CommandLine::parse_from(["/o:"]).is_err());
     }
 
-    // ── Attribute filter ──────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_attrs_required
+    //
+    //  Verify /A:D sets required attribute.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_attrs_required() {
@@ -455,11 +695,35 @@ mod tests {
         assert_ne!(cmd.attrs_required & 0x10, 0); // FILE_ATTRIBUTE_DIRECTORY = 0x10
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_attrs_excluded
+    //
+    //  Verify /A:-H sets excluded attribute.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_attrs_excluded() {
         let cmd = CommandLine::parse_from(["/a:-h"]).unwrap();
         assert_ne!(cmd.attrs_excluded & 0x02, 0); // FILE_ATTRIBUTE_HIDDEN = 0x02
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_attrs_mixed
+    //
+    //  Verify mixed required and excluded attributes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_attrs_mixed() {
@@ -470,12 +734,34 @@ mod tests {
         assert_ne!(cmd.attrs_required & 0x04, 0); // S required
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_attrs_double_dash_error
+    //
+    //  Verify double dash in /A returns error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_attrs_double_dash_error() {
         assert!(CommandLine::parse_from(["/a:--d"]).is_err());
     }
 
-    // ── Time field ────────────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_time_creation
+    //
+    //  Verify /T:C sets creation time field.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_time_creation() {
@@ -483,11 +769,35 @@ mod tests {
         assert_eq!(cmd.time_field, TimeField::Creation);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_time_access
+    //
+    //  Verify /T:A sets access time field.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_time_access() {
         let cmd = CommandLine::parse_from(["/t:a"]).unwrap();
         assert_eq!(cmd.time_field, TimeField::Access);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_time_no_colon
+    //
+    //  Verify /TW without colon works.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_time_no_colon() {
@@ -495,7 +805,17 @@ mod tests {
         assert_eq!(cmd.time_field, TimeField::Written);
     }
 
-    // ── Long switches ─────────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_env_double_dash
+    //
+    //  Verify --env enables show_env_help.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_long_switch_env_double_dash() {
@@ -503,11 +823,35 @@ mod tests {
         assert!(cmd.show_env_help);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_env_slash
+    //
+    //  Verify /env enables show_env_help.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_long_switch_env_slash() {
         let cmd = CommandLine::parse_from(["/env"]).unwrap();
         assert!(cmd.show_env_help);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_single_dash_error
+    //
+    //  Verify -env (single dash) returns error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_long_switch_single_dash_error() {
@@ -515,11 +859,35 @@ mod tests {
         assert!(CommandLine::parse_from(["-env"]).is_err());
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_config
+    //
+    //  Verify /config enables show_config.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_long_switch_config() {
         let cmd = CommandLine::parse_from(["/config"]).unwrap();
         assert!(cmd.show_config);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_owner
+    //
+    //  Verify --owner enables show_owner.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_long_switch_owner() {
@@ -527,11 +895,35 @@ mod tests {
         assert!(cmd.show_owner);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_streams
+    //
+    //  Verify /streams enables show_streams.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_long_switch_streams() {
         let cmd = CommandLine::parse_from(["/streams"]).unwrap();
         assert!(cmd.show_streams);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_case_insensitive
+    //
+    //  Verify long switches are case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_long_switch_case_insensitive() {
@@ -542,7 +934,17 @@ mod tests {
         assert!(cmd2.show_owner);
     }
 
-    // ── File masks ────────────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_masks
+    //
+    //  Verify positional arguments parsed as masks.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_masks() {
@@ -552,6 +954,18 @@ mod tests {
         assert_eq!(cmd.masks[1], "*.toml");
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_mixed_masks_and_switches
+    //
+    //  Verify masks and switches can be intermixed.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_mixed_masks_and_switches() {
         let cmd = CommandLine::parse_from(["*.rs", "/s", "*.toml", "/o:n"]).unwrap();
@@ -560,7 +974,17 @@ mod tests {
         assert_eq!(cmd.sort_order, SortOrder::Name);
     }
 
-    // ── Config defaults ───────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_config_defaults
+    //
+    //  Verify Config defaults are applied to CommandLine.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn apply_config_defaults() {
@@ -577,7 +1001,17 @@ mod tests {
         assert!(!cmd.multi_threaded);
     }
 
-    // ── Switch prefix tracking ────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_prefix_tracks_last_used
+    //
+    //  Verify switch_prefix tracks the last prefix used.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn switch_prefix_tracks_last_used() {
@@ -588,7 +1022,17 @@ mod tests {
         assert_eq!(cmd2.switch_prefix, '-');
     }
 
-    // ── Sort preference tiebreaker ────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sort_preference_default
+    //
+    //  Verify default sort preference chain.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn sort_preference_default() {
@@ -599,6 +1043,18 @@ mod tests {
         assert_eq!(cmd.sort_preference[3], SortOrder::Extension);
         assert_eq!(cmd.sort_preference[4], SortOrder::Size);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sort_preference_updated_on_sort
+    //
+    //  Verify sort preference[0] updated on sort.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn sort_preference_updated_on_sort() {

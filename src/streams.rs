@@ -17,14 +17,23 @@ use crate::directory_info::DirectoryInfo;
 use crate::file_info::{FindHandle, StreamInfo};
 use crate::listing_totals::ListingTotals;
 
-/// Enumerate alternate data streams for all non-directory files in a DirectoryInfo.
-///
-/// For each file that has streams (beyond the default ::$DATA), populates
-/// `file_info.streams` with StreamInfo entries, updates `di.stream_count`,
-/// `di.stream_bytes_used`, and `di.largest_file_size`. Also updates the
-/// global `totals` for recursive summaries.
-///
-/// Port of: CDirectoryLister::HandleFileMatchStreams
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  enumerate_streams
+//
+//  Enumerate alternate data streams for all non-directory files in a
+//  DirectoryInfo. Populates file_info.streams with StreamInfo entries,
+//  updates di.stream_count, di.stream_bytes_used, and
+//  di.largest_file_size. Also updates the global totals for recursive
+//  summaries.
+//  Port of: CDirectoryLister::HandleFileMatchStreams
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn enumerate_streams(di: &mut DirectoryInfo, totals: &mut ListingTotals) {
     use windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_DIRECTORY;
 
@@ -54,14 +63,23 @@ pub fn enumerate_streams(di: &mut DirectoryInfo, totals: &mut ListingTotals) {
     }
 }
 
-/// Enumerate alternate data streams for a single file.
-///
-/// Returns a Vec of StreamInfo for each non-default stream found.
-/// The default unnamed data stream (::$DATA) is skipped.
-/// Stream names have the ":$DATA" suffix stripped.
-///
-/// Returns an empty Vec if the file has no alternate streams or if
-/// the call fails (e.g., non-NTFS volume).
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  enumerate_file_streams
+//
+//  Enumerate alternate data streams for a single file.
+//  Returns a Vec of StreamInfo for each non-default stream found.
+//  The default unnamed data stream (::$DATA) is skipped.
+//  Stream names have the ":$DATA" suffix stripped.
+//  Returns an empty Vec if the file has no alternate streams or if
+//  the call fails (e.g., non-NTFS volume).
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn enumerate_file_streams(file_path: &OsStr) -> Vec<StreamInfo> {
     let path_wide: Vec<u16> = file_path.encode_wide().chain(Some(0)).collect();
     let mut stream_data = WIN32_FIND_STREAM_DATA::default();
@@ -104,10 +122,20 @@ pub fn enumerate_file_streams(file_path: &OsStr) -> Vec<StreamInfo> {
     results
 }
 
-/// Process a WIN32_FIND_STREAM_DATA entry into a StreamInfo.
-///
-/// Skips the default unnamed data stream (::$DATA).
-/// Strips the ":$DATA" suffix from the stream name.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  process_stream_data
+//
+//  Process a WIN32_FIND_STREAM_DATA entry into a StreamInfo.
+//  Skips the default unnamed data stream (::$DATA).
+//  Strips the ":$DATA" suffix from the stream name.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn process_stream_data(data: &WIN32_FIND_STREAM_DATA) -> Option<StreamInfo> {
     // Convert stream name from wide string
     let name_len = data.cStreamName.iter().position(|&c| c == 0).unwrap_or(data.cStreamName.len());
@@ -131,10 +159,22 @@ fn process_stream_data(data: &WIN32_FIND_STREAM_DATA) -> Option<StreamInfo> {
     })
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::ffi::OsString;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_stream_data_skips_default
+    //
+    //  Verify that the default ::$DATA stream is skipped.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn process_stream_data_skips_default() {
@@ -146,6 +186,18 @@ mod tests {
         data.StreamSize = 1024;
         assert!(process_stream_data(&data).is_none());
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_stream_data_strips_suffix
+    //
+    //  Verify that :$DATA suffix is stripped from stream names.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn process_stream_data_strips_suffix() {
@@ -160,6 +212,18 @@ mod tests {
         assert_eq!(si.size, 512);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_stream_data_no_suffix
+    //
+    //  Verify stream names without :$DATA suffix are preserved as-is.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn process_stream_data_no_suffix() {
         let mut data = WIN32_FIND_STREAM_DATA::default();
@@ -173,12 +237,36 @@ mod tests {
         assert_eq!(si.size, 256);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  enumerate_nonexistent_file_returns_empty
+    //
+    //  Nonexistent file should return an empty stream list.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn enumerate_nonexistent_file_returns_empty() {
         let path = OsString::from("C:\\__definitely_nonexistent_file_12345__.txt");
         let streams = enumerate_file_streams(&path);
         assert!(streams.is_empty());
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  enumerate_current_exe_no_panic
+    //
+    //  Enumerating the current exe should not panic.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn enumerate_current_exe_no_panic() {

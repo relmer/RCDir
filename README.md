@@ -1,9 +1,9 @@
 # RCDir
 
+This is a Rust port of [TCDir](https://github.com/relmer/TCDir).
+
 RCDir ("Rust Colorized Directory") is a fast, colorized directory listing tool for Windows consoles.
 It's designed as a practical `dir`-style command with useful defaults (color by extension/attributes, sorting, recursion, wide output, and a multi-threaded enumerator).
-
-This is a Rust port of [TCDir](https://github.com/relmer/TCDir).
 
 ![RCDir basic listing](Assets/TCDir.png)
 

@@ -6,6 +6,10 @@
 use std::fmt;
 use std::path::PathBuf;
 
+
+
+
+
 /// Unified error type for RCDir.
 /// Maps to TCDir's HRESULT failure codes.
 #[derive(Debug)]
@@ -23,6 +27,18 @@ pub enum AppError {
     PathNotFound(PathBuf),
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl fmt::Display for AppError
+//
+//  Formats AppError variants for display output.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -36,6 +52,18 @@ impl fmt::Display for AppError {
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl std::error::Error for AppError
+//
+//  Returns the underlying error source, if any.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl std::error::Error for AppError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -46,11 +74,35 @@ impl std::error::Error for AppError {
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl From<windows::core::Error> for AppError
+//
+//  Converts a Win32 error into AppError::Win32.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl From<windows::core::Error> for AppError {
     fn from(e: windows::core::Error) -> Self {
         AppError::Win32(e)
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl From<std::io::Error> for AppError
+//
+//  Converts a standard I/O error into AppError::Io.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 impl From<std::io::Error> for AppError {
     fn from(e: std::io::Error) -> Self {
@@ -58,9 +110,21 @@ impl From<std::io::Error> for AppError {
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_invalid_arg
+    //
+    //  Verifies display output for InvalidArg error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn display_invalid_arg() {
@@ -68,11 +132,35 @@ mod tests {
         assert_eq!(format!("{}", e), "bad switch");
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_path_not_found
+    //
+    //  Verifies display output for PathNotFound error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn display_path_not_found() {
         let e = AppError::PathNotFound(PathBuf::from(r"C:\NoSuchDir"));
         assert_eq!(format!("{}", e), r"Error:   C:\NoSuchDir does not exist");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  from_io_error
+    //
+    //  Verifies conversion from std::io::Error to AppError::Io.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn from_io_error() {
@@ -80,6 +168,18 @@ mod tests {
         let app_err: AppError = io_err.into();
         assert!(matches!(app_err, AppError::Io(_)));
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  from_win32_error
+    //
+    //  Verifies conversion from windows::core::Error to AppError::Win32.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn from_win32_error() {

@@ -7,6 +7,10 @@ use std::sync::{Arc, Mutex, Condvar};
 
 use crate::file_info::FileInfo;
 
+
+
+
+
 /// Multithreading status for a directory enumeration job.
 /// Port of: CDirectoryInfo::Status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -16,6 +20,10 @@ pub enum DirectoryStatus {
     Done,
     Error,
 }
+
+
+
+
 
 /// Port of: CDirectoryInfo
 ///
@@ -40,7 +48,27 @@ pub struct DirectoryInfo {
     pub children:            Vec<Arc<(Mutex<DirectoryInfo>, Condvar)>>,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl DirectoryInfo
+//
+//  Construction of directory info entries for listing.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl DirectoryInfo {
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a DirectoryInfo for a single file spec.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new(dir_path: PathBuf, file_spec: String) -> Self {
         DirectoryInfo {
             matches:            Vec::new(),
@@ -58,6 +86,18 @@ impl DirectoryInfo {
             children:           Vec::new(),
         }
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new_multi
+    //
+    //  Create a DirectoryInfo for multiple file specs.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     pub fn new_multi(dir_path: PathBuf, file_specs: Vec<String>) -> Self {
         DirectoryInfo {

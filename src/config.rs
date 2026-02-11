@@ -12,10 +12,18 @@ use crate::color::*;
 use crate::environment_provider::{DefaultEnvironmentProvider, EnvironmentProvider};
 use crate::file_info::FILE_ATTRIBUTE_MAP;
 
+
+
+
+
 /// Environment variable name
 pub const RCDIR_ENV_VAR_NAME: &str = "RCDIR";
 
-// ── Display attribute enum (X-Macro equivalent) ───────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Display item attribute indices — determines what color is used for each UI element.
 /// Port of: Config.h → EAttribute (X-Macro EATTRIBUTE_LIST)
@@ -40,6 +48,18 @@ pub enum Attribute {
     CloudStatusAlwaysLocallyAvailable = 15,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Attribute
+//
+//  Attribute enum utility methods and constants.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl Attribute {
     pub const COUNT: usize = 16;
 
@@ -63,8 +83,15 @@ impl Attribute {
         Attribute::CloudStatusAlwaysLocallyAvailable,
     ];
 
-    /// Lookup attribute by name (for {MarkerName} color markers in ColorPrintf).
-    /// Case-sensitive match to match TCDir's X-Macro generated table.
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  from_name
+    //
+    //  Lookup attribute by name (for {MarkerName} color markers in ColorPrintf).
+    //  Case-sensitive match to match TCDir's X-Macro generated table.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn from_name(name: &str) -> Option<Attribute> {
         match name {
             "Default"                           => Some(Attribute::Default),
@@ -87,7 +114,18 @@ impl Attribute {
         }
     }
 
-    /// Get the display name of this attribute.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  name
+    //
+    //  Get the display name of this attribute.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn name(&self) -> &'static str {
         match self {
             Attribute::Default                           => "Default",
@@ -109,8 +147,19 @@ impl Attribute {
         }
     }
 
-    /// Single-char key used in RCDIR env var for display attribute overrides.
-    /// Returns None for attributes without a short key.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_key
+    //
+    //  Single-char key used in RCDIR env var for display attribute overrides.
+    //  Returns None for attributes without a short key.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn env_key(&self) -> Option<char> {
         match self {
             Attribute::Date                    => Some('D'),
@@ -130,7 +179,11 @@ impl Attribute {
     }
 }
 
-// ── Attribute source tracking ─────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttributeSource {
@@ -138,13 +191,21 @@ pub enum AttributeSource {
     Environment,
 }
 
+
+
+
+
 #[derive(Debug, Clone)]
 pub struct FileAttrStyle {
     pub attr:   u16,
     pub source: AttributeSource,
 }
 
-// ── Error info for env var validation ─────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug, Clone)]
 pub struct ErrorInfo {
@@ -154,10 +215,26 @@ pub struct ErrorInfo {
     pub invalid_text_offset:  usize,
 }
 
+
+
+
+
 #[derive(Debug, Clone, Default)]
 pub struct ValidationResult {
     pub errors: Vec<ErrorInfo>,
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl ValidationResult
+//
+//  Returns true if there are any validation errors.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 impl ValidationResult {
     pub fn has_issues(&self) -> bool {
@@ -165,7 +242,11 @@ impl ValidationResult {
     }
 }
 
-// ── Config struct ─────────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub struct Config {
     /// Display item colors (indexed by Attribute enum)
@@ -183,7 +264,7 @@ pub struct Config {
     /// File attribute flag → color+source
     pub file_attr_colors:   HashMap<u32, FileAttrStyle>,
 
-    // ── Switch defaults from RCDIR env var ────────────────────────────
+    ////////////////////////////////////////////////////////////////////////////
 
     pub wide_listing:   Option<bool>,
     pub bare_listing:   Option<bool>,
@@ -197,15 +278,47 @@ pub struct Config {
     pub last_parse_result: ValidationResult,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Default for Config
+//
+//  Default trait implementation for Config.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl Default for Config {
     fn default() -> Self {
         Self::new()
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Config
+//
+//  Configuration initialization, color management, and environment parsing.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl Config {
-    /// Create a new Config with no defaults initialized.
-    /// Call `initialize()` to set up default colors and parse env var.
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a new Config with no defaults initialized.
+    //  Call initialize() to set up default colors and parse env var.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new() -> Self {
         Config {
             attributes:        [0u16; Attribute::COUNT],
@@ -224,15 +337,38 @@ impl Config {
         }
     }
 
-    /// Initialize with default colors and parse RCDIR env var.
-    /// `default_attr` is the console's default text attribute (typically LightGrey on Black = 0x07).
-    ///
-    /// Port of: CConfig::Initialize
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize
+    //
+    //  Initialize with default colors and parse RCDIR env var.
+    //  default_attr is the console's default text attribute (typically
+    //  LightGrey on Black = 0x07).
+    //
+    //  Port of: CConfig::Initialize
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn initialize(&mut self, default_attr: u16) {
         self.initialize_with_provider(default_attr, &DefaultEnvironmentProvider);
     }
 
-    /// Initialize with a specific environment provider (for testing).
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize_with_provider
+    //
+    //  Initialize with a specific environment provider (for testing).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn initialize_with_provider(&mut self, default_attr: u16, provider: &dyn EnvironmentProvider) {
         // Set default display item colors
         // Port of: CConfig::Initialize() hardcoded defaults
@@ -258,13 +394,24 @@ impl Config {
         self.apply_user_color_overrides(provider);
     }
 
-    /// Resolve which color to use for a file based on priority:
-    /// 1. File attribute colors (in fixed precedence order)
-    /// 2. Directory color
-    /// 3. Extension color
-    /// 4. Default filename color
-    ///
-    /// Port of: CConfig::GetTextAttrForFile
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  get_text_attr_for_file
+    //
+    //  Resolve which color to use for a file based on priority:
+    //  1. File attribute colors (in fixed precedence order)
+    //  2. Directory color
+    //  3. Extension color
+    //  4. Default filename color
+    //
+    //  Port of: CConfig::GetTextAttrForFile
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn get_text_attr_for_file(&self, file_attributes: u32, file_name: &OsStr) -> u16 {
         let default_attr = self.attributes[Attribute::Default as usize];
 
@@ -314,14 +461,34 @@ impl Config {
         attr
     }
 
-    /// Return the validation result from the last env var parse.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  validate_environment_variable
+    //
+    //  Return the validation result from the last env var parse.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn validate_environment_variable(&self) -> &ValidationResult {
         &self.last_parse_result
     }
 
-    // ── Default extension colors ──────────────────────────────────────────
 
-    /// Port of: CConfig::InitializeExtensionToTextAttrMap + s_rgTextAttrs[]
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize_extension_colors
+    //
+    //  Port of: CConfig::InitializeExtensionToTextAttrMap + s_rgTextAttrs[]
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn initialize_extension_colors(&mut self) {
         let defaults: &[(&str, u16)] = &[
             // Code — source
@@ -415,9 +582,18 @@ impl Config {
         }
     }
 
-    // ── Default file attribute colors ─────────────────────────────────────
 
-    /// Port of: CConfig::InitializeFileAttributeToTextAttrMap
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize_file_attr_colors
+    //
+    //  Port of: CConfig::InitializeFileAttributeToTextAttrMap
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn initialize_file_attr_colors(&mut self) {
         self.file_attr_colors.clear();
 
@@ -434,11 +610,21 @@ impl Config {
         });
     }
 
-    // ── RCDIR environment variable parsing ────────────────────────────────
 
-    /// Parse the RCDIR environment variable for user color overrides and switch defaults.
-    ///
-    /// Port of: CConfig::ApplyUserColorOverrides
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_user_color_overrides
+    //
+    //  Parse the RCDIR environment variable for user color overrides and
+    //  switch defaults.
+    //
+    //  Port of: CConfig::ApplyUserColorOverrides
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn apply_user_color_overrides(&mut self, provider: &dyn EnvironmentProvider) {
         self.last_parse_result.errors.clear();
 
@@ -456,9 +642,20 @@ impl Config {
         }
     }
 
-    /// Process a single entry from the RCDIR env var.
-    ///
-    /// Port of: CConfig::ProcessColorOverrideEntry
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_color_override_entry
+    //
+    //  Process a single entry from the RCDIR env var.
+    //
+    //  Port of: CConfig::ProcessColorOverrideEntry
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn process_color_override_entry(&mut self, entry: &str) {
         // Check for switch prefixes (/, -, --) — not allowed in env var
         if entry.starts_with('/') || entry.starts_with('-') {
@@ -520,8 +717,20 @@ impl Config {
         }
     }
 
-    /// Parse a color value in format: "FgColor [on BgColor]"
-    /// Port of: CConfig::ParseColorValue
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_value
+    //
+    //  Parse a color value in format: "FgColor [on BgColor]"
+    //
+    //  Port of: CConfig::ParseColorValue
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn parse_color_value(&mut self, entry: &str, value: &str) -> Option<u16> {
         let lower = value.to_ascii_lowercase();
         let on_pos = lower.find(" on ");
@@ -571,8 +780,21 @@ impl Config {
         Some(fore | back)
     }
 
-    /// Process a switch override from env var (e.g., "W", "M-", "Owner", "Streams")
-    /// Port of: CConfig::ProcessSwitchOverride + ProcessLongSwitchOverride
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_switch_override
+    //
+    //  Process a switch override from env var (e.g., "W", "M-", "Owner",
+    //  "Streams").
+    //
+    //  Port of: CConfig::ProcessSwitchOverride + ProcessLongSwitchOverride
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn process_switch_override(&mut self, entry: &str) {
         // Try long switches first
         if entry.len() >= 5 {
@@ -618,11 +840,35 @@ impl Config {
         }
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_file_extension_override
+    //
+    //  Apply a file extension color override from the env var.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn process_file_extension_override(&mut self, key: &str, color_attr: u16) {
         let lower_key = key.to_ascii_lowercase();
         self.extension_colors.insert(lower_key.clone(), color_attr);
         self.extension_sources.insert(lower_key, AttributeSource::Environment);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_display_attribute_override
+    //
+    //  Apply a display attribute color override from the env var.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     fn process_display_attribute_override(&mut self, ch: char, color_attr: u16, entry: &str) {
         let ch_upper = ch.to_ascii_uppercase();
@@ -643,6 +889,18 @@ impl Config {
             invalid_text_offset: 0,
         });
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_file_attribute_override
+    //
+    //  Apply a file attribute color override from the env var.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     fn process_file_attribute_override(&mut self, key: &str, color_attr: u16, entry: &str) {
         // Format: attr:X where X is the attribute char
@@ -679,12 +937,21 @@ impl Config {
     }
 }
 
-// ── Helper functions ──────────────────────────────────────────────────────────
 
-/// Check if an entry is a valid switch name (no prefix).
-/// Valid: W, S, P, M, B, M-, Owner, Streams (case-insensitive)
-///
-/// Port of: CConfig::IsSwitchName
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  is_switch_name
+//
+//  Check if an entry is a valid switch name (no prefix).
+//  Valid: W, S, P, M, B, M-, Owner, Streams (case-insensitive)
+//
+//  Port of: CConfig::IsSwitchName
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn is_switch_name(entry: &str) -> bool {
     // Single-letter switches (optionally with '-' suffix)
     if entry.len() == 1 || (entry.len() == 2 && entry.as_bytes()[1] == b'-') {
@@ -703,7 +970,18 @@ fn is_switch_name(entry: &str) -> bool {
     false
 }
 
-/// Split an entry on '=' into key and value, trimming whitespace.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parse_key_and_value
+//
+//  Split an entry on '=' into key and value, trimming whitespace.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn parse_key_and_value(entry: &str) -> Option<(&str, &str)> {
     let eq_pos = entry.find('=')?;
     let key = entry[..eq_pos].trim();
@@ -716,6 +994,18 @@ fn parse_key_and_value(entry: &str) -> Option<(&str, &str)> {
     Some((key, value))
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl std::fmt::Debug for Config
+//
+//  Debug trait implementation for Config.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl std::fmt::Debug for Config {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Config")
@@ -725,10 +1015,23 @@ impl std::fmt::Debug for Config {
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::environment_provider::MockEnvironmentProvider;
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  make_config
+    //
+    //  Test helper: creates a Config with optional RCDIR env var value.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     fn make_config(env_value: Option<&str>) -> Config {
         let mut config = Config::new();
@@ -740,7 +1043,17 @@ mod tests {
         config
     }
 
-    // ── Default colors ────────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_date_color
+    //
+    //  Verifies the default date color is Red.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn default_date_color() {
@@ -748,17 +1061,53 @@ mod tests {
         assert_eq!(config.attributes[Attribute::Date as usize], FC_RED);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_size_color
+    //
+    //  Verifies the default size color is Yellow.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn default_size_color() {
         let config = make_config(None);
         assert_eq!(config.attributes[Attribute::Size as usize], FC_YELLOW);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_directory_color
+    //
+    //  Verifies the default directory color is LightBlue.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn default_directory_color() {
         let config = make_config(None);
         assert_eq!(config.attributes[Attribute::Directory as usize], FC_LIGHT_BLUE);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_extension_count
+    //
+    //  Verifies the default extension count is at least 70.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn default_extension_count() {
@@ -767,11 +1116,35 @@ mod tests {
         assert!(config.extension_colors.len() >= 70);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_cpp_color
+    //
+    //  Verifies the default .cpp color is LightGreen.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn default_cpp_color() {
         let config = make_config(None);
         assert_eq!(*config.extension_colors.get(".cpp").unwrap(), FC_LIGHT_GREEN);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_zip_color
+    //
+    //  Verifies the default .zip color is Magenta.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn default_zip_color() {
@@ -779,7 +1152,17 @@ mod tests {
         assert_eq!(*config.extension_colors.get(".zip").unwrap(), FC_MAGENTA);
     }
 
-    // ── Env var switch defaults ───────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_switch_wide
+    //
+    //  Verifies the W switch enables wide listing.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_switch_wide() {
@@ -787,11 +1170,35 @@ mod tests {
         assert_eq!(config.wide_listing, Some(true));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_switch_disable
+    //
+    //  Verifies the M- switch disables multi-threading.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn env_switch_disable() {
         let config = make_config(Some("M-"));
         assert_eq!(config.multi_threaded, Some(false));
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_switch_multiple
+    //
+    //  Verifies multiple switches (W;S;P) are parsed correctly.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_switch_multiple() {
@@ -801,11 +1208,35 @@ mod tests {
         assert_eq!(config.perf_timer, Some(true));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_switch_owner
+    //
+    //  Verifies the Owner switch enables owner display.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn env_switch_owner() {
         let config = make_config(Some("Owner"));
         assert_eq!(config.show_owner, Some(true));
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_switch_streams
+    //
+    //  Verifies the Streams switch enables streams display.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_switch_streams() {
@@ -813,7 +1244,17 @@ mod tests {
         assert_eq!(config.show_streams, Some(true));
     }
 
-    // ── Env var color overrides ───────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_display_attribute_override
+    //
+    //  Verifies a display attribute color override (D=LightGreen).
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_display_attribute_override() {
@@ -822,12 +1263,36 @@ mod tests {
         assert_eq!(config.attribute_sources[Attribute::Date as usize], AttributeSource::Environment);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_extension_override
+    //
+    //  Verifies an extension color override (.rs=Cyan).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn env_extension_override() {
         let config = make_config(Some(".rs=Cyan"));
         assert_eq!(*config.extension_colors.get(".rs").unwrap(), FC_CYAN);
         assert_eq!(*config.extension_sources.get(".rs").unwrap(), AttributeSource::Environment);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_extension_override_case_insensitive
+    //
+    //  Verifies extension overrides are case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_extension_override_case_insensitive() {
@@ -836,11 +1301,35 @@ mod tests {
         assert_eq!(*config.extension_colors.get(".rs").unwrap(), FC_YELLOW);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_color_with_background
+    //
+    //  Verifies a color override with background (D=LightCyan on Blue).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn env_color_with_background() {
         let config = make_config(Some("D=LightCyan on Blue"));
         assert_eq!(config.attributes[Attribute::Date as usize], FC_LIGHT_CYAN | BC_BLUE);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_file_attribute_override
+    //
+    //  Verifies a file attribute color override (Attr:H=Yellow).
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_file_attribute_override() {
@@ -850,7 +1339,17 @@ mod tests {
         assert_eq!(style.source, AttributeSource::Environment);
     }
 
-    // ── Env var error detection ───────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_prefix_error
+    //
+    //  Verifies switch prefixes (/, -) produce an error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_prefix_error() {
@@ -858,11 +1357,35 @@ mod tests {
         assert!(config.last_parse_result.has_issues());
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_invalid_color_error
+    //
+    //  Verifies an invalid color name produces an error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn env_invalid_color_error() {
         let config = make_config(Some("D=Purple"));
         assert!(config.last_parse_result.has_issues());
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_combined_valid_and_invalid
+    //
+    //  Verifies valid and invalid entries can coexist in the env var.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn env_combined_valid_and_invalid() {
@@ -873,7 +1396,17 @@ mod tests {
         assert!(config.last_parse_result.has_issues());
     }
 
-    // ── GetTextAttrForFile ────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  text_attr_for_cpp_file
+    //
+    //  Verifies .cpp files get the LightGreen color.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn text_attr_for_cpp_file() {
@@ -883,6 +1416,18 @@ mod tests {
         assert_eq!(attr & FC_MASK, FC_LIGHT_GREEN);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  text_attr_for_directory
+    //
+    //  Verifies directories get the LightBlue color.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn text_attr_for_directory() {
         let config = make_config(None);
@@ -890,12 +1435,36 @@ mod tests {
         assert_eq!(attr & FC_MASK, FC_LIGHT_BLUE);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  text_attr_for_hidden_file
+    //
+    //  Verifies hidden files get the DarkGrey color.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn text_attr_for_hidden_file() {
         let config = make_config(None);
         let attr = config.get_text_attr_for_file(0x02, OsStr::new("hidden.txt"));
         assert_eq!(attr & FC_MASK, FC_DARK_GREY);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  text_attr_hidden_overrides_extension
+    //
+    //  Verifies hidden attribute overrides extension color.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn text_attr_hidden_overrides_extension() {
@@ -905,6 +1474,18 @@ mod tests {
         assert_eq!(attr & FC_MASK, FC_DARK_GREY);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  text_attr_for_unknown_extension
+    //
+    //  Verifies unknown extensions get the default color.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn text_attr_for_unknown_extension() {
         let config = make_config(None);
@@ -913,7 +1494,17 @@ mod tests {
         assert_eq!(attr & FC_MASK, FC_LIGHT_GREY);
     }
 
-    // ── Attribute enum ────────────────────────────────────────────────────
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  attribute_from_name_valid
+    //
+    //  Verifies valid attribute names resolve correctly.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn attribute_from_name_valid() {
@@ -922,11 +1513,35 @@ mod tests {
         assert_eq!(Attribute::from_name("Default"), Some(Attribute::Default));
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  attribute_from_name_invalid
+    //
+    //  Verifies invalid attribute names return None.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn attribute_from_name_invalid() {
         assert_eq!(Attribute::from_name("invalid"), None);
         assert_eq!(Attribute::from_name(""), None);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  attribute_name_roundtrip
+    //
+    //  Verifies all attribute names round-trip through from_name.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn attribute_name_roundtrip() {
@@ -935,6 +1550,18 @@ mod tests {
             assert_eq!(Attribute::from_name(name), Some(*attr));
         }
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  attribute_count
+    //
+    //  Verifies the attribute count is 16.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn attribute_count() {

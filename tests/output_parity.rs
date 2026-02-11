@@ -12,7 +12,18 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Get the path to the native TCDir executable.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_tcdir_exe
+//
+//  Get the path to the native TCDir executable.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn get_tcdir_exe() -> Option<PathBuf> {
     // Check env var first
     if let Ok(path) = std::env::var("TCDIR_EXE") {
@@ -38,7 +49,18 @@ fn get_tcdir_exe() -> Option<PathBuf> {
     None
 }
 
-/// Get the path to the RCDir executable (built by cargo)
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_rcdir_exe
+//
+//  Get the path to the RCDir executable (built by cargo).
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn get_rcdir_exe() -> PathBuf {
     let mut path = std::env::current_exe().unwrap();
     // tests are in target/debug/deps/, executable is in target/debug/
@@ -53,7 +75,18 @@ fn get_rcdir_exe() -> PathBuf {
     path
 }
 
-/// Run a command and capture stdout as a string.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  run_command
+//
+//  Run a command and capture stdout as a string.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn run_command(exe: &Path, args: &[&str]) -> String {
     let output = Command::new(exe)
         .args(args)
@@ -63,8 +96,20 @@ fn run_command(exe: &Path, args: &[&str]) -> String {
     String::from_utf8_lossy(&output.stdout).to_string()
 }
 
-/// Filter lines for comparison — remove timing lines, free space lines, and bytes-available lines.
-/// Does NOT strip ANSI codes — output must be byte-identical including escape sequences.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  filter_lines
+//
+//  Filter lines for comparison — remove timing lines, free space lines, and
+//  bytes-available lines.  Does NOT strip ANSI codes — output must be
+//  byte-identical including escape sequences.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn filter_lines(output: &str) -> Vec<String> {
     output
         .lines()
@@ -90,7 +135,19 @@ fn filter_lines(output: &str) -> Vec<String> {
         .collect()
 }
 
-/// Strip ANSI escape sequences from a string — used only for filter pattern matching.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  strip_ansi_for_check
+//
+//  Strip ANSI escape sequences from a string — used only for filter pattern
+//  matching.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn strip_ansi_for_check(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
@@ -114,8 +171,19 @@ fn strip_ansi_for_check(s: &str) -> String {
     result
 }
 
-/// Compare RCDir and TCDir output for given arguments.
-/// Returns (matching, total, differences) where differences lists the first N mismatches.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_output
+//
+//  Compare RCDir and TCDir output for given arguments.  Returns (matching,
+//  total, differences) where differences lists the first N mismatches.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn compare_output(args: &[&str]) -> (usize, usize, Vec<String>) {
     let tcdir = match get_tcdir_exe() {
         Some(p) => p,
@@ -152,6 +220,18 @@ fn compare_output(args: &[&str]) -> (usize, usize, Vec<String>) {
     (matching, max_lines, differences)
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_single_dir
+//
+//  Verifies output parity for a single directory listing of src/*.rs.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 #[test]
 fn parity_single_dir() {
     let test_dir = std::env::current_dir().unwrap();
@@ -169,6 +249,18 @@ fn parity_single_dir() {
         );
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_sorted_by_size
+//
+//  Verifies output parity when listing files sorted by size (/os).
+//
+////////////////////////////////////////////////////////////////////////////////
 
 #[test]
 fn parity_sorted_by_size() {
@@ -188,6 +280,18 @@ fn parity_sorted_by_size() {
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_wide_listing
+//
+//  Verifies output parity for wide listing format (/w).
+//
+////////////////////////////////////////////////////////////////////////////////
+
 #[test]
 fn parity_wide_listing() {
     let test_dir = std::env::current_dir().unwrap();
@@ -206,6 +310,18 @@ fn parity_wide_listing() {
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_bare_listing
+//
+//  Verifies output parity for bare listing format (/b).
+//
+////////////////////////////////////////////////////////////////////////////////
+
 #[test]
 fn parity_bare_listing() {
     let test_dir = std::env::current_dir().unwrap();
@@ -223,6 +339,18 @@ fn parity_bare_listing() {
         );
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_directory_filter
+//
+//  Verifies output parity when filtering for directories only (/a:d).
+//
+////////////////////////////////////////////////////////////////////////////////
 
 #[test]
 fn parity_directory_filter() {

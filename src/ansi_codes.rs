@@ -1,7 +1,8 @@
 // ansi_codes.rs — ANSI escape sequence constants
 //
 // Port of: AnsiCodes.h
-// Maps Windows console color indices (4-bit WORD) to ANSI SGR codes.
+// Maps Windows console color indices (4-bit WORD) to ANSI SGR (Select Graphic
+// Rendition) codes.
 
 /// Reset all attributes sequence: ESC[0m
 pub const RESET_ALL: &str = "\x1b[0m";
@@ -39,11 +40,18 @@ pub const CONSOLE_COLOR_TO_ANSI: [i32; 8] = [
     FG_WHITE,     // 7: White   -> 37
 ];
 
-/// Convert a Windows console WORD (4-bit fg | 4-bit bg<<4) to an ANSI SGR sequence
-/// and write it into the provided buffer string.
-///
-/// Format: ESC[{fg};{bg}m
-/// Example: word 0x0C (bright red on black) → "\x1b[91;40m"
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  write_sgr
+//
+//  Convert a Windows console WORD to an ANSI SGR escape sequence.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn write_sgr(buf: &mut String, attr: u16) {
     use std::fmt::Write;
 
@@ -65,9 +73,21 @@ pub fn write_sgr(buf: &mut String, attr: u16) {
     let _ = write!(buf, "\x1b[{};{}m", fg_code, bg_code);
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sgr_bright_red_on_black
+    //
+    //  Verifies SGR output for bright red foreground on black background.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn sgr_bright_red_on_black() {
@@ -76,6 +96,18 @@ mod tests {
         write_sgr(&mut buf, 0x000C);
         assert_eq!(buf, "\x1b[91;40m");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sgr_white_on_blue
+    //
+    //  Verifies SGR output for white foreground on blue background.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn sgr_white_on_blue() {
@@ -87,6 +119,18 @@ mod tests {
         assert_eq!(buf, "\x1b[97;44m");
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sgr_default_grey_on_black
+    //
+    //  Verifies SGR output for light grey foreground on black background.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn sgr_default_grey_on_black() {
         // LightGrey fg (0x07) on black bg (0x00) = WORD 0x0007
@@ -94,6 +138,18 @@ mod tests {
         write_sgr(&mut buf, 0x0007);
         assert_eq!(buf, "\x1b[37;40m");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  sgr_yellow_on_dark_red
+    //
+    //  Verifies SGR output for yellow foreground on dark red background.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn sgr_yellow_on_dark_red() {
@@ -104,6 +160,18 @@ mod tests {
         // DarkRed bg=0x04: base 4 (Red=31) + 10 = 41
         assert_eq!(buf, "\x1b[93;41m");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  console_color_table_length
+    //
+    //  Verifies the console color lookup table has 8 entries.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn console_color_table_length() {

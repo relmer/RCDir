@@ -21,6 +21,10 @@ use crate::file_info::{FileInfo, FILE_ATTRIBUTE_MAP};
 use crate::listing_totals::ListingTotals;
 use crate::owner;
 
+
+
+
+
 /// Directory level for display formatting.
 /// Port of: IResultsDisplayer::EDirectoryLevel
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,14 +33,40 @@ pub enum DirectoryLevel {
     Subdirectory,
 }
 
+
+
+
+
 /// Trait for displaying directory listing results.
 /// Port of: IResultsDisplayer
 pub trait ResultsDisplayer {
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_results
+    //
+    //  Display results for a single directory.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_results(&mut self, drive_info: &DriveInfo, dir_info: &DirectoryInfo, level: DirectoryLevel);
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_recursive_summary
+    //
+    //  Display recursive summary after all directories.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_recursive_summary(&mut self, dir_info: &DirectoryInfo, totals: &ListingTotals);
 }
 
-// ── NormalDisplayer ───────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Standard format displayer — date, time, attributes, size, filename.
 ///
@@ -47,26 +77,88 @@ pub struct NormalDisplayer {
     config:  Arc<Config>,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl NormalDisplayer
+//
+//  Normal displayer construction and console access.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl NormalDisplayer {
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a new NormalDisplayer.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
         NormalDisplayer { console, cmd, config }
     }
 
-    /// Consume the displayer and return the Console for further use.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  into_console
+    //
+    //  Consume the displayer and return the Console for further use.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn into_console(self) -> Console {
         self.console
     }
 
-    /// Get a mutable reference to the console (for flushing from lib::run).
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  console_mut
+    //
+    //  Get a mutable reference to the console (for flushing from lib::run).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn console_mut(&mut self) -> &mut Console {
         &mut self.console
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl ResultsDisplayer for NormalDisplayer
+//
+//  Normal-format directory listing and recursive summary.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl ResultsDisplayer for NormalDisplayer {
-    /// Display results for a single directory.
-    ///
-    /// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayResults
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_results
+    //
+    //  Display results for a single directory.
+    //  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayResults
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_results(&mut self, drive_info: &DriveInfo, dir_info: &DirectoryInfo, level: DirectoryLevel) {
         // Skip empty subdirectories
         if level == DirectoryLevel::Subdirectory && dir_info.matches.is_empty() {
@@ -99,19 +191,37 @@ impl ResultsDisplayer for NormalDisplayer {
         let _ = self.console.flush();
     }
 
-    /// Display recursive summary after all directories.
-    ///
-    /// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayRecursiveSummary
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_recursive_summary
+    //
+    //  Display recursive summary after all directories.
+    //  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayRecursiveSummary
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_recursive_summary(&mut self, dir_info: &DirectoryInfo, totals: &ListingTotals) {
         display_listing_summary(&mut self.console, dir_info, totals);
     }
 }
 
-// ── Volume header ─────────────────────────────────────────────────────────────
 
-/// Display drive/volume header.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayDriveHeader
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_drive_header
+//
+//  Display drive/volume header.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayDriveHeader
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_drive_header(console: &mut Console, drive_info: &DriveInfo) {
     // First line: "Volume [path] is [description] [mapped to X] (filesystem)"
     if drive_info.is_unc_path {
@@ -156,11 +266,19 @@ fn display_drive_header(console: &mut Console, drive_info: &DriveInfo) {
     console.color_puts("");
 }
 
-// ── Path header ───────────────────────────────────────────────────────────────
 
-/// Display "Directory of <path>" header.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayPathHeader
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_path_header
+//
+//  Display "Directory of <path>" header.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayPathHeader
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_path_header(console: &mut Console, dir_info: &DirectoryInfo) {
     console.color_printf(&format!(
         "{{Information}} Directory of {{InformationHighlight}}{}{{Information}}\n\n",
@@ -168,11 +286,19 @@ fn display_path_header(console: &mut Console, dir_info: &DirectoryInfo) {
     ));
 }
 
-// ── Empty directory ───────────────────────────────────────────────────────────
 
-/// Display message when directory has no matches.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayEmptyDirectoryMessage
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_empty_directory_message
+//
+//  Display message when directory has no matches.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayEmptyDirectoryMessage
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_empty_directory_message(console: &mut Console, dir_info: &DirectoryInfo) {
     // Check if all specs are "*"
     let all_star = dir_info.file_specs.iter().all(|s| s == "*");
@@ -193,11 +319,19 @@ fn display_empty_directory_message(console: &mut Console, dir_info: &DirectoryIn
     }
 }
 
-// ── File results ──────────────────────────────────────────────────────────────
 
-/// Display all file entries in a directory.
-///
-/// Port of: CResultsDisplayerNormal::DisplayFileResults
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_file_results
+//
+//  Display all file entries in a directory.
+//  Port of: CResultsDisplayerNormal::DisplayFileResults
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_file_results(
     console: &mut Console,
     cmd: &CommandLine,
@@ -254,11 +388,19 @@ fn display_file_results(
     }
 }
 
-// ── Date/time formatting ──────────────────────────────────────────────────────
 
-/// Get the appropriate time field for display based on /T: switch.
-///
-/// Port of: CResultsDisplayerNormal::GetTimeFieldForDisplay
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_time_field_for_display
+//
+//  Get the appropriate time field for display based on /T: switch.
+//  Port of: CResultsDisplayerNormal::GetTimeFieldForDisplay
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn get_time_field_for_display(fi: &FileInfo, time_field: TimeField) -> u64 {
     match time_field {
         TimeField::Creation => fi.creation_time,
@@ -267,10 +409,20 @@ fn get_time_field_for_display(fi: &FileInfo, time_field: TimeField) -> u64 {
     }
 }
 
-/// Display date and time from a FILETIME (as u64).
-/// Uses Win32 APIs for locale-aware formatting.
-///
-/// Port of: CResultsDisplayerNormal::DisplayResultsNormalDateAndTime
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_date_and_time
+//
+//  Display date and time from a FILETIME (as u64).
+//  Uses Win32 APIs for locale-aware formatting.
+//  Port of: CResultsDisplayerNormal::DisplayResultsNormalDateAndTime
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_date_and_time(console: &mut Console, filetime_u64: u64) {
     let ft = windows::Win32::Foundation::FILETIME {
         dwLowDateTime:  (filetime_u64 & 0xFFFF_FFFF) as u32,
@@ -339,11 +491,19 @@ fn display_date_and_time(console: &mut Console, filetime_u64: u64) {
     }
 }
 
-// ── Attribute column ──────────────────────────────────────────────────────────
 
-/// Display the 9-char attribute column with colorization.
-///
-/// Port of: CResultsDisplayerNormal::DisplayResultsNormalAttributes
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_attributes
+//
+//  Display the 9-char attribute column with colorization.
+//  Port of: CResultsDisplayerNormal::DisplayResultsNormalAttributes
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_attributes(console: &mut Console, config: &Config, file_attributes: u32) {
     let present_attr = config.attributes[Attribute::FileAttributePresent as usize];
     let absent_attr  = config.attributes[Attribute::FileAttributeNotPresent as usize];
@@ -357,11 +517,19 @@ fn display_attributes(console: &mut Console, config: &Config, file_attributes: u
     }
 }
 
-// ── File size ─────────────────────────────────────────────────────────────────
 
-/// Display file size (right-aligned with separators) or centered <DIR>.
-///
-/// Port of: CResultsDisplayerNormal::DisplayResultsNormalFileSize
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_file_size
+//
+//  Display file size (right-aligned with separators) or centered <DIR>.
+//  Port of: CResultsDisplayerNormal::DisplayResultsNormalFileSize
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize) {
     let dir_label = "<DIR>";
     let col_width = max_size_width.max(dir_label.len());
@@ -382,11 +550,19 @@ fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize
     }
 }
 
-// ── Cloud status symbol ───────────────────────────────────────────────────────
 
-/// Display cloud status symbol with configured color.
-///
-/// Port of: CResultsDisplayerNormal::DisplayCloudStatusSymbol
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_cloud_status_symbol
+//
+//  Display cloud status symbol with configured color.
+//  Port of: CResultsDisplayerNormal::DisplayCloudStatusSymbol
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: CloudStatus) {
     let (attr, symbol) = match status {
         CloudStatus::None      => (Attribute::Default,                            ' '),
@@ -399,12 +575,21 @@ fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: C
     console.printf(color, &format!("{} ", symbol));
 }
 
-/// Display raw file attributes and cloud placeholder state in hex.
-///
-/// Format: `[XXXXXXXX:YY] ` — 8 hex digits for file attributes, 2 hex digits for CF state.
-/// Only compiled in debug builds.
-///
-/// Port of: CResultsDisplayerNormal::DisplayRawAttributes
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_raw_attributes
+//
+//  Display raw file attributes and cloud placeholder state in hex.
+//  Format: [XXXXXXXX:YY] — 8 hex digits for file attributes, 2 hex
+//  digits for CF state.  Only compiled in debug builds.
+//  Port of: CResultsDisplayerNormal::DisplayRawAttributes
+//
+////////////////////////////////////////////////////////////////////////////////
+
 #[cfg(debug_assertions)]
 fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &FileInfo) {
     use windows::Win32::Storage::CloudFilters::CfGetPlaceholderStateFromAttributeTag;
@@ -417,20 +602,38 @@ fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &Fi
     console.printf(info_color, &format!("[{:08X}:{:02X}] ", file_info.file_attributes, cf_state.0 as u8));
 }
 
-/// Display a file owner string, padded to `max_width`.
-///
-/// Port of: CResultsDisplayerNormal::DisplayFileOwner
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_file_owner
+//
+//  Display a file owner string, padded to max_width.
+//  Port of: CResultsDisplayerNormal::DisplayFileOwner
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_width: usize) {
     let color = config.attributes[Attribute::Owner as usize];
     let padding = if max_width > owner.len() { max_width - owner.len() } else { 0 };
     console.printf(color, &format!("{}{:width$} ", owner, "", width = padding));
 }
 
-/// Display alternate data streams below a file entry.
-///
-/// Format: 30 spaces indentation + formatted size + owner padding + filename:streamname
-///
-/// Port of: CResultsDisplayerNormal::DisplayFileStreams
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_file_streams
+//
+//  Display alternate data streams below a file entry.
+//  Port of: CResultsDisplayerNormal::DisplayFileStreams
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_file_streams(
     console: &mut Console,
     config: &Config,
@@ -458,11 +661,19 @@ fn display_file_streams(
     }
 }
 
-// ── Directory summary ─────────────────────────────────────────────────────────
 
-/// Display summary line: "X dirs, Y files using Z bytes"
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayDirectorySummary
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_directory_summary
+//
+//  Display summary line: "X dirs, Y files using Z bytes".
+//  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayDirectorySummary
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_directory_summary(console: &mut Console, di: &DirectoryInfo) {
     let dirs_word  = if di.subdirectory_count == 1 { " dir, " } else { " dirs, " };
     let files_word = if di.file_count == 1 { " file using " } else { " files using " };
@@ -493,11 +704,19 @@ fn display_directory_summary(console: &mut Console, di: &DirectoryInfo) {
     console.color_puts("");
 }
 
-// ── Volume footer ─────────────────────────────────────────────────────────────
 
-/// Display free space on volume.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayVolumeFooter
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_volume_footer
+//
+//  Display free space on volume.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayVolumeFooter
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_volume_footer(console: &mut Console, di: &DirectoryInfo) {
     let dir_wide: Vec<u16> = di.dir_path.as_os_str().encode_wide().chain(Some(0)).collect();
 
@@ -531,9 +750,19 @@ fn display_volume_footer(console: &mut Console, di: &DirectoryInfo) {
     }
 }
 
-/// Display quota-limited free space info.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayFooterQuotaInfo
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_footer_quota_info
+//
+//  Display quota-limited free space info.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayFooterQuotaInfo
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_footer_quota_info(console: &mut Console, free_bytes_available: u64) {
     // Get current username
     let mut username_buf = vec![0u16; 257]; // UNLEN + 1
@@ -560,11 +789,19 @@ fn display_footer_quota_info(console: &mut Console, free_bytes_available: u64) {
     ));
 }
 
-// ── Listing summary (recursive) ──────────────────────────────────────────────
 
-/// Display full recursive summary.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayListingSummary
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_listing_summary
+//
+//  Display full recursive summary.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayListingSummary
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_listing_summary(console: &mut Console, di: &DirectoryInfo, totals: &ListingTotals) {
     let max_count = totals.file_count.max(totals.directory_count);
     let max_digits = if max_count > 0 {
@@ -607,11 +844,20 @@ fn display_listing_summary(console: &mut Console, di: &DirectoryInfo, totals: &L
     console.puts(Attribute::Default, "");
 }
 
-// ── Helper functions ──────────────────────────────────────────────────────────
 
-/// Calculate the string length of the largest file size with thousands separators.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::GetStringLengthOfMaxFileSize
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  get_string_length_of_max_file_size
+//
+//  Calculate the string length of the largest file size with thousands
+//  separators.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::GetStringLengthOfMaxFileSize
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn get_string_length_of_max_file_size(largest: u64) -> usize {
     if largest == 0 {
         return 1;
@@ -620,11 +866,20 @@ fn get_string_length_of_max_file_size(largest: u64) -> usize {
     digits + (digits - 1) / 3 // Add space for comma separators
 }
 
-/// Format a number with locale-aware thousands separators.
-///
-/// Port of: CResultsDisplayerWithHeaderAndFooter::FormatNumberWithSeparators
-///
-/// Uses Win32 GetNumberFormatEx for locale-aware formatting.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  format_number_with_separators
+//
+//  Format a number with locale-aware thousands separators.
+//  Uses Win32 GetNumberFormatEx for locale-aware formatting.
+//  Port of: CResultsDisplayerWithHeaderAndFooter::FormatNumberWithSeparators
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn format_number_with_separators(n: u64) -> String {
     // Format the number as a simple string first
     let num_str = n.to_string();
@@ -662,7 +917,18 @@ pub fn format_number_with_separators(n: u64) -> String {
     }
 }
 
-/// Fallback: format a number with commas as thousands separator.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  format_with_commas
+//
+//  Fallback: format a number with commas as thousands separator.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn format_with_commas(n: u64) -> String {
     let s = n.to_string();
     let mut result = String::with_capacity(s.len() + s.len() / 3);
@@ -676,7 +942,11 @@ fn format_with_commas(n: u64) -> String {
     result
 }
 
-// ── WideDisplayer ─────────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Wide format displayer — multi-column filenames with [dir] brackets.
 ///
@@ -687,25 +957,89 @@ pub struct WideDisplayer {
     config:  Arc<Config>,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl WideDisplayer
+//
+//  Wide displayer construction and console access.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl WideDisplayer {
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a new WideDisplayer.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
         WideDisplayer { console, cmd, config }
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  into_console
+    //
+    //  Consume the displayer and return the Console.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn into_console(self) -> Console {
         self.console
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  console_mut
+    //
+    //  Get a mutable reference to the console.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     pub fn console_mut(&mut self) -> &mut Console {
         &mut self.console
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl ResultsDisplayer for WideDisplayer
+//
+//  Wide-format directory listing and recursive summary.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl ResultsDisplayer for WideDisplayer {
-    /// Display results for a single directory using wide format.
-    ///
-    /// Port of: CResultsDisplayerWithHeaderAndFooter::DisplayResults (header/footer)
-    ///        + CResultsDisplayerWide::DisplayFileResults (column layout)
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_results
+    //
+    //  Display results for a single directory using wide format.
+    //  Port of: CResultsDisplayerWithHeaderAndFooter::DisplayResults
+    //  and CResultsDisplayerWide::DisplayFileResults (column layout).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_results(&mut self, drive_info: &DriveInfo, dir_info: &DirectoryInfo, level: DirectoryLevel) {
         // Skip empty subdirectories
         if level == DirectoryLevel::Subdirectory && dir_info.matches.is_empty() {
@@ -735,14 +1069,36 @@ impl ResultsDisplayer for WideDisplayer {
         let _ = self.console.flush();
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_recursive_summary
+    //
+    //  Display recursive summary after all directories.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_recursive_summary(&mut self, dir_info: &DirectoryInfo, totals: &ListingTotals) {
         display_listing_summary(&mut self.console, dir_info, totals);
     }
 }
 
-/// Display files in column-major wide format.
-///
-/// Port of: CResultsDisplayerWide::DisplayFileResults
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_wide_file_results
+//
+//  Display files in column-major wide format.
+//  Port of: CResultsDisplayerWide::DisplayFileResults
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn display_wide_file_results(console: &mut Console, config: &Config, di: &DirectoryInfo) {
     if di.largest_file_name == 0 || di.matches.is_empty() {
         return;
@@ -815,7 +1171,11 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
     }
 }
 
-// ── BareDisplayer ─────────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Bare format displayer — filenames only, no decoration.
 ///
@@ -826,24 +1186,88 @@ pub struct BareDisplayer {
     config:  Arc<Config>,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl BareDisplayer
+//
+//  Bare displayer construction and console access.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl BareDisplayer {
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a new BareDisplayer.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
         BareDisplayer { console, cmd, config }
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  into_console
+    //
+    //  Consume the displayer and return the Console.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn into_console(self) -> Console {
         self.console
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  console_mut
+    //
+    //  Get a mutable reference to the console.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     pub fn console_mut(&mut self) -> &mut Console {
         &mut self.console
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl ResultsDisplayer for BareDisplayer
+//
+//  Bare-format directory listing and recursive summary.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl ResultsDisplayer for BareDisplayer {
-    /// Display results for a single directory using bare format.
-    ///
-    /// Port of: CResultsDisplayerBare::DisplayResults
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_results
+    //
+    //  Display results for a single directory using bare format.
+    //  Port of: CResultsDisplayerBare::DisplayResults
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_results(&mut self, _drive_info: &DriveInfo, dir_info: &DirectoryInfo, _level: DirectoryLevel) {
         for fi in &dir_info.matches {
             let text_attr = self.config.get_text_attr_for_file(fi.file_attributes, &fi.file_name);
@@ -862,20 +1286,45 @@ impl ResultsDisplayer for BareDisplayer {
         let _ = self.console.flush();
     }
 
-    /// Bare mode doesn't display recursive summary.
-    ///
-    /// Port of: CResultsDisplayerBare::DisplayRecursiveSummary
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_recursive_summary
+    //
+    //  Bare mode doesn't display recursive summary.
+    //  Port of: CResultsDisplayerBare::DisplayRecursiveSummary
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_recursive_summary(&mut self, _dir_info: &DirectoryInfo, _totals: &ListingTotals) {
         // No summary in bare mode
     }
 }
 
-/// Helper: Printf a line with color + newline.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  console_printf_line
+//
+//  Helper: Printf a line with color + newline.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn console_printf_line(console: &mut Console, attr: u16, text: &str) {
     console.printf(attr, &format!("{}\n", text));
 }
 
-// ── Displayer enum (polymorphic wrapper) ──────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Polymorphic displayer wrapping Normal, Wide, or Bare variants.
 ///
@@ -886,10 +1335,29 @@ pub enum Displayer {
     Bare(BareDisplayer),
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Displayer
+//
+//  Polymorphic displayer construction and console access.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl Displayer {
-    /// Create the appropriate displayer based on command-line switches.
-    ///
-    /// Priority: bare > wide > normal (matching TCDir)
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create the appropriate displayer based on command-line switches.
+    //  Priority: bare > wide > normal (matching TCDir).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
         if cmd.bare_listing {
             Displayer::Bare(BareDisplayer::new(console, cmd, config))
@@ -900,7 +1368,18 @@ impl Displayer {
         }
     }
 
-    /// Consume the displayer and return the Console.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  into_console
+    //
+    //  Consume the displayer and return the Console.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn into_console(self) -> Console {
         match self {
             Displayer::Normal(d) => d.into_console(),
@@ -909,7 +1388,18 @@ impl Displayer {
         }
     }
 
-    /// Get a mutable reference to the console.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  console_mut
+    //
+    //  Get a mutable reference to the console.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn console_mut(&mut self) -> &mut Console {
         match self {
             Displayer::Normal(d) => d.console_mut(),
@@ -919,7 +1409,28 @@ impl Displayer {
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl ResultsDisplayer for Displayer
+//
+//  Dispatch to the underlying Normal, Wide, or Bare displayer variant.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl ResultsDisplayer for Displayer {
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_results
+    //
+    //  Dispatch display_results to the underlying displayer variant.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn display_results(&mut self, drive_info: &DriveInfo, dir_info: &DirectoryInfo, level: DirectoryLevel) {
         match self {
             Displayer::Normal(d) => d.display_results(drive_info, dir_info, level),
@@ -927,6 +1438,18 @@ impl ResultsDisplayer for Displayer {
             Displayer::Bare(d)   => d.display_results(drive_info, dir_info, level),
         }
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_recursive_summary
+    //
+    //  Dispatch display_recursive_summary to the underlying displayer variant.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     fn display_recursive_summary(&mut self, dir_info: &DirectoryInfo, totals: &ListingTotals) {
         match self {
@@ -937,9 +1460,22 @@ impl ResultsDisplayer for Displayer {
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  format_number_zero
+    //
+    //  Test formatting of zero.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn format_number_zero() {
@@ -947,11 +1483,35 @@ mod tests {
         assert_eq!(result, "0");
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  format_number_small
+    //
+    //  Test formatting of a small number.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn format_number_small() {
         let result = format_number_with_separators(42);
         assert_eq!(result, "42");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  format_number_thousands
+    //
+    //  Test formatting with thousands separator.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn format_number_thousands() {
@@ -959,16 +1519,52 @@ mod tests {
         assert_eq!(result, "1,234");
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  format_number_millions
+    //
+    //  Test formatting with millions separator.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn format_number_millions() {
         let result = format_number_with_separators(1234567);
         assert_eq!(result, "1,234,567");
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  max_file_size_width_zero
+    //
+    //  Test width calculation for zero.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn max_file_size_width_zero() {
         assert_eq!(get_string_length_of_max_file_size(0), 1);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  max_file_size_width_small
+    //
+    //  Test width calculation for a small number.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn max_file_size_width_small() {
@@ -976,11 +1572,35 @@ mod tests {
         assert_eq!(get_string_length_of_max_file_size(999), 3);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  max_file_size_width_thousands
+    //
+    //  Test width calculation with thousands separator.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn max_file_size_width_thousands() {
         // 1234 → 4 digits + 1 comma → width 5
         assert_eq!(get_string_length_of_max_file_size(1234), 5);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  format_with_commas_basic
+    //
+    //  Test fallback comma formatting.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn format_with_commas_basic() {
@@ -990,6 +1610,18 @@ mod tests {
         assert_eq!(format_with_commas(1234), "1,234");
         assert_eq!(format_with_commas(1234567), "1,234,567");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  directory_level_equality
+    //
+    //  Test DirectoryLevel equality and inequality.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn directory_level_equality() {

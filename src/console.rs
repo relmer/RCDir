@@ -2,7 +2,8 @@
 //
 // Port of: Console.h, Console.cpp
 // Key design: All output accumulates in a pre-allocated 10 MB String buffer.
-// Color changes are ANSI SGR sequences inline in the buffer.
+// Color changes are ANSI SGR (Select Graphic Rendition) sequences inline in
+// the buffer.
 // The entire buffer is flushed in one WriteConsoleW / WriteFile call.
 
 use std::sync::Arc;
@@ -18,8 +19,16 @@ use crate::ansi_codes;
 use crate::config::{Config, Attribute};
 use crate::ehm::AppError;
 
+
+
+
+
 /// Initial buffer capacity: 10 MB (matches TCDir's s_kcchInitialBufferSize)
 const INITIAL_BUFFER_SIZE: usize = 10 * 1024 * 1024;
+
+
+
+
 
 pub struct Console {
     buffer:        String,
@@ -30,11 +39,31 @@ pub struct Console {
     prev_attr:     Option<u16>,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Console
+//
+//  Console output with ANSI color support and buffered writes.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl Console {
-    /// Initialize the console: get stdout handle, detect redirection,
-    /// enable VT processing, query width, pre-allocate buffer.
-    ///
-    /// Port of: CConsole::Initialize + InitializeConsoleMode + InitializeConsoleWidth
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize
+    //
+    //  Initialize the console: get stdout handle, detect redirection,
+    //  enable VT processing, query width, pre-allocate buffer.
+    //
+    //  Port of: CConsole::Initialize + InitializeConsoleMode +
+    //  InitializeConsoleWidth
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn initialize(config: Arc<Config>) -> Result<Self, AppError> {
         let stdout_handle = unsafe { GetStdHandle(STD_OUTPUT_HANDLE)? };
 
@@ -71,26 +100,71 @@ impl Console {
         })
     }
 
-    /// Get the console width in columns.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  width
+    //
+    //  Get the console width in columns.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn width(&self) -> u32 {
         self.console_width
     }
 
-    /// Get a reference to the config.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  config
+    //
+    //  Get a reference to the config.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn config(&self) -> &Config {
         &self.config
     }
 
-    /// Get a shared reference-counted pointer to the config.
-    /// Use this when you need config data across mutable Console calls.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  config_arc
+    //
+    //  Get a shared reference-counted pointer to the config.
+    //  Use this when you need config data across mutable Console calls.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn config_arc(&self) -> Arc<Config> {
         Arc::clone(&self.config)
     }
 
-    /// Emit ANSI SGR color sequence if the color has changed from the previous call.
-    /// Color elision: skip if unchanged (major perf optimization).
-    ///
-    /// Port of: CConsole::SetColor
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  set_color
+    //
+    //  Emit ANSI SGR color sequence if the color has changed from the
+    //  previous call.  Color elision: skip if unchanged (major perf
+    //  optimization).
+    //
+    //  Port of: CConsole::SetColor
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn set_color(&mut self, attr: u16) {
         if self.prev_attr == Some(attr) {
             return;
@@ -99,18 +173,40 @@ impl Console {
         ansi_codes::write_sgr(&mut self.buffer, attr);
     }
 
-    /// Write a single character with a specific color attribute.
-    ///
-    /// Port of: CConsole::Putchar
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  putchar
+    //
+    //  Write a single character with a specific color attribute.
+    //
+    //  Port of: CConsole::Putchar
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn putchar(&mut self, attr: u16, ch: char) {
         self.set_color(attr);
         self.buffer.push(ch);
     }
 
-    /// Write a string with a named attribute, followed by a newline.
-    /// Resets to Default color before the newline to prevent color bleeding.
-    ///
-    /// Port of: CConsole::Puts
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  puts
+    //
+    //  Write a string with a named attribute, followed by a newline.
+    //  Resets to Default color before the newline to prevent color bleeding.
+    //
+    //  Port of: CConsole::Puts
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn puts(&mut self, attr_idx: Attribute, text: &str) {
         let attr = self.config.attributes[attr_idx as usize];
         self.process_multiline_string(text, attr);
@@ -121,30 +217,65 @@ impl Console {
         self.buffer.push('\n');
     }
 
-    /// Write formatted text with a specific color attribute (no trailing newline).
-    ///
-    /// Port of: CConsole::Printf (WORD attr variant)
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  printf
+    //
+    //  Write formatted text with a specific color attribute
+    //  (no trailing newline).
+    //
+    //  Port of: CConsole::Printf (WORD attr variant)
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn printf(&mut self, attr: u16, text: &str) {
         self.process_multiline_string(text, attr);
     }
 
-    /// Write formatted text with a named attribute (no trailing newline).
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  printf_attr
+    //
+    //  Write formatted text with a named attribute (no trailing newline).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn printf_attr(&mut self, attr_idx: Attribute, text: &str) {
         let attr = self.config.attributes[attr_idx as usize];
         self.process_multiline_string(text, attr);
     }
 
-    /// Write text with embedded {MarkerName} color markers.
-    /// Markers switch the active color; text between markers uses the current color.
-    /// No trailing newline.
-    ///
-    /// Port of: CConsole::ColorPrint / ColorPrintf
-    ///
-    /// Matches TCDir's ColorPrint algorithm exactly:
-    /// - Always calls process_multiline_string for text before each marker,
-    ///   even when that text is empty (emits SetColor for the default attr).
-    /// - This ensures the same color-reset sequence as TCDir at the start
-    ///   of each ColorPrintf call.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_printf
+    //
+    //  Write text with embedded {MarkerName} color markers.  Markers
+    //  switch the active color; text between markers uses the current
+    //  color.  No trailing newline.
+    //
+    //  Port of: CConsole::ColorPrint / ColorPrintf
+    //
+    //  Matches TCDir's ColorPrint algorithm exactly:
+    //  - Always calls process_multiline_string for text before each
+    //    marker, even when that text is empty (emits SetColor for the
+    //    default attr).
+    //  - This ensures the same color-reset sequence as TCDir at the
+    //    start of each ColorPrintf call.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn color_printf(&mut self, text: &str) {
         let default_attr = self.config.attributes[Attribute::Default as usize];
         let mut current_attr = default_attr;
@@ -184,8 +315,20 @@ impl Console {
         }
     }
 
-    /// Write text with embedded color markers, followed by a newline.
-    /// Port of: CConsole::ColorPuts
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts
+    //
+    //  Write text with embedded color markers, followed by a newline.
+    //
+    //  Port of: CConsole::ColorPuts
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn color_puts(&mut self, text: &str) {
         self.color_printf(text);
 
@@ -194,10 +337,21 @@ impl Console {
         self.buffer.push('\n');
     }
 
-    /// Print a string, cycling through all 16 colors for each character.
-    /// Skips any color that matches the background to keep text visible.
-    ///
-    /// Port of: CConsole::PrintColorfulString
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  print_colorful_string
+    //
+    //  Print a string, cycling through all 16 colors for each character.
+    //  Skips any color that matches the background to keep text visible.
+    //
+    //  Port of: CConsole::PrintColorfulString
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn print_colorful_string(&mut self, text: &str) {
         use crate::color::{ALL_FOREGROUND_COLORS, COLOR_COUNT};
 
@@ -220,13 +374,24 @@ impl Console {
         }
     }
 
-    /// Flush the buffer to the OS.
-    /// - Real console: WriteConsoleW with UTF-16 conversion
-    /// - Redirected: WriteFile with UTF-8 encoding
-    ///
-    /// Appends reset sequence before flushing.
-    ///
-    /// Port of: CConsole::Flush
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  flush
+    //
+    //  Flush the buffer to the OS.
+    //  - Real console: WriteConsoleW with UTF-16 conversion
+    //  - Redirected: WriteFile with UTF-8 encoding
+    //
+    //  Appends reset sequence before flushing.
+    //
+    //  Port of: CConsole::Flush
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn flush(&mut self) -> Result<(), AppError> {
         if self.buffer.is_empty() {
             return Ok(());
@@ -263,16 +428,39 @@ impl Console {
         Ok(())
     }
 
-    /// Append raw text to the buffer (no color change).
-    /// Used internally and for separator lines.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  write_raw
+    //
+    //  Append raw text to the buffer (no color change).
+    //  Used internally and for separator lines.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn write_raw(&mut self, text: &str) {
         self.buffer.push_str(text);
     }
 
-    /// Helper: process text with proper color handling for embedded newlines.
-    /// Resets to default color before each newline, then restores the desired color.
-    ///
-    /// Port of: CConsole::ProcessMultiLineStringWithAttribute
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_multiline_string
+    //
+    //  Helper: process text with proper color handling for embedded
+    //  newlines.  Resets to default color before each newline, then
+    //  restores the desired color.
+    //
+    //  Port of: CConsole::ProcessMultiLineStringWithAttribute
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn process_multiline_string(&mut self, text: &str, attr: u16) {
         let default_attr = self.config.attributes[Attribute::Default as usize];
         self.set_color(attr);
@@ -299,6 +487,18 @@ impl Console {
     }
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Drop for Console
+//
+//  Append reset sequence and flush on drop.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl Drop for Console {
     fn drop(&mut self) {
         // Append reset sequence and flush on drop
@@ -307,12 +507,24 @@ impl Drop for Console {
     }
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     // Console tests require a real stdout handle (Win32 API calls),
     // so unit tests here are limited. Integration tests validate output parity.
 
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initial_buffer_size_is_10mb
+    //
+    //  Verify initial buffer capacity is 10 MB.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn initial_buffer_size_is_10mb() {

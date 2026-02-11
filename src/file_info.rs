@@ -10,7 +10,11 @@ use windows::Win32::Storage::FileSystem::{
     FindClose, WIN32_FIND_DATAW,
 };
 
-// ── File attribute constants (Win32 values) ───────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub const FILE_ATTRIBUTE_READONLY:      u32 = 0x0000_0001;
 pub const FILE_ATTRIBUTE_HIDDEN:        u32 = 0x0000_0002;
@@ -23,7 +27,11 @@ pub const FILE_ATTRIBUTE_COMPRESSED:    u32 = 0x0000_0800;
 pub const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
 pub const FILE_ATTRIBUTE_SPARSE_FILE:   u32 = 0x0000_0200;
 
-// ── File attribute map ────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Maps file attribute flags to their single-char display keys.
 /// Port of: FileAttributeMap.h → k_rgFileAttributeMap[]
@@ -41,13 +49,29 @@ pub const FILE_ATTRIBUTE_MAP: [(u32, char); 9] = [
     (FILE_ATTRIBUTE_SPARSE_FILE,   '0'),
 ];
 
-// ── RAII handles ──────────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// RAII wrapper for Win32 find handles (FindFirstFile/FindNextFile).
 /// Drop calls FindClose. NOT interchangeable with SafeHandle (per research R-02).
 ///
 /// Port of: UniqueFindHandle.h → UniqueFindHandle
 pub struct FindHandle(pub HANDLE);
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Drop for FindHandle
+//
+//  Close the Win32 find handle.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 impl Drop for FindHandle {
     fn drop(&mut self) {
@@ -57,9 +81,25 @@ impl Drop for FindHandle {
     }
 }
 
+
+
+
+
 /// RAII wrapper for generic Win32 handles.
 /// Drop calls CloseHandle. NOT interchangeable with FindHandle.
 pub struct SafeHandle(pub HANDLE);
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Drop for SafeHandle
+//
+//  Close the generic Win32 handle.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 impl Drop for SafeHandle {
     fn drop(&mut self) {
@@ -69,7 +109,11 @@ impl Drop for SafeHandle {
     }
 }
 
-// ── Stream information ────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Port of: SStreamInfo
 #[derive(Debug, Clone)]
@@ -78,7 +122,11 @@ pub struct StreamInfo {
     pub size: i64,          // Stream size in bytes
 }
 
-// ── File information ──────────────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Port of: FileInfo (extends WIN32_FIND_DATA)
 ///
@@ -95,10 +143,29 @@ pub struct FileInfo {
     pub streams:         Vec<StreamInfo>,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl FileInfo
+//
+//  FileInfo construction and query methods.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl FileInfo {
-    /// Construct a FileInfo from WIN32_FIND_DATAW fields.
-    ///
-    /// Port of: FileInfo(const WIN32_FIND_DATA & wfd) constructor
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  from_find_data
+    //
+    //  Construct a FileInfo from WIN32_FIND_DATAW fields.
+    //
+    //  Port of: FileInfo(const WIN32_FIND_DATA & wfd) constructor
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn from_find_data(wfd: &WIN32_FIND_DATAW) -> Self {
         // Extract the filename from the wide char array (null-terminated)
         let name_len = wfd.cFileName.iter().position(|&c| c == 0).unwrap_or(wfd.cFileName.len());
@@ -126,13 +193,49 @@ impl FileInfo {
         }
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_directory
+    //
+    //  Return true if this entry is a directory.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn is_directory(&self) -> bool {
         (self.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_hidden
+    //
+    //  Return true if this entry has the hidden attribute.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn is_hidden(&self) -> bool {
         (self.file_attributes & FILE_ATTRIBUTE_HIDDEN) != 0
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dot_dir
+    //
+    //  Return true if this entry is "." or "..".
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     pub fn is_dot_dir(&self) -> bool {
         let name = self.file_name.to_string_lossy();
@@ -140,14 +243,24 @@ impl FileInfo {
     }
 }
 
-// ── Attribute display string ──────────────────────────────────────────────────
 
-/// Build a 9-char attribute display string from file attributes.
-/// Present attributes show their letter; absent show '-'.
-///
-/// Port of: FileAttributeMap.h → attribute display logic in ResultsDisplayerNormal
-///
-/// Example: file with RHSA set → "RHSA-----"
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  build_attribute_display_string
+//
+//  Build a 9-char attribute display string from file attributes.  Present
+//  attributes show their letter; absent show '-'.
+//
+//  Port of: FileAttributeMap.h → attribute display logic in
+//  ResultsDisplayerNormal
+//
+//  Example: file with RHSA set → "RHSA-----"
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn build_attribute_display_string(attributes: u32) -> String {
     let mut result = String::with_capacity(FILE_ATTRIBUTE_MAP.len());
 
@@ -162,14 +275,38 @@ pub fn build_attribute_display_string(attributes: u32) -> String {
     result
 }
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  file_attribute_map_count
+    //
+    //  Verify the attribute map has exactly 9 entries.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn file_attribute_map_count() {
         assert_eq!(FILE_ATTRIBUTE_MAP.len(), 9);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  file_attribute_map_keys_unique
+    //
+    //  Verify all attribute map display chars are unique.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn file_attribute_map_keys_unique() {
@@ -179,6 +316,18 @@ mod tests {
         deduped.dedup();
         assert_eq!(chars.len(), deduped.len());
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_directory_flag
+    //
+    //  Verify is_directory returns true for directory attribute.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn is_directory_flag() {
@@ -195,6 +344,18 @@ mod tests {
         assert!(fi.is_directory());
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dot_dir
+    //
+    //  Verify is_dot_dir returns true for ".." entries.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn is_dot_dir() {
         let fi = FileInfo {
@@ -210,10 +371,34 @@ mod tests {
         assert!(fi.is_dot_dir());
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_attribute_string_no_attrs
+    //
+    //  Verify no attributes produces all dashes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn build_attribute_string_no_attrs() {
         assert_eq!(build_attribute_display_string(0), "---------");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_attribute_string_all_attrs
+    //
+    //  Verify all attributes set produces the full display string.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn build_attribute_string_all_attrs() {
@@ -223,11 +408,35 @@ mod tests {
         assert_eq!(build_attribute_display_string(all), "RHSATECP0");
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_attribute_string_partial
+    //
+    //  Verify partial attributes display correctly.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn build_attribute_string_partial() {
         let attrs = FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE;
         assert_eq!(build_attribute_display_string(attrs), "R--A-----");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  from_find_data_basic
+    //
+    //  Verify FileInfo is correctly constructed from WIN32_FIND_DATAW.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     #[allow(clippy::field_reassign_with_default)]

@@ -8,7 +8,13 @@
 
 use crate::ehm::AppError;
 
-// ── Foreground color constants (bits 0-3) ─────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Foreground color constants (bits 0-3)
+////////////////////////////////////////////////////////////////////////////////
 
 pub const FC_BLACK:         u16 = 0x00;
 pub const FC_BLUE:          u16 = 0x01;  // FOREGROUND_BLUE
@@ -28,7 +34,13 @@ pub const FC_YELLOW:        u16 = 0x0E;  // INTENSITY | BROWN
 pub const FC_WHITE:         u16 = 0x0F;  // INTENSITY | LIGHT_GREY
 pub const FC_MASK:          u16 = 0x0F;
 
-// ── Background color constants (bits 4-7) ─────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Background color constants (bits 4-7)
+////////////////////////////////////////////////////////////////////////////////
 
 pub const BC_BLACK:         u16 = 0x00;
 pub const BC_BLUE:          u16 = 0x10;
@@ -48,13 +60,23 @@ pub const BC_YELLOW:        u16 = 0xE0;
 pub const BC_WHITE:         u16 = 0xF0;
 pub const BC_MASK:          u16 = 0xF0;
 
-// ── Color name ↔ value mapping ────────────────────────────────────────────────
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Color name ↔ value mapping
+////////////////////////////////////////////////////////////////////////////////
 
 struct ColorMapping {
     name: &'static str,
     fore: u16,
     back: u16,
 }
+
+
+
+
 
 static COLOR_MAP: &[ColorMapping] = &[
     ColorMapping { name: "Black",        fore: FC_BLACK,         back: BC_BLACK         },
@@ -75,10 +97,21 @@ static COLOR_MAP: &[ColorMapping] = &[
     ColorMapping { name: "White",        fore: FC_WHITE,         back: BC_WHITE         },
 ];
 
-/// Parse a single color name (case-insensitive) into its WORD value.
-/// If `is_background` is true, returns the background-shifted value.
-///
-/// Port of: Config.cpp → CConfig::ParseColorName()
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parse_color_name
+//
+//  Parse a single color name (case-insensitive) into its WORD value.
+//  If is_background is true, returns the background-shifted value.
+//
+//  Port of: Config.cpp → CConfig::ParseColorName()
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn parse_color_name(name: &str, is_background: bool) -> Result<u16, AppError> {
     for mapping in COLOR_MAP {
         if mapping.name.eq_ignore_ascii_case(name) {
@@ -88,8 +121,19 @@ pub fn parse_color_name(name: &str, is_background: bool) -> Result<u16, AppError
     Err(AppError::InvalidArg(format!("Invalid color name: {}", name)))
 }
 
-/// Get the display name for a foreground color WORD value.
-/// Returns None if the value doesn't match any known color.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  color_name_from_fg
+//
+//  Get the display name for a foreground color WORD value.
+//  Returns None if the value doesn't match any known color.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn color_name_from_fg(value: u16) -> Option<&'static str> {
     let fg = value & FC_MASK;
     for mapping in COLOR_MAP {
@@ -100,12 +144,23 @@ pub fn color_name_from_fg(value: u16) -> Option<&'static str> {
     None
 }
 
-/// Parse a color specification string in the format: "FgColor [on BgColor]"
-/// Case-insensitive matching per spec A.18.
-///
-/// Examples: "Yellow", "LightCyan on Blue", "Red on Black"
-///
-/// Port of: Config.cpp → CConfig::ParseColorSpec()
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parse_color_spec
+//
+//  Parse a color specification string in the format: "FgColor [on BgColor]".
+//  Case-insensitive matching per spec A.18.
+//
+//  Examples: "Yellow", "LightCyan on Blue", "Red on Black"
+//
+//  Port of: Config.cpp → CConfig::ParseColorSpec()
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn parse_color_spec(spec: &str) -> Result<u16, AppError> {
     // Search for " on " separator (case-insensitive)
     let lower = spec.to_ascii_lowercase();
@@ -129,6 +184,10 @@ pub fn parse_color_spec(spec: &str) -> Result<u16, AppError> {
     }
 }
 
+
+
+
+
 /// Total number of foreground colors (16: 0x00..0x0F)
 pub const COLOR_COUNT: usize = 16;
 
@@ -140,9 +199,21 @@ pub const ALL_FOREGROUND_COLORS: [u16; COLOR_COUNT] = [
     FC_LIGHT_RED, FC_LIGHT_MAGENTA, FC_YELLOW, FC_WHITE,
 ];
 
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_foreground_colors
+    //
+    //  Verify foreground color names parse to correct values.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_foreground_colors() {
@@ -152,12 +223,36 @@ mod tests {
         assert_eq!(parse_color_name("LightRed", false).unwrap(), FC_LIGHT_RED);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_background_colors
+    //
+    //  Verify background color names parse to correct values.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_background_colors() {
         assert_eq!(parse_color_name("Black", true).unwrap(), BC_BLACK);
         assert_eq!(parse_color_name("Blue", true).unwrap(), BC_BLUE);
         assert_eq!(parse_color_name("White", true).unwrap(), BC_WHITE);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_case_insensitive
+    //
+    //  Verify color name parsing is case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_case_insensitive() {
@@ -167,17 +262,53 @@ mod tests {
         assert_eq!(parse_color_name("LIGHTRED", false).unwrap(), FC_LIGHT_RED);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_invalid_color
+    //
+    //  Verify invalid color names return an error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_invalid_color() {
         assert!(parse_color_name("Purple", false).is_err());
         assert!(parse_color_name("", false).is_err());
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_spec_foreground_only
+    //
+    //  Verify parsing a spec with foreground color only.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_spec_foreground_only() {
         assert_eq!(parse_color_spec("Yellow").unwrap(), FC_YELLOW);
         assert_eq!(parse_color_spec("  LightRed  ").unwrap(), FC_LIGHT_RED);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_spec_foreground_and_background
+    //
+    //  Verify parsing a spec with both foreground and background colors.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn parse_spec_foreground_and_background() {
@@ -186,10 +317,34 @@ mod tests {
         assert_eq!(parse_color_spec("White on DarkGrey").unwrap(), FC_WHITE | BC_DARK_GREY);
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_spec_case_insensitive
+    //
+    //  Verify color spec parsing is case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     #[test]
     fn parse_spec_case_insensitive() {
         assert_eq!(parse_color_spec("lightcyan ON blue").unwrap(), FC_LIGHT_CYAN | BC_BLUE);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_name_roundtrip
+    //
+    //  Verify color names round-trip through value and back.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn color_name_roundtrip() {
@@ -197,6 +352,18 @@ mod tests {
         assert_eq!(color_name_from_fg(FC_BLACK), Some("Black"));
         assert_eq!(color_name_from_fg(FC_WHITE), Some("White"));
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  foreground_constants_match_windows
+    //
+    //  Verify bit patterns match Windows FOREGROUND_* constants.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn foreground_constants_match_windows() {
@@ -206,6 +373,18 @@ mod tests {
         assert_eq!(FC_RED, 0x04);    // FOREGROUND_RED
         assert_eq!(FC_DARK_GREY, 0x08); // FOREGROUND_INTENSITY
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  background_constants_are_shifted
+    //
+    //  Verify background values are foreground shifted left by 4.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn background_constants_are_shifted() {

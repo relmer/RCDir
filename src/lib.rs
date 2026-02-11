@@ -24,6 +24,10 @@ pub mod streams;
 pub mod owner;
 pub mod usage;
 
+
+
+
+
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStringExt;
 use std::path::Path;
@@ -31,8 +35,19 @@ use std::sync::Arc;
 
 use ehm::AppError;
 
-/// Main entry point for the library.
-/// Called by main.rs; returns Result for clean error handling.
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  run
+//
+//  Main entry point for the library.
+//  Called by main.rs; returns Result for clean error handling.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 pub fn run() -> Result<(), AppError> {
     // Start performance timer immediately
     let mut timer = perf_timer::PerfTimer::new();
@@ -75,7 +90,7 @@ pub fn run() -> Result<(), AppError> {
         return Ok(());
     }
 
-    // ── US-1: Directory listing pipeline ─────────────────────────────────────
+    ////////////////////////////////////////////////////////////////////////////////
 
     let cmd = Arc::new(cmd);
 
@@ -124,7 +139,7 @@ pub fn run() -> Result<(), AppError> {
         );
 
         if cmd.multi_threaded && cmd.recurse {
-            // ── Multi-threaded recursive path ──
+            ////////////////////////////////////////////////////////////////////////////////
             let mut mt_lister = multi_threaded_lister::MultiThreadedLister::new(
                 Arc::clone(&cmd),
                 Arc::clone(&cfg),
@@ -149,7 +164,7 @@ pub fn run() -> Result<(), AppError> {
 
             mt_lister.stop_workers();
         } else {
-            // ── Single-threaded path ──
+            ////////////////////////////////////////////////////////////////////////////////
             for file_spec in file_specs {
                 let spec_str = file_spec.to_string_lossy().to_string();
                 let mut di = directory_info::DirectoryInfo::new(dir_path.clone(), spec_str);
@@ -211,9 +226,19 @@ pub fn run() -> Result<(), AppError> {
     Ok(())
 }
 
-/// Recurse into subdirectories applying the same file spec.
-///
-/// Port of: CDirectoryLister::RecurseIntoSubdirectories
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  recurse_into_subdirectories
+//
+//  Recurse into subdirectories applying the same file spec.
+//  Port of: CDirectoryLister::RecurseIntoSubdirectories
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn recurse_into_subdirectories(
     drive_info: &drive_info::DriveInfo,
     dir_path: &Path,

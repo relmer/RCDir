@@ -11,6 +11,10 @@ use widestring::U16CString;
 
 use crate::ehm::AppError;
 
+
+
+
+
 /// Volume type constants (matching GetDriveType return values).
 pub const DRIVE_UNKNOWN:     u32 = 0;
 pub const DRIVE_NO_ROOT_DIR: u32 = 1;
@@ -19,6 +23,10 @@ pub const DRIVE_FIXED:       u32 = 3;
 pub const DRIVE_REMOTE:      u32 = 4;
 pub const DRIVE_CDROM:       u32 = 5;
 pub const DRIVE_RAMDISK:     u32 = 6;
+
+
+
+
 
 /// Volume type descriptions (indexed by GetDriveType value).
 pub const VOLUME_DESCRIPTIONS: [&str; 7] = [
@@ -31,6 +39,10 @@ pub const VOLUME_DESCRIPTIONS: [&str; 7] = [
     "a RAM disk",
 ];
 
+
+
+
+
 /// Port of: CDriveInfo
 pub struct DriveInfo {
     pub unc_path:        PathBuf,
@@ -42,11 +54,30 @@ pub struct DriveInfo {
     pub remote_name:     String,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl DriveInfo
+//
+//  Drive and volume information queries.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl DriveInfo {
-    /// Create a DriveInfo for the given directory path.
-    /// Queries volume information, drive type, and UNC mapping.
-    ///
-    /// Port of: CDriveInfo::CDriveInfo
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a DriveInfo for the given directory path.  Queries volume
+    //  information, drive type, and UNC mapping.
+    //
+    //  Port of: CDriveInfo::CDriveInfo
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new(dir_path: &Path) -> Result<Self, AppError> {
         let mut info = DriveInfo {
             unc_path:        PathBuf::new(),
@@ -64,21 +95,68 @@ impl DriveInfo {
         Ok(info)
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  volume_description
+    //
+    //  Return a human-readable description of the volume type.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn volume_description(&self) -> &str {
         VOLUME_DESCRIPTIONS.get(self.volume_type as usize).unwrap_or(&"an unknown type")
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_ntfs
+    //
+    //  Return true if the volume is NTFS.
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     pub fn is_ntfs(&self) -> bool {
         self.file_system_name.eq_ignore_ascii_case("NTFS")
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_refs
+    //
+    //  Return true if the volume is ReFS.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn is_refs(&self) -> bool {
         self.file_system_name.eq_ignore_ascii_case("ReFS")
     }
 
-    /// Initialize volume information from the directory path.
-    ///
-    /// Port of: CDriveInfo::InitializeVolumeInfo
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize_volume_info
+    //
+    //  Initialize volume information from the directory path.
+    //
+    //  Port of: CDriveInfo::InitializeVolumeInfo
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn initialize_volume_info(&mut self, dir_path: &Path) {
         // Get the root path (e.g., "C:\")
         // Check if it has a drive letter
@@ -141,10 +219,21 @@ impl DriveInfo {
         }
     }
 
-    /// Initialize UNC/mapped drive info.
-    /// If this is a remote drive, try WNetGetConnectionW to get the remote name.
-    ///
-    /// Port of: CDriveInfo::InitializeUncInfo
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize_unc_info
+    //
+    //  Initialize UNC/mapped drive info.  If this is a remote drive, try
+    //  WNetGetConnectionW to get the remote name.
+    //
+    //  Port of: CDriveInfo::InitializeUncInfo
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn initialize_unc_info(&mut self) {
         if !self.is_unc_path || self.volume_type != DRIVE_REMOTE {
             return;

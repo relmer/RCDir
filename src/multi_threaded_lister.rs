@@ -27,8 +27,16 @@ use crate::listing_totals::ListingTotals;
 use crate::results_displayer::{DirectoryLevel, Displayer, ResultsDisplayer};
 use crate::work_queue::WorkQueue;
 
+
+
+
+
 /// A work item is a reference to a directory node in the tree.
 type WorkItem = Arc<(Mutex<DirectoryInfo>, Condvar)>;
+
+
+
+
 
 /// Multi-threaded recursive directory lister.
 ///
@@ -41,8 +49,27 @@ pub struct MultiThreadedLister {
     workers:    Vec<JoinHandle<()>>,
 }
 
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl MultiThreadedLister
+//
+//  Multi-threaded directory enumeration and worker management.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 impl MultiThreadedLister {
-    /// Create a new multi-threaded lister and spawn worker threads.
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new
+    //
+    //  Create a new multi-threaded lister and spawn worker threads.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn new(cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
         let work_queue = Arc::new(WorkQueue::new());
         let stop = Arc::new(AtomicBool::new(false));
@@ -68,9 +95,20 @@ impl MultiThreadedLister {
         MultiThreadedLister { cmd, _config: config, work_queue, stop, workers }
     }
 
-    /// Process a directory tree with multi-threaded enumeration.
-    ///
-    /// Port of: CMultiThreadedLister::ProcessDirectoryMultiThreaded
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process
+    //
+    //  Process a directory tree with multi-threaded enumeration.
+    //
+    //  Port of: CMultiThreadedLister::ProcessDirectoryMultiThreaded
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn process(
         &mut self,
         drive_info: &DriveInfo,
@@ -91,7 +129,18 @@ impl MultiThreadedLister {
         self.print_directory_tree(&root_node, drive_info, displayer, DirectoryLevel::Initial, totals);
     }
 
-    /// Stop all worker threads and join them.
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  stop_workers
+    //
+    //  Stop all worker threads and join them.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     pub fn stop_workers(&mut self) {
         self.stop.store(true, Ordering::Release);
         self.work_queue.set_done();
@@ -101,9 +150,20 @@ impl MultiThreadedLister {
         }
     }
 
-    /// Recursive depth-first tree walk — consumes results in discovery order.
-    ///
-    /// Port of: CMultiThreadedLister::PrintDirectoryTree
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  print_directory_tree
+    //
+    //  Recursive depth-first tree walk — consumes results in discovery order.
+    //
+    //  Port of: CMultiThreadedLister::PrintDirectoryTree
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn print_directory_tree(
         &self,
         node: &WorkItem,
@@ -156,10 +216,34 @@ impl MultiThreadedLister {
         }
     }
 
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  stop_requested
+    //
+    //  Check if a stop has been requested.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     fn stop_requested(&self) -> bool {
         self.stop.load(Ordering::Acquire)
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl Drop for MultiThreadedLister
+//
+//  Stop workers on drop.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 impl Drop for MultiThreadedLister {
     fn drop(&mut self) {
@@ -167,11 +251,20 @@ impl Drop for MultiThreadedLister {
     }
 }
 
-// ── Worker thread ─────────────────────────────────────────────────────────────
 
-/// Worker thread function — processes items from the work queue.
-///
-/// Port of: CMultiThreadedLister::WorkerThreadFunc
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  worker_thread_func
+//
+//  Worker thread function — processes items from the work queue.
+//
+//  Port of: CMultiThreadedLister::WorkerThreadFunc
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn worker_thread_func(
     work_queue: &WorkQueue<WorkItem>,
     stop: &AtomicBool,
@@ -188,9 +281,20 @@ fn worker_thread_func(
     }
 }
 
-/// Enumerate a single directory node (producer function).
-///
-/// Port of: CMultiThreadedLister::EnumerateDirectoryNode
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  enumerate_directory_node
+//
+//  Enumerate a single directory node (producer function).
+//
+//  Port of: CMultiThreadedLister::EnumerateDirectoryNode
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn enumerate_directory_node(
     node: &WorkItem,
     work_queue: &WorkQueue<WorkItem>,
@@ -221,9 +325,20 @@ fn enumerate_directory_node(
     node.1.notify_one();
 }
 
-/// Perform the actual enumeration: matching files + subdirectories.
-///
-/// Port of: CMultiThreadedLister::PerformEnumeration
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  perform_enumeration
+//
+//  Perform the actual enumeration: matching files + subdirectories.
+//
+//  Port of: CMultiThreadedLister::PerformEnumeration
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn perform_enumeration(
     node: &WorkItem,
     work_queue: &WorkQueue<WorkItem>,
@@ -239,9 +354,20 @@ fn perform_enumeration(
     Ok(())
 }
 
-/// Enumerate files matching the file specs, with deduplication across specs.
-///
-/// Port of: CMultiThreadedLister::EnumerateMatchingFiles
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  enumerate_matching_files
+//
+//  Enumerate files matching the file specs, with deduplication across specs.
+//
+//  Port of: CMultiThreadedLister::EnumerateMatchingFiles
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn enumerate_matching_files(
     node: &WorkItem,
     stop: &AtomicBool,
@@ -302,9 +428,20 @@ fn enumerate_matching_files(
     Ok(())
 }
 
-/// Enumerate subdirectories and enqueue them as children.
-///
-/// Port of: CMultiThreadedLister::EnumerateSubdirectories
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  enumerate_subdirectories
+//
+//  Enumerate subdirectories and enqueue them as children.
+//
+//  Port of: CMultiThreadedLister::EnumerateSubdirectories
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn enumerate_subdirectories(
     node: &WorkItem,
     work_queue: &WorkQueue<WorkItem>,
@@ -356,9 +493,18 @@ fn enumerate_subdirectories(
     Ok(())
 }
 
-// ── Helper functions ──────────────────────────────────────────────────────────
 
-/// Add a matched file entry to a DirectoryInfo node.
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  add_match_to_list
+//
+//  Add a matched file entry to a DirectoryInfo node.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn add_match_to_list(wfd: &WIN32_FIND_DATAW, file_entry: FileInfo, di: &mut DirectoryInfo, cmd: &CommandLine) {
     // Track filename length for wide listing
     if cmd.wide_listing {
@@ -388,9 +534,20 @@ fn add_match_to_list(wfd: &WIN32_FIND_DATAW, file_entry: FileInfo, di: &mut Dire
     di.matches.push(file_entry);
 }
 
-/// Wait for a directory node to complete enumeration.
-///
-/// Port of: CMultiThreadedLister::WaitForNodeCompletion
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  wait_for_node_completion
+//
+//  Wait for a directory node to complete enumeration.
+//
+//  Port of: CMultiThreadedLister::WaitForNodeCompletion
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn wait_for_node_completion(
     node: &WorkItem,
     stop: &AtomicBool,
@@ -410,9 +567,20 @@ fn wait_for_node_completion(
     (status, error)
 }
 
-/// Accumulate totals from a completed node.
-///
-/// Port of: CMultiThreadedLister::AccumulateTotals
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  accumulate_totals
+//
+//  Accumulate totals from a completed node.
+//
+//  Port of: CMultiThreadedLister::AccumulateTotals
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn accumulate_totals(di: &DirectoryInfo, totals: &mut ListingTotals) {
     totals.file_count      += di.file_count;
     totals.file_bytes      += di.bytes_used;
@@ -421,7 +589,18 @@ fn accumulate_totals(di: &DirectoryInfo, totals: &mut ListingTotals) {
     totals.directory_count += di.subdirectory_count;
 }
 
-/// Check if a filename is "." or ".."
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  is_dots
+//
+//  Check if a filename is "." or ".."
+//
+////////////////////////////////////////////////////////////////////////////////
+
 fn is_dots(filename: &[u16]) -> bool {
     if filename[0] == b'.' as u16 {
         if filename[1] == 0 {

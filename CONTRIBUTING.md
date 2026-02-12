@@ -41,7 +41,10 @@ chore(build): add ARM64 cross-compilation support
 Requires Rust toolchain. Install from https://rustup.rs/
 
 ```powershell
-# Install required targets (one-time setup)
+# One-time setup — installs Rust toolchain, targets, and components
+.\scripts\Setup.ps1
+
+# Or manually install required targets
 rustup target add x86_64-pc-windows-msvc
 rustup target add aarch64-pc-windows-msvc
 

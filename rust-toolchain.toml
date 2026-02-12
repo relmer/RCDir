@@ -1,0 +1,14 @@
+# Pin the Rust toolchain for this project.
+# rustup reads this file automatically and installs/uses the specified toolchain.
+# Rust 1.85+ is required for the 2024 edition.
+
+[toolchain]
+channel = "stable"
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+]
+components = [
+    "clippy",
+    "rustfmt",
+]

@@ -18,6 +18,16 @@ Hat tip to [Chris Kirmse](https://github.com/ckirmse) whose excellent [ZDir](htt
   - Install with: `rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc`
 - Optional: VS Code with rust-analyzer extension
 
+### First-time setup
+
+Run the setup script to install or verify all Rust prerequisites automatically:
+
+```powershell
+.\scripts\Setup.ps1
+```
+
+Alternatively, the `rust-toolchain.toml` at the repo root will prompt `rustup` to install the correct toolchain, targets, and components automatically whenever you run `cargo`.
+
 ## Quick start
 
 Build:

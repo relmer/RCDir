@@ -5,7 +5,7 @@ This is a Rust port of [TCDir](https://github.com/relmer/TCDir).
 RCDir ("Rust Colorized Directory") is a fast, colorized directory listing tool for Windows consoles.
 It's designed as a practical `dir`-style command with useful defaults (color by extension/attributes, sorting, recursion, wide output, and a multi-threaded enumerator).
 
-![RCDir basic listing](Assets/TCDir.png)
+![RCDir basic listing](Assets/RCDir.png)
 
 Hat tip to [Chris Kirmse](https://github.com/ckirmse) whose excellent [ZDir](https://github.com/ckirmse/ZDir) from the '90s was the original inspiration for TCDir/RCDir.
 
@@ -45,7 +45,7 @@ Run:
 Show help:
 
 - `rcdir.exe -?`
-![RCDir help](Assets/TCDir%20Help.png)
+![RCDir help](Assets/RCDir%20Help.png)
 
 Basic syntax:
 
@@ -97,10 +97,10 @@ When browsing cloud-synced folders (OneDrive, iCloud Drive, etc.), RCDir display
 
 Examples:
 - Recurse through subdirectories: `rcdir.exe -s`
-![RCDir recursive listing](Assets/TCDir%20Subdirectories.png)
+![RCDir recursive listing](Assets/RCDir%20Subdirectories.png)
 
 - Wide listing: `rcdir.exe -w`
-![RCDir wide listing](Assets/TCDir%20Wide.png)
+![RCDir wide listing](Assets/RCDir%20Wide.png)
 
 ## Configuration (RCDIR environment variable)
 
@@ -150,17 +150,17 @@ File attribute colors (`Attr:<letter>`):
 - `H` (hidden), `S` (system), `R` (read-only), `D` (directory)
 
 - Here's an example of the default output, setting the RCDIR environment variable, then showing its effects:
-![RCDir with RCDIR environment variable](Assets/TCDir%20Env%20Variable.png)
+![RCDir with RCDIR environment variable](Assets/RCDir%20Env%20Variable.png)
 
 To see the full list of supported colors and a nicely formatted explanation, use --Env.  
 - Any errors in the RCDIR variable are shown at the end.
 - `rcdir.exe --Env`:
-![RCDir --Env help](Assets/TCDir%20Env.png)
+![RCDir --Env help](Assets/RCDir%20Env.png)
 
 To see your current color configuration, use --Config:
 - All configuration settings are displayed along with the source of that configuration.
 - `rcdir.exe --Config`:
-![RCDir --Config output](Assets/TCDir%20Config.png)
+![RCDir --Config output](Assets/RCDir%20Config.png)
 
 ## Building
 

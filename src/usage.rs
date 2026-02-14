@@ -216,7 +216,7 @@ pub fn display_usage(console: &mut Console, prefix: char) {
     console.print_colorful_string("Rusticolor");
 
     // Header: product name continuation, version, copyright
-    console.color_puts(&format!("\
+    console.color_printf(&format!("\
 {{Information}} Directory version {ver} {arch} ({ts})
 Copyright {copy} 2004-{year} by Robert Elmer
 
@@ -244,17 +244,17 @@ Copyright {copy} 2004-{year} by Robert Elmer
     ));
 
     #[cfg(debug_assertions)]
-    console.color_puts(&format!(
-        " [{{InformationHighlight}}{long}Debug{{Information}}]"
+    console.color_printf(&format!(
+        "{{Information}} [{{InformationHighlight}}{long}Debug{{Information}}]"
     ));
-
-    console.color_puts("\n");
 
     // Body: switch descriptions, attribute codes, cloud symbols, sort/time fields
     // Multiline string literal — source indentation = output indentation (WYSIWYG).
     // Only \ continuation is used mid-line to join two-column attribute pairs.
     console.color_puts(&format!("\
 {{Information}}
+
+
   [drive:][path][filename]
               Specifies drive, directory, and/or files to list.
 

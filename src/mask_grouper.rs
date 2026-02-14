@@ -51,6 +51,28 @@ pub fn is_pure_mask(mask: &str) -> bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  strip_extended_length_prefix
+//
+//  Remove the \\?\ extended-length path prefix that Windows
+//  std::fs::canonicalize() adds.  Keeps paths human-readable.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn strip_extended_length_prefix(path: PathBuf) -> PathBuf {
+    let s = path.to_string_lossy();
+    if let Some (stripped) = s.strip_prefix (r"\\?\") {
+        PathBuf::from (stripped)
+    } else {
+        path
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  split_mask_into_dir_and_filespec
 //
 //  Split a mask into a directory path and file specification.
@@ -73,9 +95,11 @@ fn split_mask_into_dir_and_filespec(mask: &str, cwd: &std::path::Path) -> (PathB
         let mut abs = cwd.to_path_buf();
         abs.push(&mask_path);
 
-        // Normalize the path by canonicalizing where possible
+        // Normalize the path by canonicalizing where possible.
+        // On Windows, canonicalize() returns paths with \\?\ prefix —
+        // strip it so display paths are clean.
         match abs.canonicalize() {
-            Ok(canonical) => canonical,
+            Ok(canonical) => strip_extended_length_prefix (canonical),
             Err(_) => abs,
         }
     };

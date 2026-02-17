@@ -803,21 +803,55 @@ mod tests {
             .map (|&(ext, _)| ext)
             .collect();
 
-        // These are the built-in color extensions from Config::initialize_extension_colors
+        // These are the built-in color extensions from Config::initialize_extension_colors.
+        // Must be kept in sync with the defaults array in config.rs.
         let color_exts = [
-            ".asm", ".cod", ".i", ".c", ".cpp", ".cxx", ".h", ".hpp", ".hxx",
-            ".rc", ".cs", ".resx", ".rcml", ".js", ".jsx", ".ts", ".tsx",
-            ".html", ".htm", ".css", ".scss", ".less", ".py", ".pyw",
-            ".jar", ".java", ".class",
-            ".xml", ".json", ".yml", ".yaml",
-            ".obj", ".lib", ".res", ".pch",
+            // Code
+            ".asm", ".cod", ".i",
+            ".c", ".c++", ".cpp", ".cxx", ".h", ".hpp", ".hxx", ".rc",
+            ".cs", ".csx", ".resx", ".xaml",
+            ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
+            ".html", ".htm", ".xhtml", ".css", ".scss", ".sass", ".less", ".vue", ".svelte",
+            ".py", ".pyw", ".ipynb",
+            ".rs",
+            ".jar", ".java", ".class", ".gradle",
+            ".go", ".rb", ".erb", ".fs", ".fsx", ".fsi", ".lua", ".pl", ".pm", ".php",
+            ".hs", ".dart", ".kt", ".kts", ".swift", ".scala", ".sc", ".sbt",
+            ".clj", ".cljs", ".cljc", ".ex", ".exs", ".erl", ".groovy", ".jl", ".r", ".rmd", ".elm",
+            // Config/data
+            ".xml", ".xsd", ".xsl", ".xslt", ".dtd", ".plist", ".manifest",
+            ".json", ".toml", ".yml", ".yaml",
+            ".ini", ".cfg", ".conf", ".config", ".properties", ".settings", ".reg",
+            // Database
+            ".sql", ".sqlite", ".mdb", ".accdb", ".pgsql", ".db", ".csv", ".tsv",
+            // Intermediate
+            ".obj", ".lib", ".res", ".pch", ".pdb",
+            // Build
             ".wrn", ".err", ".log",
-            ".bash", ".bat", ".cmd", ".dll", ".exe", ".ps1", ".psd1", ".psm1",
-            ".sh", ".sys",
-            ".sln", ".vcproj", ".csproj", ".vcxproj", ".csxproj", ".user", ".ncb",
-            ".!!!", ".1st", ".doc", ".docx", ".eml", ".md", ".me", ".now",
-            ".ppt", ".pptx", ".text", ".txt", ".xls", ".xlsx",
+            // Executable
+            ".bash", ".bat", ".cmd", ".dll", ".exe",
+            ".ps1", ".psd1", ".psm1", ".ps1xml",
+            ".sh", ".zsh", ".fish",
+            ".sys", ".msi", ".msix", ".deb", ".rpm",
+            // Visual Studio
+            ".sln", ".vcproj", ".csproj", ".vcxproj", ".csxproj",
+            ".fsproj", ".user", ".ncb", ".suo", ".code-workspace",
+            // Documents
+            ".!!!", ".1st", ".doc", ".docx", ".rtf", ".eml",
+            ".md", ".markdown", ".rst", ".me", ".now",
+            ".ppt", ".pptx", ".pdf", ".text", ".txt", ".xls", ".xlsx",
+            // Compressed
             ".7z", ".arj", ".gz", ".rar", ".tar", ".zip",
+            ".xz", ".bz2", ".tgz", ".cab", ".zst",
+            // Media
+            ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp",
+            ".mp3", ".wav", ".flac", ".mp4", ".avi", ".mkv", ".mov",
+            // Fonts
+            ".ttf", ".otf", ".woff", ".woff2",
+            // Security
+            ".cer", ".crt", ".pem", ".key", ".pfx",
+            // Docker / Terraform / Lock
+            ".dockerfile", ".dockerignore", ".tf", ".tfvars", ".bicep", ".lock",
         ];
 
         for ext in &color_exts {

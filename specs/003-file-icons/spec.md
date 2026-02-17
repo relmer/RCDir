@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-file-icons`  
 **Created**: 2026-02-13  
-**Updated**: 2026-02-14  
+**Updated**: 2026-02-16  
 **Status**: Draft  
 **Input**: User description: "Add Nerd Font file and folder icons to directory listings similar to Terminal-Icons PowerShell module"
 
@@ -12,19 +12,24 @@
 
 - Q: What should the CLI flags for icon enable/disable be? → A: `/Icons` to enable, `/Icons-` to disable (verbose, matches env var switch name exactly).
 - Q: What is explicitly out of scope for this feature? → A: Per-icon color independent of filename color, image/thumbnail previews, custom theme files, and Linux/macOS support (Linux/macOS may be pursued later but no need to plan for it now).
-- Q: How should icon detection diagnostics be surfaced? → A: Extend existing `/config` (show detection result + resolved icon state with reason), `/env` (document icon syntax + show icon-related TCDIR overrides), and `/?` (document `/Icons` and `/Icons-` flags). No new diagnostic flag needed.
-- Q: How should duplicate/conflicting TCDIR entries be handled? → A: First-write-wins (first value seen is used), and subsequent duplicates/conflicts are flagged as errors using the existing env var validation pattern (underlined error display).
-- Note: This feature constitutes a new **major version** of TCDir. Version number must be incremented accordingly when implementation begins.
+- Q: How should icon detection diagnostics be surfaced? → A: Extend existing `/config` (show detection result + resolved icon state with reason), `/env` (document icon syntax + show icon-related RCDIR overrides), and `/?` (document `/Icons` and `/Icons-` flags). No new diagnostic flag needed.
+- Q: How should duplicate/conflicting RCDIR entries be handled? → A: First-write-wins (first value seen is used), and subsequent duplicates/conflicts are flagged as errors using the existing env var validation pattern (underlined error display).
+- Note: This feature constitutes a new **major version** of RCDir. Version number must be incremented accordingly when implementation begins.
+
+### Session 2026-02-16
+
+- Q: When an entry's icon is suppressed via empty-icon syntax (e.g., `RCDIR=.obj=,`) while icons are globally active, should the 2-character icon+space slot be preserved or collapsed? → A: Reserve 2 spaces (blank icon + space) so column alignment is maintained with all other entries.
+- Q: Should the spec be renamed from TCDir to RCDir terminology throughout? → A: Yes — rename `TCDIR`→`RCDIR`, `tcdir`→`rcdir`, strip C++-specific notes. This is the canonical RCDir spec.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Display File-Type Icons in Normal Listings (Priority: P1)
 
-A user runs `tcdir` in a directory containing a mix of file types (`.cpp`, `.h`, `.exe`, `.pdf`, `.txt`, folders). Each entry shows a small icon glyph prepended to the filename that visually indicates the file type — for example, a folder icon before directory names, a C++ icon before `.cpp` files, and a generic file icon for unrecognized extensions.
+A user runs `rcdir` in a directory containing a mix of file types (`.cpp`, `.h`, `.exe`, `.pdf`, `.txt`, folders). Each entry shows a small icon glyph prepended to the filename that visually indicates the file type — for example, a folder icon before directory names, a C++ icon before `.cpp` files, and a generic file icon for unrecognized extensions.
 
 **Why this priority**: This is the core value proposition — making directory listings visually scannable at a glance. Without this, the feature doesn't exist.
 
-**Independent Test**: Run `tcdir` on a system with a Nerd Font and verify that each entry has an appropriate icon glyph prepended to its filename with correct spacing.
+**Independent Test**: Run `rcdir` on a system with a Nerd Font and verify that each entry has an appropriate icon glyph prepended to its filename with correct spacing.
 
 **Acceptance Scenarios**:
 
@@ -37,24 +42,24 @@ A user runs `tcdir` in a directory containing a mix of file types (`.cpp`, `.h`,
 
 ### User Story 2 - Auto-Detection of Nerd Font with Manual Override (Priority: P1)
 
-When a user launches `tcdir`, the system automatically detects whether Nerd Font glyphs are available in the current terminal. The detection uses a layered strategy that works across both classic conhost and modern ConPTY-hosted terminals (Windows Terminal, VS Code, etc.). If Nerd Font support is detected, icons are shown automatically. If not, the classic output is preserved. The user can always override with `/Icons` (force-enable) or `/Icons-` (force-disable) on the command line, or via the `TCDIR` environment variable.
+When a user launches `rcdir`, the system automatically detects whether Nerd Font glyphs are available in the current terminal. The detection uses a layered strategy that works across both classic conhost and modern ConPTY-hosted terminals (Windows Terminal, VS Code, etc.). If Nerd Font support is detected, icons are shown automatically. If not, the classic output is preserved. The user can always override with `/Icons` (force-enable) or `/Icons-` (force-disable) on the command line, or via the `RCDIR` environment variable.
 
 **Why this priority**: Equally critical as Story 1 — automatically doing the right thing means users get icons with zero configuration when they have a Nerd Font, and never see broken glyphs when they don't.
 
-**Independent Test**: On a system with a Nerd Font as the console font, run `tcdir` and verify icons appear. On a system with a non-Nerd Font, run `tcdir` and verify classic output. Then test explicit overrides in both environments.
+**Independent Test**: On a system with a Nerd Font as the console font, run `rcdir` and verify icons appear. On a system with a non-Nerd Font, run `rcdir` and verify classic output. Then test explicit overrides in both environments.
 
 **Acceptance Scenarios**:
 
-1. **Given** a classic conhost session using a Nerd Font, **When** running `tcdir`, **Then** icons are automatically displayed (detected via glyph canary probe).
-2. **Given** a classic conhost session using Consolas, **When** running `tcdir`, **Then** the listing appears identical to the pre-feature version.
-3. **Given** a WezTerm session (any font), **When** running `tcdir`, **Then** icons are automatically displayed (WezTerm bundles Nerd Font Symbols as a fallback).
-4. **Given** a Windows Terminal or VS Code session on a system with a Nerd Font installed, **When** running `tcdir`, **Then** icons are automatically displayed (detected via system font enumeration heuristic).
-5. **Given** a Windows Terminal session on a system with no Nerd Font installed, **When** running `tcdir`, **Then** the listing appears identical to the pre-feature version.
-6. **Given** any terminal, **When** running `tcdir /Icons`, **Then** icons appear regardless of font detection.
-7. **Given** any terminal, **When** running `tcdir /Icons-`, **Then** icons are suppressed regardless of font detection.
-8. **Given** `TCDIR=Icons`, **When** running `tcdir` without a CLI flag, **Then** icons are always enabled (overriding auto-detect).
-9. **Given** `TCDIR=Icons-`, **When** running `tcdir` without a CLI flag, **Then** icons are always disabled (overriding auto-detect).
-10. **Given** `TCDIR=Icons` but the user passes `/Icons-` on the CLI, **When** running `tcdir /Icons-`, **Then** CLI flag wins and icons are suppressed.
+1. **Given** a classic conhost session using a Nerd Font, **When** running `rcdir`, **Then** icons are automatically displayed (detected via glyph canary probe).
+2. **Given** a classic conhost session using Consolas, **When** running `rcdir`, **Then** the listing appears identical to the pre-feature version.
+3. **Given** a WezTerm session (any font), **When** running `rcdir`, **Then** icons are automatically displayed (WezTerm bundles Nerd Font Symbols as a fallback).
+4. **Given** a Windows Terminal or VS Code session on a system with a Nerd Font installed, **When** running `rcdir`, **Then** icons are automatically displayed (detected via system font enumeration heuristic).
+5. **Given** a Windows Terminal session on a system with no Nerd Font installed, **When** running `rcdir`, **Then** the listing appears identical to the pre-feature version.
+6. **Given** any terminal, **When** running `rcdir /Icons`, **Then** icons appear regardless of font detection.
+7. **Given** any terminal, **When** running `rcdir /Icons-`, **Then** icons are suppressed regardless of font detection.
+8. **Given** `RCDIR=Icons`, **When** running `rcdir` without a CLI flag, **Then** icons are always enabled (overriding auto-detect).
+9. **Given** `RCDIR=Icons-`, **When** running `rcdir` without a CLI flag, **Then** icons are always disabled (overriding auto-detect).
+10. **Given** `RCDIR=Icons` but the user passes `/Icons-` on the CLI, **When** running `rcdir /Icons-`, **Then** CLI flag wins and icons are suppressed.
 
 ---
 
@@ -64,45 +69,45 @@ When icons are displayed, the icon glyph uses the same color as the filename its
 
 **Why this priority**: Color consistency with existing file-type coloring is integral to the icon experience. Showing all icons in one flat color would look wrong. Since the color infrastructure already exists, this should be part of the core implementation.
 
-**Independent Test**: Run `tcdir` with icons active and verify that each icon glyph appears in the same color as its corresponding filename.
+**Independent Test**: Run `rcdir` with icons active and verify that each icon glyph appears in the same color as its corresponding filename.
 
 **Acceptance Scenarios**:
 
 1. **Given** icons are active, **When** displaying a directory entry, **Then** the folder icon is shown in the same color as the directory name.
 2. **Given** icons are active, **When** displaying a `.cpp` file, **Then** the icon color matches the `.cpp` extension color.
 3. **Given** icons are active and a file has a special attribute (hidden, encrypted), **When** the attribute color override takes effect, **Then** the icon color matches the overridden filename color.
-4. **Given** `TCDIR=.cpp=Yellow`, **When** displaying a `.cpp` file with icons, **Then** both the icon and filename appear in Yellow.
+4. **Given** `RCDIR=.cpp=Yellow`, **When** displaying a `.cpp` file with icons, **Then** both the icon and filename appear in Yellow.
 
 ---
 
 ### User Story 4 - Environment Variable Icon Configuration (Priority: P2)
 
-A user can customize icons through the same `TCDIR` environment variable they already use for colors. The existing `key=value` syntax is extended: a comma after the color value introduces an icon override. The icon can be a `U+XXXX` hex code point or a literal glyph character. The `Icons` / `Icons-` switch controls the global on/off state. Well-known directory names use a `dir:` prefix.
+A user can customize icons through the same `RCDIR` environment variable they already use for colors. The existing `key=value` syntax is extended: a comma after the color value introduces an icon override. The icon can be a `U+XXXX` hex code point or a literal glyph character. The `Icons` / `Icons-` switch controls the global on/off state. Well-known directory names use a `dir:` prefix.
 
 **Why this priority**: Env variable configuration extends the feature from "nice default" to "customizable for power users." It reuses the existing syntax rather than inventing a new one.
 
-**Independent Test**: Set various `TCDIR` icon entries and verify correct behavior.
+**Independent Test**: Set various `RCDIR` icon entries and verify correct behavior.
 
 **Acceptance Scenarios**:
 
-1. **Given** `TCDIR=Icons`, **When** running `tcdir` without flags, **Then** icons are always displayed (overriding auto-detect to ON).
-2. **Given** `TCDIR=Icons-`, **When** running `tcdir` without flags, **Then** icons are always suppressed (overriding auto-detect to OFF).
-3. **Given** `TCDIR=.py=Green,U+E73C`, **When** displaying a `.py` file with icons, **Then** the Python icon at U+E73C is shown in Green.
-4. **Given** `TCDIR=.py=,U+E73C`, **When** displaying a `.py` file with icons, **Then** the Python icon at U+E73C is shown in the default color.
-5. **Given** `TCDIR=.obj=,`, **When** displaying a `.obj` file with icons, **Then** no icon is shown for that extension (icon suppressed).
-6. **Given** `TCDIR=dir:.git=,U+F1D3`, **When** displaying a `.git` directory with icons, **Then** the Git icon at U+F1D3 is used.
-7. **Given** `TCDIR=attr:H=DarkGrey,U+F21B`, **When** displaying a hidden file with icons, **Then** a ghost icon at U+F21B is shown in DarkGrey.
-8. **Given** `TCDIR=.cpp=Green`, **When** displaying a `.cpp` file with icons, **Then** original behavior is preserved — Green color, default built-in C++ icon (no comma = no icon change).
+1. **Given** `RCDIR=Icons`, **When** running `rcdir` without flags, **Then** icons are always displayed (overriding auto-detect to ON).
+2. **Given** `RCDIR=Icons-`, **When** running `rcdir` without flags, **Then** icons are always suppressed (overriding auto-detect to OFF).
+3. **Given** `RCDIR=.py=Green,U+E73C`, **When** displaying a `.py` file with icons, **Then** the Python icon at U+E73C is shown in Green.
+4. **Given** `RCDIR=.py=,U+E73C`, **When** displaying a `.py` file with icons, **Then** the Python icon at U+E73C is shown in the default color.
+5. **Given** `RCDIR=.obj=,`, **When** displaying a `.obj` file with icons, **Then** no icon is shown for that extension (icon suppressed).
+6. **Given** `RCDIR=dir:.git=,U+F1D3`, **When** displaying a `.git` directory with icons, **Then** the Git icon at U+F1D3 is used.
+7. **Given** `RCDIR=attr:H=DarkGrey,U+F21B`, **When** displaying a hidden file with icons, **Then** a ghost icon at U+F21B is shown in DarkGrey.
+8. **Given** `RCDIR=.cpp=Green`, **When** displaying a `.cpp` file with icons, **Then** original behavior is preserved — Green color, default built-in C++ icon (no comma = no icon change).
 
 ---
 
 ### User Story 5 - Icons in Wide and Bare Display Modes (Priority: P3)
 
-When the user runs `tcdir` in wide mode (`/W`) or bare mode (`/B`) with icons active, icons appear before each entry, and column alignment accounts for the icon width.
+When the user runs `rcdir` in wide mode (`/W`) or bare mode (`/B`) with icons active, icons appear before each entry, and column alignment accounts for the icon width.
 
 **Why this priority**: Normal mode is the primary use case. Wide and bare modes are secondary but should work correctly for completeness.
 
-**Independent Test**: Run `tcdir /W` and `tcdir /B` with icons active and verify icons appear with correct alignment in each mode.
+**Independent Test**: Run `rcdir /W` and `rcdir /B` with icons active and verify icons appear with correct alignment in each mode.
 
 **Acceptance Scenarios**:
 
@@ -127,7 +132,7 @@ Certain well-known directory names (e.g., `.git`, `.github`, `node_modules`, `sr
 1. **Given** a directory named `.git` with icons active, **When** viewing the listing, **Then** a Git-specific icon is displayed instead of the generic folder icon.
 2. **Given** a directory named `src` with icons active, **When** viewing the listing, **Then** a source-code-specific folder icon is displayed.
 3. **Given** a directory with an unrecognized name, **When** viewing the listing, **Then** the generic folder icon is still displayed.
-4. **Given** `TCDIR=dir:src=,U+ABCD`, **When** viewing a `src` directory, **Then** the user's custom icon overrides the built-in well-known icon.
+4. **Given** `RCDIR=dir:src=,U+ABCD`, **When** viewing a `src` directory, **Then** the user's custom icon overrides the built-in well-known icon.
 
 ---
 
@@ -137,7 +142,7 @@ When icons are active and the listing is within a cloud sync root (OneDrive, etc
 
 **Why this priority**: Cloud status is displayed in its own column, separate from file-type icons. The upgrade is cosmetic polish that leverages the Nerd Font already being available.
 
-**Independent Test**: Run `tcdir` with icons active in a OneDrive-synced folder and verify cloud status symbols use NF glyphs instead of circles.
+**Independent Test**: Run `rcdir` with icons active in a OneDrive-synced folder and verify cloud status symbols use NF glyphs instead of circles.
 
 **Acceptance Scenarios**:
 
@@ -150,13 +155,13 @@ When icons are active and the listing is within a cloud sync root (OneDrive, etc
 
 ### Edge Cases
 
-- What happens when auto-detect returns a false positive (heuristic says NF is installed but terminal isn't using it)? The listing displays broken glyph characters but remains functional — filenames and data are correct. The user can force-disable via `/Icons-` or `TCDIR=Icons-`.
+- What happens when auto-detect returns a false positive (heuristic says NF is installed but terminal isn't using it)? The listing displays broken glyph characters but remains functional — filenames and data are correct. The user can force-disable via `/Icons-` or `RCDIR=Icons-`.
 - What happens with very long filenames that would be truncated? The icon + space takes up 2 character positions; truncation logic must account for this additional width.
 - What happens when output is redirected to a file or piped? Icons follow the same enable/disable logic — if the user force-enabled them or auto-detect is positive, they appear in the output as valid Unicode characters.
 - What happens with files that have no extension? A generic file icon is used (falls through to the file type fallback level).
 - How are Nerd Font glyphs handled when multiple characters wide? Only single-width glyphs should be used to avoid column misalignment.
 - What happens when a file has multiple attributes (e.g., hidden + system + readonly)? The attribute with the highest priority in the fixed precedence order wins for both color and icon (see Precedence Chain below).
-- What happens when the console font cannot be queried (e.g., SSH session)? Auto-detect defaults to OFF (no icons). The user can force-enable with `/Icons` or `TCDIR=Icons`.
+- What happens when the console font cannot be queried (e.g., SSH session)? Auto-detect defaults to OFF (no icons). The user can force-enable with `/Icons` or `RCDIR=Icons`.
 
 ## Font Dependency & Alternatives
 
@@ -186,7 +191,7 @@ The detection uses a **layered strategy** (evaluated in order, first definitive 
 | Step | Condition | Method | Result |
 |------|-----------|--------|--------|
 | 1 | CLI flag `/Icons` or `/Icons-` | User explicitly passed force-enable or force-disable flag | Definitive ON or OFF |
-| 2 | `TCDIR` env var has `Icons` or `Icons-` | User configured global icon preference | Definitive ON or OFF |
+| 2 | `RCDIR` env var has `Icons` or `Icons-` | User configured global icon preference | Definitive ON or OFF |
 | 3 | Running in WezTerm (`TERM_PROGRAM=WezTerm`) | WezTerm bundles Nerd Font Symbols as a default fallback font | ON |
 | 4 | Running in classic conhost (no ConPTY env vars detected) | Glyph canary probe: select the console font, test for glyph at U+E5FA via glyph index lookup | Definitive ON or OFF |
 | 5 | Running in a ConPTY-hosted terminal (`WT_SESSION`, `TERM_PROGRAM`, `ConEmuPID`, `ALACRITTY_WINDOW_ID`, etc.) | System font enumeration: check if any Nerd Font is installed on the system | Heuristic ON or OFF |
@@ -198,7 +203,7 @@ The detection uses a **layered strategy** (evaluated in order, first definitive 
 
 **System font enumeration heuristic** (step 5): Enumerating installed font families and checking for Nerd Font naming patterns ("Nerd Font", " NF", " NFM", " NFP" suffixes). This is a heuristic — "a Nerd Font is installed" ≠ "the terminal is using it" — but it's a reasonable bet: users don't install Nerd Fonts by accident. False positives are handled gracefully via `Icons-` override.
 
-## TCDIR Environment Variable Syntax
+## RCDIR Environment Variable Syntax
 
 ### Icon Override Syntax
 
@@ -229,7 +234,7 @@ Where `icon` is one of:
 ### Examples
 
 ```
-TCDIR=Icons;S;.cpp=Green,U+E61D;R=,U+F115;attr:H=DarkGrey;dir:.git=,U+F1D3;.obj=,
+RCDIR=Icons;S;.cpp=Green,U+E61D;R=,U+F115;attr:H=DarkGrey;dir:.git=,U+F1D3;.obj=,
        │     │  │                  │          │                │             │
        │     │  │                  │          │                │             └─ suppress .obj icon
        │     │  │                  │          │                └─ .git dir gets Git icon
@@ -244,7 +249,7 @@ Backward compatibility: entries without a comma (e.g., `.cpp=Green`, `attr:H=Dar
 
 ### Duplicate & Conflicting Entries
 
-When the same key appears multiple times in the `TCDIR` variable (e.g., `.cpp=Green,U+E61D;.cpp=Red` or `Icons;Icons-`), the **first value encountered wins**. Subsequent duplicate or conflicting entries are flagged as errors using the existing env var validation pattern (underlined error display on normal runs, detailed in `/config`). This applies uniformly to color entries, icon entries, and switches.
+When the same key appears multiple times in the `RCDIR` variable (e.g., `.cpp=Green,U+E61D;.cpp=Red` or `Icons;Icons-`), the **first value encountered wins**. Subsequent duplicate or conflicting entries are flagged as errors using the existing env var validation pattern (underlined error display on normal runs, detailed in `/config`). This applies uniformly to color entries, icon entries, and switches.
 
 ## Icon & Color Precedence Chain
 
@@ -279,7 +284,7 @@ When a file has multiple attributes set, the first match in this fixed priority 
 
 **Note**: This precedence order applies to color and icon selection only. The display column showing attribute letters (`RHSATECP0`) retains its existing order for visual consistency with `attrib` and `Get-ChildItem`.
 
-**Default behavior**: No built-in attribute icons are shipped initially. Attribute entries only have default *colors*. Since no attribute-level icon is configured by default, the attribute level will match for color but fall through for icon — meaning a hidden `.cpp` file gets DarkGrey color (attribute wins) and C++ icon (extension wins, since attribute has no icon). Users can configure attribute-level icons via `TCDIR=attr:H=DarkGrey,U+F21B` if desired.
+**Default behavior**: No built-in attribute icons are shipped initially. Attribute entries only have default *colors*. Since no attribute-level icon is configured by default, the attribute level will match for color but fall through for icon — meaning a hidden `.cpp` file gets DarkGrey color (attribute wins) and C++ icon (extension wins, since attribute has no icon). Users can configure attribute-level icons via `RCDIR=attr:H=DarkGrey,U+F21B` if desired.
 
 ### Precedence Example: Hidden `.cpp` File
 
@@ -311,7 +316,7 @@ Result: reparse-point color + folder icon
 
 ### Precedence Example: User Configures Attribute Icon
 
-Given `TCDIR=attr:H=DarkGrey,U+F21B`:
+Given `RCDIR=attr:H=DarkGrey,U+F21B`:
 
 ```
 Level 1 (attributes): HIDDEN matches, has color=DarkGrey AND icon=U+F21B → color=DarkGrey, icon=ghost
@@ -338,12 +343,12 @@ Cloud status colors are unchanged — the existing `CloudStatusCloudOnly`, `Clou
 #### Icon Display
 
 - **FR-001**: System MUST display an appropriate icon glyph before each filename in the listing when icons are active.
-- **FR-002**: System MUST provide default icon mappings for every file extension already in TCDir's built-in color table (`.cpp`, `.h`, `.exe`, `.dll`, `.py`, `.js`, `.ts`, `.json`, `.xml`, `.yml`, `.md`, `.txt`, `.zip`, `.sln`, etc.) plus directories and generic fallbacks.
+- **FR-002**: System MUST provide default icon mappings for every file extension already in RCDIR's built-in color table (`.cpp`, `.h`, `.exe`, `.dll`, `.py`, `.js`, `.ts`, `.json`, `.xml`, `.yml`, `.md`, `.txt`, `.zip`, `.sln`, etc.) plus directories and generic fallbacks.
 - **FR-003**: System MUST display a folder icon before directory entries and a generic file icon before entries with unrecognized extensions.
 - **FR-004**: System MUST display distinct icons for symlinks and junction points.
-- **FR-005**: System MUST support well-known directory name mappings (e.g., `.git`, `node_modules`, `src`, `docs`) with folder-specific icons, configurable via the `dir:` prefix in the `TCDIR` env var.
+- **FR-005**: System MUST support well-known directory name mappings (e.g., `.git`, `node_modules`, `src`, `docs`) with folder-specific icons, configurable via the `dir:` prefix in the `RCDIR` env var.
 - **FR-006**: System MUST use only single-width Nerd Font glyphs to maintain consistent column alignment.
-- **FR-007**: System MUST insert exactly one space between the icon glyph and the filename. In normal mode, the icon is placed immediately before the filename, after all other columns (date, time, attributes, size, cloud status, owner). In wide and bare modes, the icon precedes each entry name directly.
+- **FR-007**: System MUST insert exactly one space between the icon glyph and the filename. In normal mode, the icon is placed immediately before the filename, after all other columns (date, time, attributes, size, cloud status, owner). In wide and bare modes, the icon precedes each entry name directly. When an individual entry's icon is suppressed (empty-icon syntax), the 2-character slot (icon + space) MUST be preserved as 2 spaces to maintain column alignment with other entries.
 - **FR-008**: Icon display MUST work correctly in all display modes (normal, wide, bare) when icons are active.
 - **FR-008a**: In wide display mode, directory name brackets (`[name]`) MUST be suppressed when icons are active, since the folder icon already provides visual distinction. When icons are off, brackets MUST be retained for backward compatibility.
 - **FR-009**: Icon lookup MUST follow the same precedence chain as color lookup: file attribute → well-known directory name → file extension → file type fallback.
@@ -352,13 +357,13 @@ Cloud status colors are unchanged — the existing `CloudStatusCloudOnly`, `Clou
 
 #### Icon Activation
 
-- **FR-012**: System MUST auto-detect Nerd Font availability at startup using a layered strategy: (1) CLI flag, (2) `TCDIR` env var `Icons`/`Icons-`, (3) WezTerm detection, (4) glyph canary probe in classic conhost, (5) system font enumeration heuristic in ConPTY terminals, (6) default OFF.
+- **FR-012**: System MUST auto-detect Nerd Font availability at startup using a layered strategy: (1) CLI flag, (2) `RCDIR` env var `Icons`/`Icons-`, (3) WezTerm detection, (4) glyph canary probe in classic conhost, (5) system font enumeration heuristic in ConPTY terminals, (6) default OFF.
 - **FR-013**: When a Nerd Font is detected and no explicit override is set, icons MUST be displayed automatically.
 - **FR-014**: When no Nerd Font is detected and no explicit override is set, icons MUST NOT be displayed.
 - **FR-015**: System MUST provide the `/Icons` command-line flag to force-enable icons (overriding auto-detect).
 - **FR-016**: System MUST provide the `/Icons-` command-line flag to force-disable icons (overriding auto-detect).
 - **FR-017**: When detection is inconclusive and no override is set, icons MUST default to OFF.
-- **FR-018**: CLI flags MUST take precedence over `TCDIR` environment variable, which MUST take precedence over auto-detection.
+- **FR-018**: CLI flags MUST take precedence over `RCDIR` environment variable, which MUST take precedence over auto-detection.
 
 #### Icon Colors
 
@@ -367,23 +372,23 @@ Cloud status colors are unchanged — the existing `CloudStatusCloudOnly`, `Clou
 
 #### Environment Variable Configuration
 
-- **FR-021**: The `TCDIR` environment variable MUST support `Icons` as a switch name to force-enable icons.
-- **FR-022**: The `TCDIR` environment variable MUST support `Icons-` to force-disable icons.
-- **FR-023**: The `TCDIR` environment variable MUST support the extended syntax `key=[color][,icon]` where `icon` is a `U+XXXX` code point (4–6 hex digits), a literal single glyph character, or empty (to suppress the icon).
+- **FR-021**: The `RCDIR` environment variable MUST support `Icons` as a switch name to force-enable icons.
+- **FR-022**: The `RCDIR` environment variable MUST support `Icons-` to force-disable icons.
+- **FR-023**: The `RCDIR` environment variable MUST support the extended syntax `key=[color][,icon]` where `icon` is a `U+XXXX` code point (4–6 hex digits), a literal single glyph character, or empty (to suppress the icon).
 - **FR-024**: Entries without a comma MUST behave identically to the pre-feature format (backward compatible — color only, no icon change).
 - **FR-025**: The `dir:` prefix MUST be supported for well-known directory name overrides, following the same `[color][,icon]` syntax.
 
 #### Diagnostics & Help
 
-- **FR-026**: The `/config` output MUST include an icon status line showing the detection result and resolved icon state. The icon activation priority chain MUST be: CLI flag (`/Icons`, `/Icons-`) → env var (`TCDIR=Icons`/`Icons-`) → auto-detection. Status messages: "Enabled via /Icons", "Disabled via /Icons-", "Enabled via TCDIR=Icons", "Disabled via TCDIR=Icons-", "Nerd Font detected, icons enabled", "Nerd Font not detected, icons disabled". The icon status line MUST appear before the configuration tables so the user immediately sees whether icons are active.
+- **FR-026**: The `/config` output MUST include an icon status line showing the detection result and resolved icon state. The icon activation priority chain MUST be: CLI flag (`/Icons`, `/Icons-`) → env var (`RCDIR=Icons`/`Icons-`) → auto-detection. Status messages: "Enabled via /Icons", "Disabled via /Icons-", "Enabled via RCDIR=Icons", "Disabled via RCDIR=Icons-", "Nerd Font detected, icons enabled", "Nerd Font not detected, icons disabled". The icon status line MUST appear before the configuration tables so the user immediately sees whether icons are active.
 - **FR-027**: When icons are active, the `/config` output MUST show icon glyphs inline in the file extension color table (renamed to "file extension color and icon configuration") and in a separate "well-known directory icon configuration" table. Both tables use multi-column layout with source indicators (Default vs Environment). Well-known directories are shown in the Directory display color. When icons are not active, icon glyphs MUST be omitted from the extension table, and the well-known directory table MUST NOT be shown. There MUST NOT be a separate icon mapping table.
 - **FR-028**: The `/env` output MUST document the `Icons`/`Icons-` switch, the `[color][,icon]` comma syntax, the `dir:` prefix, and the `U+XXXX` code point format. Layout requirements:
   - Section descriptions MUST follow the syntax line order: `<Item>`, `Attr:<FileAttr>`, `<FileAttr>` attributes table, `<.ext>`, `<name>` (well-known directory), `<Fore>`, `<Back>`, color list, `<Icon>`.
   - The `<Fore>` and `<Back>` descriptions MUST appear immediately before the color name list (not separated by other content).
   - The `<Icon>` description (U+XXXX, literal glyph, empty=suppressed) MUST appear *after* the color name list, not between `<Fore>/<Back>` and the colors.
   - The example MUST include an icon code point (e.g., `.cpp=White on Blue,U+E61D`) to demonstrate the comma syntax.
-  - When running under PowerShell, a persist hint MUST be shown after the example: `[Environment]::SetEnvironmentVariable("TCDIR", $env:TCDIR, "User")`.
-- **FR-029**: The `/env` output MUST show any icon-related overrides parsed from the current `TCDIR` value.
+  - When running under PowerShell, a persist hint MUST be shown after the example: `[Environment]::SetEnvironmentVariable("RCDIR", $env:RCDIR, "User")`.
+- **FR-029**: The `/env` output MUST show any icon-related overrides parsed from the current `RCDIR` value.
 - **FR-030**: The `/?` usage display MUST document the `/Icons` and `/Icons-` command-line flags.
 
 #### Cloud Status
@@ -396,7 +401,7 @@ Cloud status colors are unchanged — the existing `CloudStatusCloudOnly`, `Clou
 
 - **Icon Mapping Table**: A built-in lookup structure mapping file extensions, well-known directory names, and file type fallbacks to Nerd Font glyph code points. Parallels the existing extension-to-color table.
 - **Glyph**: A single Unicode character from the Nerd Font Private Use Area that visually represents a file type, folder type, or file attribute.
-- **Icon Activation State**: A tri-state value (auto / force-on / force-off) determined by the precedence chain: CLI flag → TCDIR env var → auto-detect result.
+- **Icon Activation State**: A tri-state value (auto / force-on / force-off) determined by the precedence chain: CLI flag → RCDIR env var → auto-detect result.
 - **Attribute Precedence Array**: A fixed-order array of file attributes that determines which attribute wins when multiple are present. Used identically for both color and icon selection. Independent of the attribute display column order.
 
 ## Default Icon Mappings
@@ -485,19 +490,19 @@ The following default mappings are aligned with **Terminal-Icons** (devblackops 
 | Bicep | `.bicep` | `nf-seti-bicep` | U+E63B | Seti-UI | |
 | Resource | `.rc` | `nf-seti-config` | U+E615 | Seti-UI | |
 
-\* Material Design code points (5-digit, U+Fxxxx) require **surrogate pairs** on Windows (`wchar_t` is 16-bit). Conversion: `hi = 0xD800 + ((cp - 0x10000) >> 10)`, `lo = 0xDC00 + ((cp - 0x10000) & 0x3FF)`.
+\* Material Design code points (5-digit, U+Fxxxx) are above the BMP. Rust handles these natively as `char` values — no surrogate pair encoding needed. When writing to the Windows console via wide-string APIs, these code points require surrogate pair encoding in the `u16` buffer.
 
 ### Deviations from Terminal-Icons
 
 Five icons deliberately differ from Terminal-Icons defaults for legibility at small terminal font sizes:
 
-| Target | TCDir uses | Code Point | TI default | TI Code Point | Rationale |
+| Target | RCDIR uses | Code Point | TI default | TI Code Point | Rationale |
 |--------|-----------|------------|-----------|---------------|-----------|
 | `.git` dir | `nf-seti-git` | U+E65D | `nf-custom-folder_git` | U+E5FB | More recognizable Git icon |
 | `.github` dir | `nf-seti-github` | U+E65B | `nf-custom-folder_github` | U+E5FD | Clearer GitHub mark |
 | `.vscode` dir | `nf-dev-vscode` | U+E8DA | `nf-custom-folder_config` | U+E5FC | VS Code logo vs generic config folder |
 | `node_modules` dir | `nf-seti-npm` | U+E616 | `nf-custom-folder_npm` | U+E5FA | Clearer npm box icon |
-| `.py`, `.pyw` | `nf-seti-python` | U+E606 | `nf-md-language_python` | U+F0320 | BMP single wchar_t; more distinct at 12pt |
+| `.py`, `.pyw` | `nf-seti-python` | U+E606 | `nf-md-language_python` | U+F0320 | BMP (no surrogate pair); more distinct at 12pt |
 
 ### Directory Icons
 
@@ -581,7 +586,7 @@ The following are explicitly **not** part of this feature:
 
 - **Per-icon color independent of filename color**: Icons always inherit the filename's resolved color. There is no syntax for setting an icon color separately from the filename color.
 - **Image or thumbnail previews**: This feature displays single-glyph icons, not bitmap/image previews.
-- **Custom theme files** (e.g., `.tcdir-theme`): Icon configuration is done exclusively through the `TCDIR` environment variable and CLI flags. No external theme file format is introduced.
+- **Custom theme files** (e.g., `.rcdir-theme`): Icon configuration is done exclusively through the `RCDIR` environment variable and CLI flags. No external theme file format is introduced.
 - **Linux/macOS support**: This feature targets Windows only (classic conhost + ConPTY). Linux/macOS may be pursued as a separate future effort, but no cross-platform abstractions are required for this feature.
 
 ## Success Criteria *(mandatory)*
@@ -589,13 +594,13 @@ The following are explicitly **not** part of this feature:
 ### Measurable Outcomes
 
 - **SC-001**: Users can visually distinguish file types at a glance — a developer scanning a project directory can identify source files, config files, images, and folders without reading extensions.
-- **SC-002**: Existing users experience zero regression — on systems without a Nerd Font, `tcdir` produces byte-identical output to the previous version (except for the attribute precedence reorder, which is a deliberate improvement).
+- **SC-002**: Existing users experience zero regression — on systems without a Nerd Font, `rcdir` produces byte-identical output to the previous version (except for the attribute precedence reorder, which is a deliberate improvement).
 - **SC-003**: On systems with a Nerd Font, icons appear automatically with no user configuration required.
 - **SC-004**: The icon feature adds less than 5% overhead to listing time for directories with 1000+ files.
-- **SC-005**: Every file extension in TCDir's built-in color table has a corresponding default icon mapping.
+- **SC-005**: Every file extension in RCDIR's built-in color table has a corresponding default icon mapping.
 - **SC-006**: Column alignment in all display modes (normal, wide, bare) remains correct when icons are active.
 - **SC-007**: Icons display correctly when output is redirected or piped (valid Unicode characters in the output stream).
 - **SC-008**: Users can force-enable (`/Icons`) or force-disable (`/Icons-`) icons via CLI flag, overriding auto-detection.
-- **SC-009**: Users can customize individual icon mappings via the `TCDIR` environment variable using the extended `[color][,icon]` syntax.
+- **SC-009**: Users can customize individual icon mappings via the `RCDIR` environment variable using the extended `[color][,icon]` syntax.
 - **SC-010**: Cloud status symbols upgrade to Nerd Font glyphs when icons are active, with zero regression when icons are off.
-- **SC-011**: Running `tcdir /config` displays the icon detection result and resolved icon state, giving users clear visibility into why icons are on or off.
+- **SC-011**: Running `rcdir /config` displays the icon detection result and resolved icon state, giving users clear visibility into why icons are on or off.

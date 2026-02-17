@@ -161,6 +161,18 @@ function Invoke-CargoBuild {
         [string]$CargoCommand = 'build'
     )
 
+    # Increment version before building (mirrors TCDir PreBuildEvent)
+    $incrementScript = Join-Path $PSScriptRoot 'IncrementVersion.ps1'
+    if (Test-Path $incrementScript) {
+        & $incrementScript
+        if ($LASTEXITCODE -ne 0) {
+            return @{
+                ExitCode = $LASTEXITCODE
+                Duration = [TimeSpan]::Zero
+            }
+        }
+    }
+
     $rustTarget = Get-RustTarget -Platform $Platform
     
     $cargoArgs = @($CargoCommand, '--target', $rustTarget)

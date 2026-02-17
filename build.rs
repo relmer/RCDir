@@ -1,10 +1,12 @@
-// build.rs — Auto-increment build number and inject version + timestamp.
+// build.rs — Read version info and inject env vars for src/ to use.
 //
-// On every compile:
+// On every compile (including rust-analyzer):
 // 1. Reads Version.toml (major, minor, build)
-// 2. Increments `build` by 1
-// 3. Writes Version.toml back
-// 4. Emits cargo:rustc-env directives so src/ can use env!() macros
+// 2. Emits cargo:rustc-env directives so src/ can use env!() macros
+//
+// Version incrementing is handled by scripts/IncrementVersion.ps1,
+// called from scripts/Build.ps1 before cargo runs.  This keeps
+// rust-analyzer from bumping the build number on every keystroke.
 //
 // Env vars injected:
 //   RCDIR_VERSION_STRING  e.g. "0.1.42"
@@ -97,33 +99,6 @@ fn read_version(path: &Path) -> Version {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  write_version
-//
-//  Writes updated version numbers back to Version.toml.
-//
-////////////////////////////////////////////////////////////////////////////////
-
-fn write_version(path: &Path, version: &Version) {
-    let contents = format!(
-        "# RCDir version — build number auto-incremented by build.rs on every compile.\n\
-         # Major and minor are updated manually.\n\
-         major = {}\n\
-         minor = {}\n\
-         build = {}\n",
-        version.major, version.minor, version.build,
-    );
-
-
-
-    fs::write(path, contents).expect("Failed to write Version.toml");
-}
-
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
 //  build_timestamp
 //
 //  Returns the current local time formatted as a build timestamp string.
@@ -176,23 +151,20 @@ fn emit_env_vars(version: &Version, timestamp: &str, year: &str) {
 //
 //  main
 //
-//  Entry point: reads version, increments build, writes back, and emits env
-//  vars.
+//  Entry point: reads version from Version.toml and emits env vars.
+//  Version incrementing is handled externally by IncrementVersion.ps1.
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
     let version_path = Path::new("Version.toml");
-    let mut version  = read_version(version_path);
+    let version      = read_version(version_path);
     let timestamp    = build_timestamp();
     let year         = current_year();
 
 
 
     println!("cargo:rerun-if-changed=Version.toml");
-
-    version.build += 1;
-    write_version(version_path, &version);
 
     emit_env_vars(&version, &timestamp, &year);
 }

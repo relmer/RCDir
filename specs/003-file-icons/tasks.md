@@ -33,26 +33,26 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Create NF named constants in src/icon_mapping.rs — port all `NfIcon` constants from TCDirCore/IconMapping.h (111 `pub const char` values, 8 groups: Custom, Seti, Dev, Fae, Oct, Fa, Md, Cod)
-- [ ] T006 [P] Create `DEFAULT_EXTENSION_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultExtensionIcons[]` from TCDirCore/IconMapping.cpp (209 `(&str, char)` entries)
-- [ ] T007 [P] Create `DEFAULT_WELL_KNOWN_DIR_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultWellKnownDirIcons[]` from TCDirCore/IconMapping.cpp (60 `(&str, char)` entries)
-- [ ] T008 Create `ATTRIBUTE_PRECEDENCE` array in src/file_attribute_map.rs — port `g_rgAttributePrecedenceOrder[]` from TCDirCore/IconMapping.cpp (9 entries, PSHERC0TA order)
-- [ ] T009 Create `IconActivation` and `DetectionResult` enums in src/nerd_font_detector.rs — port `EDetectionResult` from TCDirCore/NerdFontDetector.h
-- [ ] T010 Create `FontProber` trait in src/nerd_font_detector.rs — port virtual methods from `CNerdFontDetector` (probe_console_font_for_glyph, is_nerd_font_installed)
-- [ ] T011 Implement `DefaultFontProber` struct in src/nerd_font_detector.rs — port `CNerdFontDetector::ProbeConsoleFontForGlyph()` (GetCurrentConsoleFontEx → CreateCompatibleDC → CreateFontW → SelectObject → GetGlyphIndicesW) and `IsNerdFontInstalled()` (EnumFontFamiliesExW + callback) from TCDirCore/NerdFontDetector.cpp
-- [ ] T012 Implement `detect()` function in src/nerd_font_detector.rs — port 5-step detection chain from `CNerdFontDetector::Detect()` in TCDirCore/NerdFontDetector.cpp (WezTerm → ConPTY check → canary probe → font enum → fallback)
-- [ ] T013 Implement `is_wezterm()` and `is_conpty_terminal()` helpers in src/nerd_font_detector.rs — port `IsWezTerm()` and `IsConPtyTerminal()` from TCDirCore/NerdFontDetector.cpp
-- [ ] T014 Add `FileDisplayStyle` struct to src/config.rs — port `SFileDisplayStyle` from TCDirCore/Config.h (text_attr: u16, icon_code_point: Option\<char\>, icon_suppressed: bool)
-- [ ] T015 Add icon fields to `Config` struct in src/config.rs — port icon map fields from TCDirCore/Config.h (extension_icons, well_known_dir_icons, file_attr_icons, icons: Option\<bool\>, type fallback icons, cloud status icons)
-- [ ] T016 Implement `initialize_extension_icons()` in src/config.rs — port `PopulateIconMap()` for extensions from TCDirCore/Config.cpp (seed HashMap from DEFAULT_EXTENSION_ICONS)
-- [ ] T017 Implement `initialize_well_known_dir_icons()` in src/config.rs — port `PopulateIconMap()` for well-known dirs from TCDirCore/Config.cpp (seed HashMap from DEFAULT_WELL_KNOWN_DIR_ICONS)
-- [ ] T018 Wire `initialize_extension_icons()` and `initialize_well_known_dir_icons()` calls into `Config::initialize()` / `initialize_with_provider()` in src/config.rs — port from TCDirCore/Config.cpp `Initialize()`
-- [ ] T019 Implement `parse_icon_value()` in src/config.rs — port `ParseIconValue()` from TCDirCore/Config.cpp (empty → suppressed, single char → literal, U+XXXX → code point)
-- [ ] T020 Extend `process_color_override_entry()` in src/config.rs to split on first comma — port comma-syntax parsing from `ParseOverrideValue()` in TCDirCore/Config.cpp (left = color, right = icon)
-- [ ] T021 Add `Icons`/`Icons-` switch handling in src/config.rs — port switch recognition from `s_switchMappings[]` in TCDirCore/Config.cpp
-- [ ] T022 Add `icons: Option<bool>` field to `CommandLine` struct in src/command_line.rs — port `m_fIcons` from TCDirCore/CommandLine.h
-- [ ] T023 Handle `/Icons` and `/Icons-` switch parsing in src/command_line.rs — port switch detection (trailing `-` negation, case-insensitive) from TCDirCore/CommandLine.cpp
-- [ ] T024 Implement `apply_config_defaults()` merge for icons in src/command_line.rs — port config→cmdline merge from TCDirCore/CommandLine.cpp (~line 73: if config has icons and cmdline doesn't, inherit)
+- [X] T005 Create NF named constants in src/icon_mapping.rs — port all `NfIcon` constants from TCDirCore/IconMapping.h (111 `pub const char` values, 8 groups: Custom, Seti, Dev, Fae, Oct, Fa, Md, Cod)
+- [X] T006 [P] Create `DEFAULT_EXTENSION_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultExtensionIcons[]` from TCDirCore/IconMapping.cpp (209 `(&str, char)` entries)
+- [X] T007 [P] Create `DEFAULT_WELL_KNOWN_DIR_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultWellKnownDirIcons[]` from TCDirCore/IconMapping.cpp (60 `(&str, char)` entries)
+- [X] T008 Create `ATTRIBUTE_PRECEDENCE` array in src/file_attribute_map.rs — port `g_rgAttributePrecedenceOrder[]` from TCDirCore/IconMapping.cpp (9 entries, PSHERC0TA order)
+- [X] T009 Create `IconActivation` and `DetectionResult` enums in src/nerd_font_detector.rs — port `EDetectionResult` from TCDirCore/NerdFontDetector.h
+- [X] T010 Create `FontProber` trait in src/nerd_font_detector.rs — port virtual methods from `CNerdFontDetector` (probe_console_font_for_glyph, is_nerd_font_installed)
+- [X] T011 Implement `DefaultFontProber` struct in src/nerd_font_detector.rs — port `CNerdFontDetector::ProbeConsoleFontForGlyph()` (GetCurrentConsoleFontEx → CreateCompatibleDC → CreateFontW → SelectObject → GetGlyphIndicesW) and `IsNerdFontInstalled()` (EnumFontFamiliesExW + callback) from TCDirCore/NerdFontDetector.cpp
+- [X] T012 Implement `detect()` function in src/nerd_font_detector.rs — port 5-step detection chain from `CNerdFontDetector::Detect()` in TCDirCore/NerdFontDetector.cpp (WezTerm → ConPTY check → canary probe → font enum → fallback)
+- [X] T013 Implement `is_wezterm()` and `is_conpty_terminal()` helpers in src/nerd_font_detector.rs — port `IsWezTerm()` and `IsConPtyTerminal()` from TCDirCore/NerdFontDetector.cpp
+- [X] T014 Add `FileDisplayStyle` struct to src/config.rs — port `SFileDisplayStyle` from TCDirCore/Config.h (text_attr: u16, icon_code_point: Option\<char\>, icon_suppressed: bool)
+- [X] T015 Add icon fields to `Config` struct in src/config.rs — port icon map fields from TCDirCore/Config.h (extension_icons, well_known_dir_icons, file_attr_icons, icons: Option\<bool\>, type fallback icons, cloud status icons)
+- [X] T016 Implement `initialize_extension_icons()` in src/config.rs — port `PopulateIconMap()` for extensions from TCDirCore/Config.cpp (seed HashMap from DEFAULT_EXTENSION_ICONS)
+- [X] T017 Implement `initialize_well_known_dir_icons()` in src/config.rs — port `PopulateIconMap()` for well-known dirs from TCDirCore/Config.cpp (seed HashMap from DEFAULT_WELL_KNOWN_DIR_ICONS)
+- [X] T018 Wire `initialize_extension_icons()` and `initialize_well_known_dir_icons()` calls into `Config::initialize()` / `initialize_with_provider()` in src/config.rs — port from TCDirCore/Config.cpp `Initialize()`
+- [X] T019 Implement `parse_icon_value()` in src/config.rs — port `ParseIconValue()` from TCDirCore/Config.cpp (empty → suppressed, single char → literal, U+XXXX → code point)
+- [X] T020 Extend `process_color_override_entry()` in src/config.rs to split on first comma — port comma-syntax parsing from `ParseOverrideValue()` in TCDirCore/Config.cpp (left = color, right = icon)
+- [X] T021 Add `Icons`/`Icons-` switch handling in src/config.rs — port switch recognition from `s_switchMappings[]` in TCDirCore/Config.cpp
+- [X] T022 Add `icons: Option<bool>` field to `CommandLine` struct in src/command_line.rs — port `m_fIcons` from TCDirCore/CommandLine.h
+- [X] T023 Handle `/Icons` and `/Icons-` switch parsing in src/command_line.rs — port switch detection (trailing `-` negation, case-insensitive) from TCDirCore/CommandLine.cpp
+- [X] T024 Implement `apply_config_defaults()` merge for icons in src/command_line.rs — port config→cmdline merge from TCDirCore/CommandLine.cpp (~line 73: if config has icons and cmdline doesn't, inherit)
 
 **Checkpoint**: `cargo build` succeeds. All foundational types and data tables compile. Detection chain implemented.
 

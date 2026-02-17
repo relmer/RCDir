@@ -77,6 +77,7 @@ pub struct CommandLine {
     pub time_field:       TimeField,
     pub show_owner:       bool,
     pub show_streams:     bool,
+    pub icons:            Option<bool>,
     pub debug:            bool,
 }
 
@@ -119,6 +120,7 @@ impl Default for CommandLine {
             time_field:      TimeField::Written,
             show_owner:      false,
             show_streams:    false,
+            icons:           None,
             debug:           false,
         }
     }
@@ -223,6 +225,10 @@ impl CommandLine {
         if let Some(v) = config.multi_threaded { self.multi_threaded = v; }
         if let Some(v) = config.show_owner     { self.show_owner     = v; }
         if let Some(v) = config.show_streams   { self.show_streams   = v; }
+        // Icons: conditional merge — only apply config default if CLI didn't specify
+        if config.icons.is_some() && self.icons.is_none() {
+            self.icons = config.icons;
+        }
     }
 
 
@@ -296,6 +302,12 @@ impl CommandLine {
             Ok(())
         } else if switch_arg.eq_ignore_ascii_case("streams") {
             self.show_streams = true;
+            Ok(())
+        } else if switch_arg.eq_ignore_ascii_case ("icons") {
+            self.icons = Some (true);
+            Ok(())
+        } else if switch_arg.eq_ignore_ascii_case ("icons-") {
+            self.icons = Some (false);
             Ok(())
         } else if cfg!(debug_assertions) && switch_arg.eq_ignore_ascii_case("debug") {
             self.debug = true;

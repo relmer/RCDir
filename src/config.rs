@@ -11,6 +11,11 @@ use std::path::Path;
 use crate::color::*;
 use crate::environment_provider::{DefaultEnvironmentProvider, EnvironmentProvider};
 use crate::file_info::FILE_ATTRIBUTE_MAP;
+use crate::icon_mapping::{
+    self,
+    NF_CUSTOM_FOLDER, NF_FA_EXTERNAL_LINK, NF_FA_FILE, NF_COD_FILE_SYMLINK_DIR,
+    NF_MD_CLOUD_CHECK, NF_MD_CLOUD_OUTLINE, NF_MD_PIN,
+};
 
 
 
@@ -247,6 +252,57 @@ impl ValidationResult {
 
 
 ////////////////////////////////////////////////////////////////////////////////
+//
+//  OverrideValue
+//
+//  Intermediate result of parsing a "color,icon" value from the env var.
+//
+//  Port of: SOverrideValue in TCDirCore/Config.h
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Clone, Default)]
+pub struct OverrideValue {
+    pub color_attr:   u16,
+    pub icon_cp:      char,
+    pub suppressed:   bool,
+    pub has_color:    bool,
+    pub has_icon:     bool,
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  FileDisplayStyle
+//
+//  Resolved color + icon for a single file entry.
+//
+//  Port of: SFileDisplayStyle in TCDirCore/Config.h
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FileDisplayStyle {
+    /// Resolved color attribute (Windows console WORD)
+    pub text_attr:       u16,
+
+    /// Resolved icon code point ('\0' = no icon configured)
+    pub icon_code_point: Option<char>,
+
+    /// true if icon explicitly set to empty (user typed ",")
+    pub icon_suppressed: bool,
+}
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub struct Config {
     /// Display item colors (indexed by Attribute enum)
@@ -266,6 +322,37 @@ pub struct Config {
 
     ////////////////////////////////////////////////////////////////////////////
 
+    /// Extension → icon code point (keys lowercase with leading dot)
+    pub extension_icons:           HashMap<String, char>,
+
+    /// Extension → icon source tracking
+    pub extension_icon_sources:    HashMap<String, AttributeSource>,
+
+    /// Well-known dir → icon code point (keys lowercase)
+    pub well_known_dir_icons:      HashMap<String, char>,
+
+    /// Well-known dir → icon source tracking
+    pub well_known_dir_icon_sources: HashMap<String, AttributeSource>,
+
+    /// File attribute flag → icon code point
+    pub file_attr_icons:           HashMap<u32, char>,
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Type fallback icons
+    pub icon_directory_default:    char,
+    pub icon_file_default:         char,
+    pub icon_symlink:              char,
+    pub icon_junction:             char,
+
+    /// Cloud status NF glyphs
+    pub icon_cloud_only:           char,
+    pub icon_locally_available:    char,
+    pub icon_always_local:         char,
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub icons:          Option<bool>,
     pub wide_listing:   Option<bool>,
     pub bare_listing:   Option<bool>,
     pub recurse:        Option<bool>,
@@ -321,11 +408,24 @@ impl Config {
 
     pub fn new() -> Self {
         Config {
-            attributes:        [0u16; Attribute::COUNT],
-            attribute_sources: [AttributeSource::Default; Attribute::COUNT],
-            extension_colors:  HashMap::new(),
-            extension_sources: HashMap::new(),
-            file_attr_colors:  HashMap::new(),
+            attributes:                 [0u16; Attribute::COUNT],
+            attribute_sources:          [AttributeSource::Default; Attribute::COUNT],
+            extension_colors:           HashMap::new(),
+            extension_sources:          HashMap::new(),
+            file_attr_colors:           HashMap::new(),
+            extension_icons:            HashMap::new(),
+            extension_icon_sources:     HashMap::new(),
+            well_known_dir_icons:       HashMap::new(),
+            well_known_dir_icon_sources: HashMap::new(),
+            file_attr_icons:            HashMap::new(),
+            icon_directory_default:     NF_CUSTOM_FOLDER,
+            icon_file_default:          NF_FA_FILE,
+            icon_symlink:               NF_COD_FILE_SYMLINK_DIR,
+            icon_junction:              NF_FA_EXTERNAL_LINK,
+            icon_cloud_only:            NF_MD_CLOUD_OUTLINE,
+            icon_locally_available:     NF_MD_CLOUD_CHECK,
+            icon_always_local:          NF_MD_PIN,
+            icons:             None,
             wide_listing:      None,
             bare_listing:      None,
             recurse:           None,
@@ -391,6 +491,8 @@ impl Config {
 
         self.initialize_extension_colors();
         self.initialize_file_attr_colors();
+        self.initialize_extension_icons();
+        self.initialize_well_known_dir_icons();
         self.apply_user_color_overrides(provider);
     }
 
@@ -616,6 +718,57 @@ impl Config {
 
     ////////////////////////////////////////////////////////////////////////////
     //
+    //  initialize_extension_icons
+    //
+    //  Seed the extension → icon HashMap from the default icon mapping table.
+    //
+    //  Port of: CConfig::PopulateIconMap (extension variant)
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn initialize_extension_icons(&mut self) {
+        self.extension_icons.clear();
+        self.extension_icon_sources.clear();
+
+        for &(ext, glyph) in icon_mapping::DEFAULT_EXTENSION_ICONS {
+            let key = ext.to_ascii_lowercase();
+            self.extension_icons.insert (key.clone(), glyph);
+            self.extension_icon_sources.insert (key, AttributeSource::Default);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  initialize_well_known_dir_icons
+    //
+    //  Seed the well-known dir → icon HashMap from the default icon mapping
+    //  table.
+    //
+    //  Port of: CConfig::PopulateIconMap (well-known dir variant)
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn initialize_well_known_dir_icons(&mut self) {
+        self.well_known_dir_icons.clear();
+        self.well_known_dir_icon_sources.clear();
+
+        for &(name, glyph) in icon_mapping::DEFAULT_WELL_KNOWN_DIR_ICONS {
+            let key = name.to_ascii_lowercase();
+            self.well_known_dir_icons.insert (key.clone(), glyph);
+            self.well_known_dir_icon_sources.insert (key, AttributeSource::Default);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
     //  apply_user_color_overrides
     //
     //  Parse the RCDIR environment variable for user color overrides and
@@ -639,6 +792,125 @@ impl Config {
                 continue;
             }
             self.process_color_override_entry(entry);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_icon_value
+    //
+    //  Parse an icon specification string into a code point.
+    //
+    //  Formats:
+    //    ""           → suppressed (icon_suppressed = true, returns None)
+    //    "X"          → single BMP codepoint (literal glyph)
+    //    "XY"         → surrogate pair → supplementary codepoint
+    //    "U+XXXX"     → hex code point notation (4–6 hex digits)
+    //
+    //  Port of: ParseIconValue in TCDirCore/Config.cpp
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn parse_icon_value(icon_spec: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
+        let trimmed = icon_spec.trim();
+
+        // Empty → suppressed
+        if trimmed.is_empty() {
+            return Some (('\0', true));
+        }
+
+        let chars: Vec<char> = trimmed.chars().collect();
+
+        match chars.len() {
+            1 => {
+                let c = chars[0];
+                let cp = c as u32;
+                // Reject lone surrogates (can't happen in Rust's char, but be safe)
+                if (0xD800..=0xDFFF).contains (&cp) {
+                    errors.push (ErrorInfo {
+                        message:             "Invalid icon: lone surrogate".into(),
+                        entry:               entry.into(),
+                        invalid_text:        trimmed.into(),
+                        invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+                    });
+                    return None;
+                }
+                Some ((c, false))
+            }
+
+            2 => {
+                // Could be a surrogate pair encoded as two UTF-16 units
+                let hi = chars[0] as u32;
+                let lo = chars[1] as u32;
+                if (0xD800..=0xDBFF).contains (&hi) && (0xDC00..=0xDFFF).contains (&lo) {
+                    let cp = 0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00);
+                    if let Some (c) = char::from_u32 (cp) {
+                        return Some ((c, false));
+                    }
+                }
+                // Not a valid surrogate pair — treat as error
+                errors.push (ErrorInfo {
+                    message:             "Invalid icon: expected single glyph or U+XXXX".into(),
+                    entry:               entry.into(),
+                    invalid_text:        trimmed.into(),
+                    invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+                });
+                None
+            }
+
+            _ => {
+                // Must be U+XXXX notation (6+ chars)
+                if !trimmed.starts_with ("U+") && !trimmed.starts_with ("u+") {
+                    errors.push (ErrorInfo {
+                        message:             "Invalid icon: expected single glyph or U+XXXX".into(),
+                        entry:               entry.into(),
+                        invalid_text:        trimmed.into(),
+                        invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+                    });
+                    return None;
+                }
+
+                let hex_str = &trimmed[2..];
+                if hex_str.len() < 4 || hex_str.len() > 6 {
+                    errors.push (ErrorInfo {
+                        message:             "Invalid icon: U+ requires 4-6 hex digits".into(),
+                        entry:               entry.into(),
+                        invalid_text:        trimmed.into(),
+                        invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+                    });
+                    return None;
+                }
+
+                match u32::from_str_radix (hex_str, 16) {
+                    Ok (cp) if (1..=0x10FFFF).contains (&cp) && !(0xD800..=0xDFFF).contains (&cp) => {
+                        match char::from_u32 (cp) {
+                            Some (c) => Some ((c, false)),
+                            None => {
+                                errors.push (ErrorInfo {
+                                    message:             "Invalid icon: code point is not a valid Unicode character".into(),
+                                    entry:               entry.into(),
+                                    invalid_text:        trimmed.into(),
+                                    invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+                                });
+                                None
+                            }
+                        }
+                    }
+                    _ => {
+                        errors.push (ErrorInfo {
+                            message:             "Invalid icon: code point out of range (U+0001..U+10FFFF)".into(),
+                            entry:               entry.into(),
+                            invalid_text:        trimmed.into(),
+                            invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+                        });
+                        None
+                    }
+                }
+            }
         }
     }
 
@@ -689,27 +961,73 @@ impl Config {
             }
         };
 
-        // Parse color value
-        let color_attr = match self.parse_color_value(entry, value) {
-            Some(c) => c,
-            None => return, // Error already recorded
+        // Split value on first comma: "color,icon"
+        let (color_view, icon_view, has_comma) = if let Some (comma_pos) = value.find (',') {
+            let color_part = value[..comma_pos].trim();
+            let icon_part  = &value[comma_pos + 1..]; // ParseIconValue trims internally
+            (color_part, Some (icon_part), true)
+        } else {
+            (value, None, false)
         };
+
+        // Parse color part (if non-empty)
+        let color_attr = if !color_view.is_empty() {
+            match self.parse_color_value (entry, color_view) {
+                Some (c) => Some (c),
+                None => return, // Error already recorded
+            }
+        } else {
+            None
+        };
+
+        // Parse icon part (only if comma was present)
+        let mut icon_result: Option<(char, bool)> = None;
+        if has_comma {
+            let icon_spec = icon_view.unwrap_or ("");
+            icon_result = Self::parse_icon_value (icon_spec, entry, &mut self.last_parse_result.errors);
+            // If parse_icon_value returned None, error was already recorded.
+            // Continue with color portion only (don't bail out entirely).
+        }
 
         // Apply based on key type
         if key.starts_with('.') {
-            // Extension color override
-            self.process_file_extension_override(key, color_attr);
+            // Extension color+icon override
+            if let Some (attr) = color_attr {
+                self.process_file_extension_override (key, attr);
+            }
+            if let Some ((cp, suppressed)) = icon_result {
+                self.apply_extension_icon_override (key, cp, suppressed);
+            }
+        } else if key.len() > 4 && key[..4].eq_ignore_ascii_case ("dir:") {
+            // Well-known directory icon/color override
+            let dir_name = &key[4..];
+            if let Some (attr) = color_attr {
+                // dir: prefix doesn't support color in the current design,
+                // but we store it for forward compatibility
+                let _ = attr;
+            }
+            if let Some ((cp, suppressed)) = icon_result {
+                self.apply_well_known_dir_icon_override (dir_name, cp, suppressed);
+            }
         } else if key.len() == 6
             && key[..5].eq_ignore_ascii_case("attr:")
         {
-            // File attribute color override
-            self.process_file_attribute_override(key, color_attr, entry);
+            // File attribute color+icon override
+            if let Some (attr) = color_attr {
+                self.process_file_attribute_override (key, attr, entry);
+            }
+            if let Some ((cp, suppressed)) = icon_result {
+                let attr_char = key.as_bytes()[5].to_ascii_uppercase() as char;
+                self.apply_file_attribute_icon_override (attr_char, cp, suppressed, entry);
+            }
         } else if key.len() == 1 {
-            // Display attribute override
-            self.process_display_attribute_override(key.chars().next().unwrap(), color_attr, entry);
+            // Display attribute override (color only, no icon support)
+            if let Some (attr) = color_attr {
+                self.process_display_attribute_override (key.chars().next().unwrap(), attr, entry);
+            }
         } else {
             self.last_parse_result.errors.push(ErrorInfo {
-                message:             "Invalid key (expected single character, .extension, or attr:x)".into(),
+                message:             "Invalid key (expected single character, .extension, dir:name, or attr:x)".into(),
                 entry:               entry.into(),
                 invalid_text:        key.into(),
                 invalid_text_offset: entry.find(key).unwrap_or(0),
@@ -804,6 +1122,14 @@ impl Config {
             }
             if entry.eq_ignore_ascii_case("streams") {
                 self.show_streams = Some(true);
+                return;
+            }
+            if entry.eq_ignore_ascii_case ("icons") {
+                self.icons = Some (true);
+                return;
+            }
+            if entry.eq_ignore_ascii_case ("icons-") {
+                self.icons = Some (false);
                 return;
             }
         }
@@ -935,6 +1261,100 @@ impl Config {
             invalid_text_offset: key_pos + 5,
         });
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_extension_icon_override
+    //
+    //  Apply a user icon override for a file extension from the env var.
+    //  First-write-wins for environment overrides.
+    //
+    //  Port of: CConfig::ApplyIconOverride (extension path)
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn apply_extension_icon_override(&mut self, key: &str, icon_cp: char, suppressed: bool) {
+        let lower_key = key.to_ascii_lowercase();
+
+        // First-write-wins: if already set by environment, report duplicate
+        if let Some (&AttributeSource::Environment) = self.extension_icon_sources.get (&lower_key) {
+            self.last_parse_result.errors.push (ErrorInfo {
+                message:             "Duplicate extension icon override (first value wins)".into(),
+                entry:               String::new(),
+                invalid_text:        lower_key.clone(),
+                invalid_text_offset: 0,
+            });
+            return;
+        }
+
+        let glyph = if suppressed { '\0' } else { icon_cp };
+        self.extension_icons.insert (lower_key.clone(), glyph);
+        self.extension_icon_sources.insert (lower_key, AttributeSource::Environment);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_well_known_dir_icon_override
+    //
+    //  Apply a user icon override for a well-known directory from the env var.
+    //  First-write-wins for environment overrides.
+    //
+    //  Port of: CConfig::ApplyIconOverride (well-known dir path)
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn apply_well_known_dir_icon_override(&mut self, dir_name: &str, icon_cp: char, suppressed: bool) {
+        let lower_key = dir_name.to_ascii_lowercase();
+
+        if let Some (&AttributeSource::Environment) = self.well_known_dir_icon_sources.get (&lower_key) {
+            self.last_parse_result.errors.push (ErrorInfo {
+                message:             "Duplicate well-known dir icon override (first value wins)".into(),
+                entry:               String::new(),
+                invalid_text:        lower_key.clone(),
+                invalid_text_offset: 0,
+            });
+            return;
+        }
+
+        let glyph = if suppressed { '\0' } else { icon_cp };
+        self.well_known_dir_icons.insert (lower_key.clone(), glyph);
+        self.well_known_dir_icon_sources.insert (lower_key, AttributeSource::Environment);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_file_attribute_icon_override
+    //
+    //  Apply a user icon override for a file attribute from the env var.
+    //
+    //  Port of: CConfig::ProcessFileAttributeIconOverride
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn apply_file_attribute_icon_override(&mut self, attr_char: char, icon_cp: char, suppressed: bool, _entry: &str) {
+        let attr_upper = attr_char.to_ascii_uppercase();
+        let glyph = if suppressed { '\0' } else { icon_cp };
+
+        for &(flag, map_char) in &FILE_ATTRIBUTE_MAP {
+            if map_char == attr_upper {
+                self.file_attr_icons.insert (flag, glyph);
+                return;
+            }
+        }
+        // Invalid attr char — error already handled by color override path
+    }
 }
 
 
@@ -964,6 +1384,9 @@ fn is_switch_name(entry: &str) -> bool {
         return true;
     }
     if entry.len() == 7 && entry.eq_ignore_ascii_case("streams") {
+        return true;
+    }
+    if entry.eq_ignore_ascii_case ("icons") || entry.eq_ignore_ascii_case ("icons-") {
         return true;
     }
 

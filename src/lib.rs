@@ -23,6 +23,9 @@ pub mod cloud_status;
 pub mod streams;
 pub mod owner;
 pub mod usage;
+pub mod icon_mapping;
+pub mod nerd_font_detector;
+pub mod file_attribute_map;
 
 
 

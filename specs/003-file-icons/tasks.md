@@ -18,10 +18,10 @@
 
 **Purpose**: Project scaffolding and dependency configuration
 
-- [ ] T001 Add `Win32_Graphics_Gdi` feature to `windows` crate in Cargo.toml
-- [ ] T002 [P] Add `pub mod icon_mapping` declaration in src/lib.rs
-- [ ] T003 [P] Add `pub mod nerd_font_detector` declaration in src/lib.rs
-- [ ] T004 [P] Add `pub mod file_attribute_map` declaration in src/lib.rs
+- [X] T001 Add `Win32_Graphics_Gdi` feature to `windows` crate in Cargo.toml
+- [X] T002 [P] Add `pub mod icon_mapping` declaration in src/lib.rs
+- [X] T003 [P] Add `pub mod nerd_font_detector` declaration in src/lib.rs
+- [X] T004 [P] Add `pub mod file_attribute_map` declaration in src/lib.rs
 
 **Checkpoint**: `cargo check` passes with the new feature flag and empty modules
 

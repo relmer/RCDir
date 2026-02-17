@@ -971,7 +971,6 @@ pub struct WideDisplayer {
     console:      Console,
     cmd:          Arc<CommandLine>,
     config:       Arc<Config>,
-    #[allow(dead_code)] // Used in Phase 8 (T058-T063)
     icons_active: bool,
 }
 
@@ -1073,7 +1072,7 @@ impl ResultsDisplayer for WideDisplayer {
         if dir_info.matches.is_empty() {
             display_empty_directory_message(&mut self.console, dir_info);
         } else {
-            display_wide_file_results(&mut self.console, &self.config, dir_info);
+            display_wide_file_results(&mut self.console, &self.config, dir_info, self.icons_active);
             display_directory_summary(&mut self.console, dir_info);
 
             if !self.cmd.recurse {
@@ -1117,24 +1116,28 @@ impl ResultsDisplayer for WideDisplayer {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_wide_file_results(console: &mut Console, config: &Config, di: &DirectoryInfo) {
+fn display_wide_file_results(console: &mut Console, config: &Config, di: &DirectoryInfo, icons_active: bool) {
     if di.largest_file_name == 0 || di.matches.is_empty() {
         return;
     }
 
     let console_width = console.width() as usize;
 
-    // Account for brackets on directories: [dirname] adds 2 chars
+    // Account for brackets on directories (only when icons are NOT active).
+    // When icons are active, the folder icon provides the visual distinction.
     let max_name_len = di.matches.iter().map(|fi| {
         let base_len = fi.file_name.to_string_lossy().len();
-        if fi.is_directory() { base_len + 2 } else { base_len }
+        if fi.is_directory() && !icons_active { base_len + 2 } else { base_len }
     }).max().unwrap_or(0);
 
+    // When icons are active, account for icon + space (+2) in column width
+    let adjusted_max = if icons_active { max_name_len + 2 } else { max_name_len };
+
     // Calculate column count and widths — Port of: GetColumnInfo
-    let (columns, column_width) = if max_name_len + 1 > console_width {
+    let (columns, column_width) = if adjusted_max + 1 > console_width {
         (1, console_width)
     } else {
-        let cols = console_width / (max_name_len + 1);
+        let cols = console_width / (adjusted_max + 1);
         (cols, console_width / cols)
     };
 
@@ -1165,22 +1168,41 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
             }
 
             let fi = &di.matches[idx];
-            let text_attr = config.get_text_attr_for_file(fi.file_attributes, &fi.file_name);
+            let style = config.get_display_style_for_file (fi);
+            let text_attr = style.text_attr;
+            let mut cch_name: usize;
 
-            // Format filename: [dirname] for dirs, plain name for files
+            // Icon glyph before filename (when icons are active)
+            if icons_active {
+                if let Some(icon) = style.icon_code_point {
+                    if !style.icon_suppressed {
+                        console.printf (text_attr, &format!("{} ", icon));
+                    } else {
+                        console.printf (text_attr, "  ");
+                    }
+                } else {
+                    console.printf (text_attr, "  ");
+                }
+                cch_name = 2; // icon + space
+            } else {
+                cch_name = 0;
+            }
+
+            // Format filename: [dirname] for dirs (classic mode only), plain name for files
             let name = fi.file_name.to_string_lossy();
-            let display_name = if fi.is_directory() {
+            let display_name = if fi.is_directory() && !icons_active {
                 format!("[{}]", name)
             } else {
                 name.to_string()
             };
+            cch_name += display_name.len();
 
             console.printf(text_attr, &display_name);
 
             // Pad to column width
-            if column_width > display_name.len() {
+            if column_width > cch_name {
                 console.printf_attr(Attribute::Default, &format!(
-                    "{:width$}", "", width = column_width - display_name.len(),
+                    "{:width$}", "", width = column_width - cch_name,
                 ));
             }
         }
@@ -1202,7 +1224,6 @@ pub struct BareDisplayer {
     console:      Console,
     cmd:          Arc<CommandLine>,
     config:       Arc<Config>,
-    #[allow(dead_code)] // Used in Phase 7 (T053-T057)
     icons_active: bool,
 }
 
@@ -1290,7 +1311,21 @@ impl ResultsDisplayer for BareDisplayer {
 
     fn display_results(&mut self, _drive_info: &DriveInfo, dir_info: &DirectoryInfo, _level: DirectoryLevel) {
         for fi in &dir_info.matches {
-            let text_attr = self.config.get_text_attr_for_file(fi.file_attributes, &fi.file_name);
+            let style = self.config.get_display_style_for_file (fi);
+            let text_attr = style.text_attr;
+
+            // Icon glyph before filename (when icons are active)
+            if self.icons_active {
+                if let Some(icon) = style.icon_code_point {
+                    if !style.icon_suppressed {
+                        self.console.printf (text_attr, &format!("{} ", icon));
+                    } else {
+                        self.console.printf (text_attr, "  ");
+                    }
+                } else {
+                    self.console.printf (text_attr, "  ");
+                }
+            }
 
             if self.cmd.recurse {
                 // When recursing, show full path

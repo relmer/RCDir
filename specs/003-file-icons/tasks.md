@@ -140,10 +140,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T045 [US5] Add icon emission to Wide display mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 175-184: icon glyph before filename, cchName += 2 for column width)
-- [ ] T046 [US5] Adjust column width calculation for icon in Wide mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 217: account for icon+space +2 width)
-- [ ] T047 [US5] Suppress directory brackets `[name]` in Wide mode when icons active in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (folder icon provides visual distinction, FR-008a)
-- [ ] T048 [US5] Add icon emission to Bare display mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerBare.cpp (~line 54-62: icon + space before path)
+- [X] T045 [US5] Add icon emission to Wide display mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 175-184: icon glyph before filename, cchName += 2 for column width)
+- [X] T046 [US5] Adjust column width calculation for icon in Wide mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 217: account for icon+space +2 width)
+- [X] T047 [US5] Suppress directory brackets `[name]` in Wide mode when icons active in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (folder icon provides visual distinction, FR-008a)
+- [X] T048 [US5] Add icon emission to Bare display mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerBare.cpp (~line 54-62: icon + space before path)
 
 **Checkpoint**: Wide columns align correctly with icon width. Bare mode shows icon + space + path. Directory brackets suppressed in wide mode with icons.
 

@@ -1,4 +1,4 @@
-mmit# Tasks: Nerd Font File & Folder Icons
+# Tasks: Nerd Font File & Folder Icons
 
 **Input**: Design documents from `/specs/003-file-icons/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/cli-contract.md, quickstart.md
@@ -33,9 +33,9 @@ mmit# Tasks: Nerd Font File & Folder Icons
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Create NF named constants in src/icon_mapping.rs — port all `NfIcon` constants from TCDirCore/IconMapping.h (~90 `pub const char` values, 8 groups: Custom, Seti, Dev, Fae, Oct, Fa, Md, Cod)
-- [ ] T006 [P] Create `DEFAULT_EXTENSION_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultExtensionIcons[]` from TCDirCore/IconMapping.cpp (~180 `(&str, char)` entries)
-- [ ] T007 [P] Create `DEFAULT_WELL_KNOWN_DIR_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultWellKnownDirIcons[]` from TCDirCore/IconMapping.cpp (~55 `(&str, char)` entries)
+- [ ] T005 Create NF named constants in src/icon_mapping.rs — port all `NfIcon` constants from TCDirCore/IconMapping.h (111 `pub const char` values, 8 groups: Custom, Seti, Dev, Fae, Oct, Fa, Md, Cod)
+- [ ] T006 [P] Create `DEFAULT_EXTENSION_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultExtensionIcons[]` from TCDirCore/IconMapping.cpp (209 `(&str, char)` entries)
+- [ ] T007 [P] Create `DEFAULT_WELL_KNOWN_DIR_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultWellKnownDirIcons[]` from TCDirCore/IconMapping.cpp (60 `(&str, char)` entries)
 - [ ] T008 Create `ATTRIBUTE_PRECEDENCE` array in src/file_attribute_map.rs — port `g_rgAttributePrecedenceOrder[]` from TCDirCore/IconMapping.cpp (9 entries, PSHERC0TA order)
 - [ ] T009 Create `IconActivation` and `DetectionResult` enums in src/nerd_font_detector.rs — port `EDetectionResult` from TCDirCore/NerdFontDetector.h
 - [ ] T010 Create `FontProber` trait in src/nerd_font_detector.rs — port virtual methods from `CNerdFontDetector` (probe_console_font_for_glyph, is_nerd_font_installed)
@@ -128,6 +128,8 @@ mmit# Tasks: Nerd Font File & Folder Icons
 
 **Checkpoint**: All comma-syntax examples from cli-contract.md work correctly. Backward compatibility maintained for entries without commas.
 
+- [ ] T070 [US4] Add unit test verifying entries without comma produce identical behavior to pre-feature format (FR-024) — parse `RCDIR=.py=Green` and confirm: color set, icon unchanged, no side effects vs. old code path
+
 ---
 
 ## Phase 7: User Story 5 — Icons in Wide and Bare Display Modes (Priority: P3)
@@ -158,7 +160,7 @@ mmit# Tasks: Nerd Font File & Folder Icons
 - [ ] T049 [US6] Verify `resolve_directory_style()` performs well-known dir name lookup in src/config.rs — port from TCDirCore/Config.cpp ResolveDirectoryStyle() (case-insensitive name match in well_known_dir_icons HashMap)
 - [ ] T050 [US6] Verify user `dir:` prefix overrides built-in well-known dir icons in src/config.rs — port from TCDirCore/Config.cpp (RCDIR=dir:src=,U+ABCD overrides default)
 
-**Checkpoint**: ~55 well-known directory names show specific icons. User `dir:` overrides work.
+**Checkpoint**: 60 well-known directory names show specific icons. User `dir:` overrides work.
 
 ---
 
@@ -207,6 +209,11 @@ mmit# Tasks: Nerd Font File & Folder Icons
 - [ ] T067 Manual verification: Wide mode columns align with icons, brackets suppressed
 - [ ] T068 Manual verification: Cloud status NF glyphs in OneDrive folder
 - [ ] T069 Run quickstart.md verification checklist (all items)
+- [ ] T071 Verify all icon glyphs in DEFAULT_EXTENSION_ICONS and DEFAULT_WELL_KNOWN_DIR_ICONS are single-width Nerd Font code points (FR-006) — add unit test that iterates both tables and asserts each glyph is in the Nerd Font PUA range (U+E000–U+F8FF or U+F0000–U+FFFFF) and is single-width
+- [ ] T072 Verify icon emission spacing: icon+space = 2 chars when present, 2 spaces when suppressed (FR-007) — add unit test that checks Normal, Wide, and Bare mode output formatting for both active-icon and suppressed-icon entries
+- [ ] T073 Add unit test verifying attribute display order (RHSATECP0 in FileAttributeMap) is independent from attribute precedence order (PSHERC0TA in file_attribute_map.rs) (FR-011) — assert the two arrays contain the same set of attributes but in different orders
+- [ ] T074 Add unit test verifying every extension in the built-in color table has a corresponding entry in DEFAULT_EXTENSION_ICONS (SC-005) — iterate Config's default color mappings and assert each extension key exists in icon_mapping::DEFAULT_EXTENSION_ICONS
+- [ ] T075 Add icon-mode test scenarios to tests/output_parity.rs — port from TCDir UnitTest patterns: run rcdir with /Icons in a temp directory containing known file types, verify icon glyphs appear in output; run without /Icons and verify classic output unchanged
 
 ---
 
@@ -273,7 +280,7 @@ mmit# Tasks: Nerd Font File & Folder Icons
 9. Phase 8: US6 — well-known dir icons (T049–T050)
 10. Phase 9: US7 — cloud status NF glyphs (T051–T053)
 11. Phase 10: Diagnostics (T054–T060)
-12. Phase 11: Polish (T061–T069)
+12. Phase 11: Polish (T061–T075)
 
 ### Approach
 
@@ -285,17 +292,17 @@ Every task ports directly from the TCDir C++ reference implementation. Examine t
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 69 |
+| Total tasks | 75 |
 | Phase 1 (Setup) | 4 |
 | Phase 2 (Foundational) | 20 |
 | US1 (Display Icons) | 9 |
 | US2 (Auto-Detection) | 4 |
 | US3 (Icon Colors) | 2 |
-| US4 (Env Var Config) | 5 |
+| US4 (Env Var Config) | 6 |
 | US5 (Wide/Bare) | 4 |
 | US6 (Well-Known Dirs) | 2 |
 | US7 (Cloud Status) | 3 |
 | Diagnostics | 7 |
-| Polish | 9 |
+| Polish | 14 |
 | Parallel opportunities | T005–T007, T009–T010, T014–T015, T022–T023 (foundational); US1∥US2 (story-level) |
 | MVP scope | US1 + US2 + US3 (Phases 1–5, T001–T039) |

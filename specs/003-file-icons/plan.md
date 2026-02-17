@@ -37,7 +37,7 @@ Add Nerd Font file and folder icons to RCDir directory listings, matching TCDir'
 **Project Type**: Single binary (`rcdir`)
 **Performance Goals**: <5% overhead on 1000+ file directories (SC-004)
 **Constraints**: Zero regression when icons are off; byte-identical output to pre-feature version (SC-002)
-**Scale/Scope**: ~180 extension mappings, ~60 well-known directory mappings, 9 attribute precedence entries
+**Scale/Scope**: 209 extension mappings, 60 well-known directory mappings, 9 attribute precedence entries
 
 **New Windows API features required** (additions to `Cargo.toml` `windows` features):
 - `Win32_Graphics_Gdi` — `CreateCompatibleDC`, `CreateFontW`, `SelectObject`, `GetGlyphIndicesW`, `DeleteObject`, `DeleteDC`, `EnumFontFamiliesExW`, `GetCurrentConsoleFontEx` (for canary probe and font enumeration)
@@ -88,7 +88,6 @@ src/
 ├── config.rs                # MODIFIED — Add icon hash maps, comma-syntax parsing, get_display_style_for_file()
 ├── results_displayer.rs     # MODIFIED — Icon glyph emission in Normal/Wide/Bare displayers
 ├── cloud_status.rs          # MODIFIED — NF glyph alternatives for cloud symbols
-├── console.rs               # MODIFIED — Helper for writing char → UTF-16 to buffer
 ├── usage.rs                 # MODIFIED — Document /Icons and /Icons- in help output
 ├── lib.rs                   # MODIFIED — Add 3 new pub mod declarations, wire detection into run()
 └── ...                      # Unchanged files
@@ -96,7 +95,7 @@ tests/
 └── output_parity.rs         # MODIFIED — Add icon-mode parity test scenarios
 ```
 
-**Structure Decision**: Single-project Rust binary. New modules follow existing flat `src/` layout. No subdirectories needed — the feature adds 3 focused files and extends 8 existing ones.
+**Structure Decision**: Single-project Rust binary. New modules follow existing flat `src/` layout. No subdirectories needed — the feature adds 3 focused files and extends 7 existing ones.
 
 ## Constitution Re-Check (Post-Design)
 

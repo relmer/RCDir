@@ -88,10 +88,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T034 [US2] Wire `DefaultFontProber` and `DefaultEnvironmentProvider` into `resolve_icons()` in src/lib.rs — port from TCDirCore/TCDir.cpp (instantiate CNerdFontDetector, call Detect with console handle + env provider)
-- [ ] T035 [US2] Pass console output handle to `resolve_icons()` in src/lib.rs — port handle acquisition from TCDirCore/TCDir.cpp (use Console's stdout handle for GDI canary probe)
-- [ ] T036 [US2] Verify `/Icons` CLI flag overrides auto-detect in src/lib.rs — port priority 1 check from TCDirCore/TCDir.cpp CreateDisplayer()
-- [ ] T037 [US2] Verify `RCDIR=Icons` env var overrides auto-detect in src/lib.rs — port priority 2 check from TCDirCore/TCDir.cpp CreateDisplayer()
+- [X] T034 [US2] Wire `DefaultFontProber` and `DefaultEnvironmentProvider` into `resolve_icons()` in src/lib.rs — port from TCDirCore/TCDir.cpp (instantiate CNerdFontDetector, call Detect with console handle + env provider)
+- [X] T035 [US2] Pass console output handle to `resolve_icons()` in src/lib.rs — port handle acquisition from TCDirCore/TCDir.cpp (use Console's stdout handle for GDI canary probe)
+- [X] T036 [US2] Verify `/Icons` CLI flag overrides auto-detect in src/lib.rs — port priority 1 check from TCDirCore/TCDir.cpp CreateDisplayer()
+- [X] T037 [US2] Verify `RCDIR=Icons` env var overrides auto-detect in src/lib.rs — port priority 2 check from TCDirCore/TCDir.cpp CreateDisplayer()
 
 **Checkpoint**: Auto-detection works in WezTerm, classic conhost, and ConPTY terminals. CLI and env var overrides behave correctly.
 

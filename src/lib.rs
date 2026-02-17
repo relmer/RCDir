@@ -351,7 +351,22 @@ pub fn resolve_icons(cmd: &command_line::CommandLine, cfg: &config::Config) -> b
         return env_icons;
     }
 
-    // Auto-detect (Phase 4 will wire in DefaultFontProber / console handle;
-    // for now default to false = icons off when not explicitly requested)
-    false
+    // Auto-detect: probe console font / enumerate system fonts
+    let console_handle = unsafe {
+        windows::Win32::System::Console::GetStdHandle (
+            windows::Win32::System::Console::STD_OUTPUT_HANDLE,
+        )
+    };
+
+    let console_handle = match console_handle {
+        Ok(h) if !h.is_invalid() => h,
+        _ => return false,
+    };
+
+    let prober = nerd_font_detector::DefaultFontProber;
+    let env    = environment_provider::DefaultEnvironmentProvider;
+
+    let result = nerd_font_detector::detect (console_handle, &env, &prober);
+
+    matches!(result, nerd_font_detector::DetectionResult::Detected)
 }

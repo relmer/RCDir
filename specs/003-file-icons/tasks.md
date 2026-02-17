@@ -172,9 +172,9 @@
 
 ### Implementation for User Story 7
 
-- [ ] T051 [US7] Add `nf_symbol()` method to `CloudStatus` enum in src/cloud_status.rs — port cloud icon lookup from `Config::GetCloudStatusIcon()` in TCDirCore/Config.cpp (CloudOnly → cloud_outline, Local → cloud_check, Pinned → pin)
-- [ ] T052 [US7] Modify `display_cloud_status_symbol()` in src/results_displayer.rs to use NF glyphs when icons active — port from TCDirCore/ResultsDisplayerNormal.cpp (~line 303: if icons_active → nf_symbol, else → Unicode symbols)
-- [ ] T053 [US7] Add cloud status NF glyph emission in Wide mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 133-150: NF cloud glyphs before icon/filename)
+- [X] T051 [US7] Add `nf_symbol()` method to `CloudStatus` enum in src/cloud_status.rs — port cloud icon lookup from `Config::GetCloudStatusIcon()` in TCDirCore/Config.cpp (CloudOnly → cloud_outline, Local → cloud_check, Pinned → pin)
+- [X] T052 [US7] Modify `display_cloud_status_symbol()` in src/results_displayer.rs to use NF glyphs when icons active — port from TCDirCore/ResultsDisplayerNormal.cpp (~line 303: if icons_active → nf_symbol, else → Unicode symbols)
+- [X] T053 [US7] Add cloud status NF glyph emission in Wide mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 133-150: NF cloud glyphs before icon/filename)
 
 **Checkpoint**: Cloud status uses NF glyphs when icons on, Unicode circles when off. Zero regression.
 

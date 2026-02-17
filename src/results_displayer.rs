@@ -366,7 +366,7 @@ fn display_file_results(
 
         // Cloud status symbol
         let cloud = cloud_status::get_cloud_status(file_info.file_attributes, in_sync_root);
-        display_cloud_status_symbol(console, config, cloud);
+        display_cloud_status_symbol(console, config, cloud, icons_active);
 
         // Debug attribute display (debug builds only, gated by --debug)
         #[cfg(debug_assertions)]
@@ -579,16 +579,27 @@ fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: CloudStatus) {
-    let (attr, symbol) = match status {
-        CloudStatus::None      => (Attribute::Default,                            ' '),
-        CloudStatus::CloudOnly => (Attribute::CloudStatusCloudOnly,               cloud_status::CIRCLE_HOLLOW),
-        CloudStatus::Local     => (Attribute::CloudStatusLocallyAvailable,        cloud_status::CIRCLE_HALF_FILLED),
-        CloudStatus::Pinned    => (Attribute::CloudStatusAlwaysLocallyAvailable,  cloud_status::CIRCLE_FILLED),
+fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: CloudStatus, icons_active: bool) {
+    let attr = match status {
+        CloudStatus::None      => Attribute::Default,
+        CloudStatus::CloudOnly => Attribute::CloudStatusCloudOnly,
+        CloudStatus::Local     => Attribute::CloudStatusLocallyAvailable,
+        CloudStatus::Pinned    => Attribute::CloudStatusAlwaysLocallyAvailable,
     };
-
     let color = config.attributes[attr as usize];
-    console.printf(color, &format!("{} ", symbol));
+
+    if icons_active {
+        // NF glyph path — port of: if (m_fIconsActive) branch
+        if let Some (icon) = config.get_cloud_status_icon (status) {
+            console.printf (color, &format!("{} ", icon));
+        } else {
+            console.printf (config.attributes[Attribute::Default as usize], "  ");
+        }
+    } else {
+        // Unicode circle path — original behavior
+        let symbol = status.symbol();
+        console.printf (color, &format!("{} ", symbol));
+    }
 }
 
 
@@ -1122,6 +1133,7 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
     }
 
     let console_width = console.width() as usize;
+    let in_sync_root = cloud_status::is_under_sync_root (di.dir_path.as_os_str());
 
     // Account for brackets on directories (only when icons are NOT active).
     // When icons are active, the folder icon provides the visual distinction.
@@ -1131,7 +1143,12 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
     }).max().unwrap_or(0);
 
     // When icons are active, account for icon + space (+2) in column width
-    let adjusted_max = if icons_active { max_name_len + 2 } else { max_name_len };
+    let mut adjusted_max = if icons_active { max_name_len + 2 } else { max_name_len };
+
+    // When in sync root, cloud status symbol + space adds +2
+    if in_sync_root {
+        adjusted_max += 2;
+    }
 
     // Calculate column count and widths — Port of: GetColumnInfo
     let (columns, column_width) = if adjusted_max + 1 > console_width {
@@ -1170,7 +1187,14 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
             let fi = &di.matches[idx];
             let style = config.get_display_style_for_file (fi);
             let text_attr = style.text_attr;
-            let mut cch_name: usize;
+            let mut cch_name: usize = 0;
+
+            // Cloud status symbol (when in sync root)
+            if in_sync_root {
+                let cloud = cloud_status::get_cloud_status (fi.file_attributes, true);
+                display_cloud_status_symbol (console, config, cloud, icons_active);
+                cch_name += 2;
+            }
 
             // Icon glyph before filename (when icons are active)
             if icons_active {
@@ -1183,9 +1207,7 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
                 } else {
                     console.printf (text_attr, "  ");
                 }
-                cch_name = 2; // icon + space
-            } else {
-                cch_name = 0;
+                cch_name += 2; // icon + space
             }
 
             // Format filename: [dirname] for dirs (classic mode only), plain name for files

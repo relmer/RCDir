@@ -573,6 +573,29 @@ impl Config {
 
     ////////////////////////////////////////////////////////////////////////////
     //
+    //  get_cloud_status_icon
+    //
+    //  Returns the NF glyph for a cloud status, or None for CS_NONE.
+    //
+    //  Port of: CConfig::GetCloudStatusIcon
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn get_cloud_status_icon(&self, status: crate::cloud_status::CloudStatus) -> Option<char> {
+        match status {
+            crate::cloud_status::CloudStatus::None      => None,
+            crate::cloud_status::CloudStatus::CloudOnly => Some (self.icon_cloud_only),
+            crate::cloud_status::CloudStatus::Local     => Some (self.icon_locally_available),
+            crate::cloud_status::CloudStatus::Pinned    => Some (self.icon_always_local),
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
     //  get_display_style_for_file
     //
     //  Unified precedence resolver returning color + icon for a file entry.

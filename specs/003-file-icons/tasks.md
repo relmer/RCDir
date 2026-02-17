@@ -200,20 +200,20 @@
 
 **Purpose**: Final integration, validation, and cleanup
 
-- [ ] T061 Verify `display_env_var_issues()` reports icon-related errors in src/usage.rs — port error display for invalid U+XXXX, multi-char icons, duplicate icon entries from TCDirCore error handling
-- [ ] T062 Run `cargo clippy` and fix all warnings across modified and new files
-- [ ] T063 Run `cargo build --release` and verify clean build
-- [ ] T064 Run `cargo test` and verify all existing tests still pass (zero regression)
-- [ ] T065 Manual verification: icons appear with Nerd Font terminal, classic output without Nerd Font
-- [ ] T066 Manual verification: `/Icons` forces on, `/Icons-` forces off, `RCDIR=Icons`/`Icons-` work
-- [ ] T067 Manual verification: Wide mode columns align with icons, brackets suppressed
-- [ ] T068 Manual verification: Cloud status NF glyphs in OneDrive folder
-- [ ] T069 Run quickstart.md verification checklist (all items)
-- [ ] T071 Verify all icon glyphs in DEFAULT_EXTENSION_ICONS and DEFAULT_WELL_KNOWN_DIR_ICONS are single-width Nerd Font code points (FR-006) — add unit test that iterates both tables and asserts each glyph is in the Nerd Font PUA range (U+E000–U+F8FF or U+F0000–U+FFFFF) and is single-width
-- [ ] T072 Verify icon emission spacing: icon+space = 2 chars when present, 2 spaces when suppressed (FR-007) — add unit test that checks Normal, Wide, and Bare mode output formatting for both active-icon and suppressed-icon entries
-- [ ] T073 Add unit test verifying attribute display order (RHSATECP0 in FileAttributeMap) is independent from attribute precedence order (PSHERC0TA in file_attribute_map.rs) (FR-011) — assert the two arrays contain the same set of attributes but in different orders
-- [ ] T074 Add unit test verifying every extension in the built-in color table has a corresponding entry in DEFAULT_EXTENSION_ICONS (SC-005) — iterate Config's default color mappings and assert each extension key exists in icon_mapping::DEFAULT_EXTENSION_ICONS
-- [ ] T075 Add icon-mode test scenarios to tests/output_parity.rs — port from TCDir UnitTest patterns: run rcdir with /Icons in a temp directory containing known file types, verify icon glyphs appear in output; run without /Icons and verify classic output unchanged
+- [X] T061 Verify `display_env_var_issues()` reports icon-related errors in src/usage.rs — port error display for invalid U+XXXX, multi-char icons, duplicate icon entries from TCDirCore error handling
+- [X] T062 Run `cargo clippy` and fix all warnings across modified and new files
+- [X] T063 Run `cargo build --release` and verify clean build
+- [X] T064 Run `cargo test` and verify all existing tests still pass (zero regression)
+- [X] T065 Manual verification: icons appear with Nerd Font terminal, classic output without Nerd Font
+- [X] T066 Manual verification: `/Icons` forces on, `/Icons-` forces off, `RCDIR=Icons`/`Icons-` work
+- [X] T067 Manual verification: Wide mode columns align with icons, brackets suppressed
+- [X] T068 Manual verification: Cloud status NF glyphs in OneDrive folder
+- [X] T069 Run quickstart.md verification checklist (all items)
+- [X] T071 Verify all icon glyphs in DEFAULT_EXTENSION_ICONS and DEFAULT_WELL_KNOWN_DIR_ICONS are single-width Nerd Font code points (FR-006) — add unit test that iterates both tables and asserts each glyph is in the Nerd Font PUA range (U+E000–U+F8FF or U+F0000–U+FFFFF) and is single-width
+- [X] T072 Verify icon emission spacing: icon+space = 2 chars when present, 2 spaces when suppressed (FR-007) — add unit test that checks Normal, Wide, and Bare mode output formatting for both active-icon and suppressed-icon entries
+- [X] T073 Add unit test verifying attribute display order (RHSATECP0 in FileAttributeMap) is independent from attribute precedence order (PSHERC0TA in file_attribute_map.rs) (FR-011) — assert the two arrays contain the same set of attributes but in different orders
+- [X] T074 Add unit test verifying every extension in the built-in color table has a corresponding entry in DEFAULT_EXTENSION_ICONS (SC-005) — iterate Config's default color mappings and assert each extension key exists in icon_mapping::DEFAULT_EXTENSION_ICONS
+- [X] T075 Add icon-mode test scenarios to tests/output_parity.rs — port from TCDir UnitTest patterns: run rcdir with /Icons in a temp directory containing known file types, verify icon glyphs appear in output; run without /Icons and verify classic output unchanged
 
 ---
 

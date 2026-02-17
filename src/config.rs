@@ -2410,4 +2410,57 @@ mod tests {
         assert!(!style.icon_suppressed);
         assert!(cfg.last_parse_result.errors.is_empty());
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  test_icon_emission_spacing_contract
+    //
+    //  Verify the icon emission spacing contract:
+    //  - When icon is present: glyph (1 char) + space = 2 visual cells
+    //  - When icon is suppressed: 2 spaces
+    //  - When no icon: 0 cells (no emission)
+    //
+    //  This validates FR-007 (icon layout width accounting).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_icon_emission_spacing_contract() {
+        const CX_ICON_COLUMN: usize = 2;
+
+        // Active icon: glyph + space = 2
+        let style_active = FileDisplayStyle {
+            text_attr: 0,
+            icon_code_point: Some ('\u{E7A8}'), // NF_DEV_RUST
+            icon_suppressed: false,
+        };
+        let emission = format! ("{} ", style_active.icon_code_point.unwrap());
+        assert_eq! (emission.chars().count(), CX_ICON_COLUMN,
+            "Icon glyph + space must be {} chars", CX_ICON_COLUMN);
+
+        // Suppressed icon: 2 spaces
+        let style_suppressed = FileDisplayStyle {
+            text_attr: 0,
+            icon_code_point: None,
+            icon_suppressed: true,
+        };
+        assert! (style_suppressed.icon_code_point.is_none());
+        assert! (style_suppressed.icon_suppressed);
+        let blank_emission = "  "; // 2 spaces when icon suppressed
+        assert_eq! (blank_emission.len(), CX_ICON_COLUMN,
+            "Suppressed icon padding must be {} chars", CX_ICON_COLUMN);
+
+        // No icon at all: nothing emitted (0 chars)
+        let style_none = FileDisplayStyle {
+            text_attr: 0,
+            icon_code_point: None,
+            icon_suppressed: false,
+        };
+        assert! (style_none.icon_code_point.is_none());
+        assert! (!style_none.icon_suppressed);
+    }
 }

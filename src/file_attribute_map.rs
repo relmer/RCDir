@@ -135,4 +135,33 @@ mod tests {
             assert! (seen.insert (ch), "Duplicate char: '{}'", ch);
         }
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  test_display_order_differs_from_precedence_order
+    //
+    //  The display order (RHSATECP0 in FILE_ATTRIBUTE_MAP) must contain the
+    //  same attributes as the precedence order (PSHERC0TA) but in a distinct
+    //  sequence — confirming the two orderings serve different purposes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_display_order_differs_from_precedence_order() {
+        let prec_flags: Vec<u32> = ATTRIBUTE_PRECEDENCE.iter().map (|&(f, _)| f).collect();
+        let disp_flags: Vec<u32> = FILE_ATTRIBUTE_MAP.iter().map (|&(f, _)| f).collect();
+
+        // Same set of flags
+        let prec_set: HashSet<u32> = prec_flags.iter().copied().collect();
+        let disp_set: HashSet<u32> = disp_flags.iter().copied().collect();
+        assert_eq! (prec_set, disp_set, "Both arrays must contain the same attribute flags");
+
+        // But in different order
+        assert_ne! (prec_flags, disp_flags,
+            "Display order and precedence order must differ (RHSATECP0 vs PSHERC0TA)");
+    }
 }

@@ -519,6 +519,7 @@ pub const DEFAULT_EXTENSION_ICONS: &[(&str, char)] = &[
 
     // Resource
     (".rc",      NF_SETI_CONFIG),
+    (".rcml",    NF_SETI_CONFIG),
 ];
 
 
@@ -779,6 +780,49 @@ mod tests {
         for &(key, glyph) in DEFAULT_WELL_KNOWN_DIR_ICONS {
             assert! (is_nf_range (glyph),
                 "Dir '{}' has glyph U+{:04X} outside NF PUA range", key, glyph as u32);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  test_color_table_extensions_have_icons
+    //
+    //  Every extension in the built-in color table (Config default colors)
+    //  must have a corresponding entry in DEFAULT_EXTENSION_ICONS.
+    //  This verifies SC-005 coverage requirement.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_color_table_extensions_have_icons() {
+        let icon_exts: HashSet<&str> = DEFAULT_EXTENSION_ICONS.iter()
+            .map (|&(ext, _)| ext)
+            .collect();
+
+        // These are the built-in color extensions from Config::initialize_extension_colors
+        let color_exts = [
+            ".asm", ".cod", ".i", ".c", ".cpp", ".cxx", ".h", ".hpp", ".hxx",
+            ".rc", ".cs", ".resx", ".rcml", ".js", ".jsx", ".ts", ".tsx",
+            ".html", ".htm", ".css", ".scss", ".less", ".py", ".pyw",
+            ".jar", ".java", ".class",
+            ".xml", ".json", ".yml", ".yaml",
+            ".obj", ".lib", ".res", ".pch",
+            ".wrn", ".err", ".log",
+            ".bash", ".bat", ".cmd", ".dll", ".exe", ".ps1", ".psd1", ".psm1",
+            ".sh", ".sys",
+            ".sln", ".vcproj", ".csproj", ".vcxproj", ".csxproj", ".user", ".ncb",
+            ".!!!", ".1st", ".doc", ".docx", ".eml", ".md", ".me", ".now",
+            ".ppt", ".pptx", ".text", ".txt", ".xls", ".xlsx",
+            ".7z", ".arj", ".gz", ".rar", ".tar", ".zip",
+        ];
+
+        for ext in &color_exts {
+            assert! (icon_exts.contains (ext),
+                "Color table extension '{}' has no icon in DEFAULT_EXTENSION_ICONS", ext);
         }
     }
 }

@@ -369,3 +369,123 @@ fn parity_directory_filter() {
         );
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_icons_on
+//
+//  Verifies output parity when icons are forced on (/Icons).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_icons_on() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format!("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output(&["/Icons", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (icons on) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_icons_off
+//
+//  Verifies output parity when icons are forced off (/Icons-).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_icons_off() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format!("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output(&["/Icons-", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (icons off) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_icons_wide
+//
+//  Verifies output parity for wide mode with icons (/w /Icons).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_icons_wide() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format!("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output(&["/w", "/Icons", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (wide+icons) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_icons_bare
+//
+//  Verifies output parity for bare mode with icons (/b /Icons).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_icons_bare() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format!("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output(&["/b", "/Icons", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (bare+icons) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join("\n"),
+        );
+    }
+}

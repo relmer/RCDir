@@ -91,7 +91,7 @@ pub fn run() -> Result<(), AppError> {
     }
 
     if cmd.show_config {
-        usage::display_current_configuration(&mut console, cmd.switch_prefix);
+        usage::display_current_configuration(&mut console, cmd.switch_prefix, icons_active);
         console.flush()?;
         return Ok(());
     }

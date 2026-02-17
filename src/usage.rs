@@ -3,6 +3,7 @@
 // Port of: Usage.h, Usage.cpp
 // Implements T031-T035 (US-15: Help Display)
 
+use crate::cloud_status::CloudStatus;
 use crate::color::*;
 use crate::config::{Attribute, AttributeSource, RCDIR_ENV_VAR_NAME};
 use crate::console::Console;
@@ -92,9 +93,10 @@ const DISPLAY_ITEM_INFOS: &[DisplayItemInfo] = &[
 ////////////////////////////////////////////////////////////////////////////////
 
 struct CloudStatusInfo {
-    attr:      Attribute,
-    base_name: &'static str,
-    symbol:    char,
+    attr:         Attribute,
+    base_name:    &'static str,
+    symbol:       char,
+    cloud_status: CloudStatus,
 }
 
 
@@ -102,9 +104,9 @@ struct CloudStatusInfo {
 
 
 const CLOUD_STATUS_INFOS: &[CloudStatusInfo] = &[
-    CloudStatusInfo { attr: Attribute::CloudStatusCloudOnly,              base_name: "CloudOnly",              symbol: CIRCLE_HOLLOW },
-    CloudStatusInfo { attr: Attribute::CloudStatusLocallyAvailable,       base_name: "LocallyAvailable",       symbol: CIRCLE_HALF_FILLED },
-    CloudStatusInfo { attr: Attribute::CloudStatusAlwaysLocallyAvailable, base_name: "AlwaysLocallyAvailable", symbol: CIRCLE_FILLED },
+    CloudStatusInfo { attr: Attribute::CloudStatusCloudOnly,              base_name: "CloudOnly",              symbol: CIRCLE_HOLLOW,      cloud_status: CloudStatus::CloudOnly },
+    CloudStatusInfo { attr: Attribute::CloudStatusLocallyAvailable,       base_name: "LocallyAvailable",       symbol: CIRCLE_HALF_FILLED, cloud_status: CloudStatus::Local },
+    CloudStatusInfo { attr: Attribute::CloudStatusAlwaysLocallyAvailable, base_name: "AlwaysLocallyAvailable", symbol: CIRCLE_FILLED,      cloud_status: CloudStatus::Pinned },
 ];
 
 
@@ -158,6 +160,7 @@ const SWITCH_INFOS: &[SwitchInfo] = &[
     SwitchInfo { name: "B",       description: "Bare listing format" },
     SwitchInfo { name: "Owner",   description: "Display file ownership" },
     SwitchInfo { name: "Streams", description: "Display alternate data streams" },
+    SwitchInfo { name: "Icons",   description: "Enable file-type icons" },
 ];
 
 
@@ -235,7 +238,8 @@ Copyright {copy} 2004-{year} by Robert Elmer
          [{{InformationHighlight}}{long}Env{{Information}}] \
          [{{InformationHighlight}}{long}Config{{Information}}] \
          [{{InformationHighlight}}{long}Owner{{Information}}] \
-         [{{InformationHighlight}}{long}Streams{{Information}}]",
+         [{{InformationHighlight}}{long}Streams{{Information}}] \
+         [{{InformationHighlight}}{long}Icons{{Information}}]",
         ver  = VERSION_STRING,
         arch = architecture(),
         ts   = BUILD_TIMESTAMP,
@@ -291,7 +295,8 @@ Copyright {copy} 2004-{year} by Robert Elmer
   {{InformationHighlight}}{long}Env{{Information}}       {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.
   {{InformationHighlight}}{long}Config{{Information}}    {lpad}Displays current color configuration for all items and extensions.
   {{InformationHighlight}}{long}Owner{{Information}}     {lpad}Displays file owner (DOMAIN\\User) for each file.
-  {{InformationHighlight}}{long}Streams{{Information}}   {lpad}Displays alternate data streams (NTFS only)."
+  {{InformationHighlight}}{long}Streams{{Information}}   {lpad}Displays alternate data streams (NTFS only).
+  {{InformationHighlight}}{long}Icons{{Information}}     {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable."
     ));
 
     #[cfg(debug_assertions)]
@@ -319,13 +324,13 @@ pub fn display_env_var_help(console: &mut Console, prefix: char) {
         (
             format!("  {{InformationHighlight}}$env:{RCDIR_ENV_VAR_NAME}{{Information}} = \""),
             "\"",
-            format!("{{Information}}  Example: {{InformationHighlight}}$env:{RCDIR_ENV_VAR_NAME}{{Information}} = \"W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue\""),
+            format!("{{Information}}  Example: {{InformationHighlight}}$env:{RCDIR_ENV_VAR_NAME}{{Information}} = \"W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue,U+E61D\""),
         )
     } else {
         (
             format!("  set {{InformationHighlight}}{RCDIR_ENV_VAR_NAME}{{Information}} ="),
             "",
-            format!("{{Information}}  Example: {{InformationHighlight}}set {RCDIR_ENV_VAR_NAME}{{Information}} = W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue"),
+            format!("{{Information}}  Example: {{InformationHighlight}}set {RCDIR_ENV_VAR_NAME}{{Information}} = W;D=LightGreen;S=Yellow;Attr:H=DarkGrey;.cpp=White on Blue,U+E61D"),
         )
     };
 
@@ -337,8 +342,10 @@ display items, file attributes, or file extensions:
 {syntax_cmd}[{{InformationHighlight}}<Switch>{{Information}}] | \
 [{{InformationHighlight}}<Item>{{Information}} | \
 {{InformationHighlight}}Attr:<fileattr>{{Information}} | \
+{{InformationHighlight}}dir:<name>{{Information}} | \
 {{InformationHighlight}}<.ext>{{Information}}] = \
-{{InformationHighlight}}<Fore>{{Information}} [on {{InformationHighlight}}<Back>{{Information}}][;...]\
+[{{InformationHighlight}}<Fore>{{Information}} [on {{InformationHighlight}}<Back>{{Information}}]]\
+[{{InformationHighlight}},<Icon>{{Information}}][;...]\
 {syntax_suffix}
 
   {{InformationHighlight}}<Switch>{{Information}}    A command-line switch:
@@ -348,6 +355,7 @@ display items, file attributes, or file extensions:
                   {{InformationHighlight}}M{{Information}}        Enables multi-threaded enumeration (default); use {{InformationHighlight}}M-{{Information}} to disable
                   {{InformationHighlight}}Owner{{Information}}    Display file ownership
                   {{InformationHighlight}}Streams{{Information}}  Display alternate data streams (NTFS)
+                  {{InformationHighlight}}Icons{{Information}}    Enable file-type icons; use {{InformationHighlight}}Icons-{{Information}} to disable
 
   {{InformationHighlight}}<Item>{{Information}}      A display item:
                   {{InformationHighlight}}D{{Information}}  Date                     {{InformationHighlight}}T{{Information}}  Time
@@ -362,6 +370,8 @@ display items, file attributes, or file extensions:
 
   {{InformationHighlight}}<.ext>{{Information}}      A file extension, including the leading period.
 
+  {{InformationHighlight}}<name>{{Information}}      A well-known directory name (case-insensitive, e.g., {{InformationHighlight}}dir:.git{{Information}}).
+
   {{InformationHighlight}}<FileAttr>{{Information}}  A file attribute (see file attributes below)
                   {{InformationHighlight}}R{{Information}}  Read-only                {{InformationHighlight}}H{{Information}}  Hidden
                   {{InformationHighlight}}S{{Information}}  System                   {{InformationHighlight}}A{{Information}}  Archive
@@ -374,6 +384,13 @@ display items, file attributes, or file extensions:
     ));
 
     display_color_chart(console);
+
+    console.color_puts("\
+{Information}  {InformationHighlight}<Icon>{Information}      An icon code point (requires Nerd Font):
+                  {InformationHighlight}U+XXXX{Information}   Hex code point (e.g., {InformationHighlight}U+E61D{Information})
+                  {InformationHighlight}<glyph>{Information}  A literal Nerd Font glyph character
+                  (empty)  Suppresses the icon for that entry
+");
 
     console.color_puts(&format!("{{Default}}{example_cmd}\n"));
 
@@ -401,12 +418,52 @@ display items, file attributes, or file extensions:
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn display_current_configuration(console: &mut Console, prefix: char) {
+pub fn display_current_configuration(console: &mut Console, prefix: char, icons_active: bool) {
     if is_env_var_set(RCDIR_ENV_VAR_NAME) {
         display_env_var_issues(console, prefix, true);
     }
 
-    display_configuration_table(console);
+    display_icon_status(console, icons_active);
+    display_configuration_table(console, icons_active);
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_icon_status
+//
+//  Display icon activation status: ON (green) or OFF (grey) with reason.
+//  Port of: DisplayIconStatus in TCDirCore/Usage.cpp
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn display_icon_status(console: &mut Console, icons_active: bool) {
+    let config = console.config_arc();
+    let default_attr = config.attributes[Attribute::Default as usize];
+    let info_attr = config.attributes[Attribute::Information as usize];
+
+    console.printf(info_attr, "\nIcons: ");
+
+    if icons_active {
+        let on_attr = (default_attr & BC_MASK) | FC_GREEN;
+        console.printf(on_attr, "ON");
+    } else {
+        let off_attr = (default_attr & BC_MASK) | FC_DARK_GREY;
+        console.printf(off_attr, "OFF");
+    }
+
+    // Determine the reason
+    let reason = if config.icons.is_some() {
+        " (command line)"
+    } else {
+        " (auto-detected)"
+    };
+
+    console.printf(info_attr, reason);
+    console.puts(Attribute::Default, "");
 }
 
 
@@ -468,13 +525,17 @@ pub fn display_env_var_issues(console: &mut Console, prefix: char, show_hint: bo
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_configuration_table(console: &mut Console) {
+fn display_configuration_table(console: &mut Console, icons_active: bool) {
     let column_width_attr   = 27;
     let column_width_source = 15;
 
-    display_attribute_configuration(console, column_width_attr, column_width_source);
+    display_attribute_configuration(console, column_width_attr, column_width_source, icons_active);
     display_file_attribute_configuration(console, column_width_attr, column_width_source);
-    display_extension_configuration(console, column_width_attr, column_width_source);
+    display_extension_configuration(console, column_width_attr, column_width_source, icons_active);
+
+    if icons_active {
+        display_well_known_dir_configuration(console, icons_active);
+    }
 }
 
 
@@ -489,7 +550,7 @@ fn display_configuration_table(console: &mut Console) {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_source: usize) {
+fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_source: usize, icons_active: bool) {
     console.puts(Attribute::Information, "\nCurrent display item configuration:\n");
 
     let config = console.config_arc();
@@ -498,15 +559,22 @@ fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_s
         let attr = config.attributes[info.attr as usize];
         let is_env = config.attribute_sources[info.attr as usize] == AttributeSource::Environment;
 
-        display_item_and_source(console, info.name, attr, is_env, col_attr, col_source);
+        display_item_and_source(console, info.name, attr, is_env, col_attr, col_source, "", icons_active);
     }
 
     for info in CLOUD_STATUS_INFOS {
         let attr = config.attributes[info.attr as usize];
         let is_env = config.attribute_sources[info.attr as usize] == AttributeSource::Environment;
-        let display = format!("{} ({})", info.base_name, info.symbol);
 
-        display_item_and_source(console, &display, attr, is_env, col_attr, col_source);
+        // When icons active, show the NF glyph; otherwise the Unicode circle
+        let symbol = if icons_active {
+            config.get_cloud_status_icon (info.cloud_status).map(|c| c.to_string()).unwrap_or_default()
+        } else {
+            info.symbol.to_string()
+        };
+        let display = format!("{} ({})", info.base_name, symbol);
+
+        display_item_and_source(console, &display, attr, is_env, col_attr, col_source, "", icons_active);
     }
 }
 
@@ -532,7 +600,7 @@ fn display_file_attribute_configuration(console: &mut Console, col_attr: usize, 
             let is_env = style.source == AttributeSource::Environment;
             let label = format!("{} {}", info.letter, info.name);
 
-            display_item_and_source(console, &label, style.attr, is_env, col_attr, col_source);
+            display_item_and_source(console, &label, style.attr, is_env, col_attr, col_source, "", false);
         }
     }
 }
@@ -549,7 +617,7 @@ fn display_file_attribute_configuration(console: &mut Console, col_attr: usize, 
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col_source: usize) {
+fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col_source: usize, icons_active: bool) {
     console.puts(Attribute::Information, "\nFile extension color configuration:");
 
     let config = console.config_arc();
@@ -561,9 +629,10 @@ fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col
 
     let max_ext_len = extensions.iter().map(|(e, _)| e.len()).max().unwrap_or(6);
     let source_width = "Environment".len();
+    let icon_width: usize = if icons_active { 3 } else { 0 }; // glyph(2) + space(1)
     let indent = 2;
     let available = if width > indent { width - indent } else { width };
-    let min_col_width = max_ext_len + 2 + source_width + 3;
+    let min_col_width = icon_width + max_ext_len + 2 + source_width + 3;
 
     let columns = if min_col_width > 0 && min_col_width <= available {
         std::cmp::max(1, available / min_col_width)
@@ -575,10 +644,18 @@ fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col
         for (ext, color) in &extensions {
             let is_env = config.extension_sources.get(*ext)
                 .is_some_and(|s| *s == AttributeSource::Environment);
-            display_item_and_source(console, ext, **color, is_env, max_ext_len, source_width);
+            let icon_str = if icons_active {
+                config.extension_icons.get(*ext)
+                    .filter(|&&c| c != '\0')
+                    .map(|c| c.to_string())
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+            display_item_and_source(console, ext, **color, is_env, max_ext_len, source_width, &icon_str, icons_active);
         }
     } else {
-        display_extension_multi_column(console, &extensions, max_ext_len, source_width, available, columns);
+        display_extension_multi_column(console, &extensions, max_ext_len, source_width, available, columns, icons_active);
     }
 }
 
@@ -601,7 +678,9 @@ fn display_extension_multi_column(
     source_width: usize,
     available: usize,
     columns: usize,
+    icons_active: bool,
 ) {
+    let icon_width: usize = if icons_active { 3 } else { 0 };
     let col_width = std::cmp::max(1, available / columns);
     let rows = extensions.len().div_ceil(columns);
     let items_in_last_row = extensions.len() % columns;
@@ -639,7 +718,19 @@ fn display_extension_multi_column(
             let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
             let source = if is_env { "Environment" } else { "Default" };
             let pad = if max_ext_len > ext.len() { max_ext_len - ext.len() } else { 0 };
-            let used = max_ext_len + 2 + source_width;
+            let used = icon_width + max_ext_len + 2 + source_width;
+
+            // Icon glyph prefix
+            if icons_active {
+                let icon_str = config.extension_icons.get(ext)
+                    .filter(|&&c| c != '\0')
+                    .map(|c| c.to_string());
+                if let Some (glyph) = icon_str {
+                    console.printf (*color, &format!("{} ", glyph));
+                } else {
+                    console.printf_attr (Attribute::Information, "   ");
+                }
+            }
 
             console.printf(*color, ext);
             console.printf_attr(Attribute::Information, &format!("{:pad$}  ", "", pad = pad));
@@ -654,6 +745,105 @@ fn display_extension_multi_column(
     }
 
     console.puts(Attribute::Default, "");
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_well_known_dir_configuration
+//
+//  Display well-known directory icon assignments (only when icons active).
+//  Port of: CUsage::DisplayWellKnownDirConfiguration
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn display_well_known_dir_configuration(console: &mut Console, _icons_active: bool) {
+    let config = console.config_arc();
+
+    if config.well_known_dir_icons.is_empty() {
+        return;
+    }
+
+    console.puts (Attribute::Information, "\nWell-known directory icons:");
+
+    let dir_attr = config.attributes[Attribute::Directory as usize];
+
+    // Collect and sort the entries
+    let mut entries: Vec<(&String, &char)> = config.well_known_dir_icons.iter()
+        .filter (|&(_, &icon)| icon != '\0')
+        .collect();
+    entries.sort_by_key(|(name, _)| name.as_str());
+
+    let max_name_len = entries.iter().map(|(n, _)| n.len()).max().unwrap_or(6);
+    let source_width = "Environment".len();
+    let icon_col_width: usize = 3; // glyph + space
+    let indent = 2;
+    let width = console.width() as usize;
+    let available = if width > indent { width - indent } else { width };
+    let min_col_width = icon_col_width + max_name_len + 2 + source_width + 3;
+
+    let columns = if min_col_width > 0 && min_col_width <= available {
+        std::cmp::max (1, available / min_col_width)
+    } else {
+        1
+    };
+
+    let col_width = std::cmp::max (1, available / columns);
+    let rows = entries.len().div_ceil (columns);
+    let items_in_last_row = entries.len() % columns;
+    let full_rows = if items_in_last_row != 0 { rows - 1 } else { rows };
+
+    console.puts (Attribute::Information, "");
+
+    for row in 0..rows {
+        console.printf_attr (Attribute::Information, "  ");
+
+        for col in 0..columns {
+            if row * columns + col >= entries.len() {
+                break;
+            }
+
+            let mut idx = row + (col * full_rows);
+            if col < items_in_last_row {
+                idx += col;
+            } else {
+                idx += items_in_last_row;
+            }
+
+            if idx >= entries.len() {
+                break;
+            }
+
+            let (name, icon) = entries[idx];
+            let is_env = config.well_known_dir_icon_sources.get (name)
+                .is_some_and (|s| *s == AttributeSource::Environment);
+
+            let bg_attr = config.attributes[Attribute::Default as usize] & BC_MASK;
+            let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
+            let source = if is_env { "Environment" } else { "Default" };
+            let pad = if max_name_len > name.len() { max_name_len - name.len() } else { 0 };
+            let used = icon_col_width + max_name_len + 2 + source_width;
+
+            // Icon glyph
+            console.printf (dir_attr, &format!("{} ", icon));
+
+            // Dir name
+            console.printf (dir_attr, name);
+            console.printf_attr (Attribute::Information, &format!("{:pad$}  ", "", pad = pad));
+            console.printf (source_attr, &format!("{:<width$}", source, width = source_width));
+
+            if col_width > used {
+                console.printf_attr (Attribute::Information, &format!("{:pad$}", "", pad = col_width - used));
+            }
+        }
+
+        console.puts (Attribute::Default, "");
+    }
+
+    console.puts (Attribute::Default, "");
 }
 
 
@@ -686,7 +876,8 @@ fn display_width(s: &str) -> usize {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env: bool, col_item: usize, col_source: usize) {
+#[allow (clippy::too_many_arguments)]
+fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env: bool, col_item: usize, col_source: usize, icon_prefix: &str, show_icons: bool) {
     let config = console.config_arc();
     let bg_attr = config.attributes[Attribute::Default as usize] & BC_MASK;
     let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
@@ -694,7 +885,19 @@ fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env:
     let item_width = display_width(item);
     let pad = col_item.saturating_sub(item_width);
 
+    const CX_ICON_COLUMN: usize = 3; // glyph (2 cells) + space
+
     console.printf_attr(Attribute::Information, "  ");
+
+    // Icon prefix column (when icons active)
+    if show_icons {
+        if !icon_prefix.is_empty() {
+            console.printf(attr, &format!("{} ", icon_prefix));
+        } else {
+            console.printf_attr(Attribute::Information, &format!("{:width$}", "", width = CX_ICON_COLUMN));
+        }
+    }
+
     console.printf(attr, item);
     console.printf_attr(Attribute::Information, &format!("{:pad$}  ", "", pad = pad));
     console.printf(source_attr, &format!("{:<width$}", source, width = col_source));
@@ -897,7 +1100,8 @@ fn display_env_var_decoded_settings(console: &mut Console) {
         || config.perf_timer.is_some()
         || config.multi_threaded.is_some()
         || config.show_owner.is_some()
-        || config.show_streams.is_some();
+        || config.show_streams.is_some()
+        || config.icons.is_some();
 
     let has_display_items = DISPLAY_ITEM_INFOS.iter().any(|i| {
         config.attribute_sources[i.attr as usize] == AttributeSource::Environment
@@ -913,13 +1117,19 @@ fn display_env_var_decoded_settings(console: &mut Console) {
         *s == AttributeSource::Environment
     });
 
-    if !has_switches && !has_display_items && !has_file_attrs && !has_extensions {
+    let has_icon_overrides = config.extension_icon_sources.values().any(|s| {
+        *s == AttributeSource::Environment
+    }) || config.well_known_dir_icon_sources.values().any(|s| {
+        *s == AttributeSource::Environment
+    });
+
+    if !has_switches && !has_display_items && !has_file_attrs && !has_extensions && !has_icon_overrides {
         return;
     }
 
     if has_switches {
         console.puts(Attribute::Information, "    Switches:");
-        let switch_values: [&Option<bool>; 7] = [
+        let switch_values: [&Option<bool>; 8] = [
             &config.wide_listing,
             &config.recurse,
             &config.perf_timer,
@@ -927,6 +1137,7 @@ fn display_env_var_decoded_settings(console: &mut Console) {
             &config.bare_listing,
             &config.show_owner,
             &config.show_streams,
+            &config.icons,
         ];
         for (i, info) in SWITCH_INFOS.iter().enumerate() {
             if switch_values[i].is_some() {
@@ -974,19 +1185,57 @@ fn display_env_var_decoded_settings(console: &mut Console) {
     }
 
     if has_extensions {
-        console.color_puts("{Default}\n    {Information}File extension colors:");
+        console.color_puts ("{Default}\n    {Information}File extension colors:");
         let mut env_exts: Vec<(&String, &u16)> = config.extension_colors.iter()
-            .filter(|(ext, _)| {
-                config.extension_sources.get(*ext)
-                    .is_some_and(|s| *s == AttributeSource::Environment)
+            .filter (|(ext, _)| {
+                config.extension_sources.get (*ext)
+                    .is_some_and (|s| *s == AttributeSource::Environment)
             })
             .collect();
-        env_exts.sort_by_key(|(ext, _)| ext.as_str());
+        env_exts.sort_by_key (|(ext, _)| ext.as_str());
 
         for (ext, attr) in &env_exts {
-            console.printf(config.attributes[Attribute::Default as usize], "      ");
-            console.printf(**attr, ext);
-            console.puts(Attribute::Default, "");
+            console.printf (config.attributes[Attribute::Default as usize], "      ");
+            console.printf (**attr, ext);
+            console.puts (Attribute::Default, "");
+        }
+    }
+
+    if has_icon_overrides {
+        console.color_puts ("{Default}\n    {Information}Icon overrides:");
+
+        // Extension icon overrides
+        let mut env_ext_icons: Vec<&String> = config.extension_icon_sources.iter()
+            .filter (|(_, s)| **s == AttributeSource::Environment)
+            .map (|(ext, _)| ext)
+            .collect();
+        env_ext_icons.sort();
+
+        for ext in &env_ext_icons {
+            if let Some(&icon) = config.extension_icons.get (*ext) {
+                console.printf (config.attributes[Attribute::Default as usize],
+                    &format! ("      {} {}\n", ext, icon));
+            } else {
+                console.printf (config.attributes[Attribute::Default as usize],
+                    &format! ("      {} (suppressed)\n", ext));
+            }
+        }
+
+        // Well-known directory icon overrides
+        let mut env_dir_icons: Vec<&String> = config.well_known_dir_icon_sources.iter()
+            .filter (|(_, s)| **s == AttributeSource::Environment)
+            .map (|(name, _)| name)
+            .collect();
+        env_dir_icons.sort();
+
+        for name in &env_dir_icons {
+            if let Some(&icon) = config.well_known_dir_icons.get (*name) {
+                console.printf (config.attributes[Attribute::Default as usize],
+                    &format! ("      dir:{} {}\n", name, icon));
+            } else {
+                console.printf (config.attributes[Attribute::Default as usize],
+                    &format! ("      dir:{} (suppressed)\n", name));
+            }
         }
     }
 }

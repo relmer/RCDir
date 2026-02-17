@@ -184,13 +184,13 @@
 
 **Purpose**: Documentation and configuration display for the icons feature.
 
-- [ ] T054 Add `/Icons` and `/Icons-` to `display_usage()` in src/usage.rs — port switch table and syntax line from TCDirCore/Usage.cpp
-- [ ] T055 Add comma syntax and `dir:` prefix documentation to `display_env_var_help()` in src/usage.rs — port env help text from TCDirCore/Usage.cpp (icon formats, U+XXXX, literal glyph, empty=suppressed, per FR-028)
-- [ ] T056 Add icon status line to `display_current_configuration()` in src/usage.rs — port icon detection result display from TCDirCore/Usage.cpp (FR-026: "Icons: On (auto-detected)" etc.)
-- [ ] T057 Add icon glyphs to extension color table in `display_current_configuration()` in src/usage.rs — port inline icon display from TCDirCore/Usage.cpp (~line 501-514: when icons active, show glyph before each extension entry, FR-027)
-- [ ] T058 Add well-known directory icon table to `display_current_configuration()` in src/usage.rs — port separate dir icon table from TCDirCore/Usage.cpp (FR-027: show when icons active, with source indicators)
-- [ ] T059 Add cloud status NF glyphs to config display item table in src/usage.rs — port from TCDirCore/Usage.cpp (FR-031: show NF glyph instead of Unicode shape when icons active)
-- [ ] T060 Display icon-related RCDIR overrides in `display_env_var_help()` in src/usage.rs — port from TCDirCore/Usage.cpp (FR-029: show parsed icon overrides from current RCDIR value)
+- [X] T054 Add `/Icons` and `/Icons-` to `display_usage()` in src/usage.rs — port switch table and syntax line from TCDirCore/Usage.cpp
+- [X] T055 Add comma syntax and `dir:` prefix documentation to `display_env_var_help()` in src/usage.rs — port env help text from TCDirCore/Usage.cpp (icon formats, U+XXXX, literal glyph, empty=suppressed, per FR-028)
+- [X] T056 Add icon status line to `display_current_configuration()` in src/usage.rs — port icon detection result display from TCDirCore/Usage.cpp (FR-026: "Icons: On (auto-detected)" etc.)
+- [X] T057 Add icon glyphs to extension color table in `display_current_configuration()` in src/usage.rs — port inline icon display from TCDirCore/Usage.cpp (~line 501-514: when icons active, show glyph before each extension entry, FR-027)
+- [X] T058 Add well-known directory icon table to `display_current_configuration()` in src/usage.rs — port separate dir icon table from TCDirCore/Usage.cpp (FR-027: show when icons active, with source indicators)
+- [X] T059 Add cloud status NF glyphs to config display item table in src/usage.rs — port from TCDirCore/Usage.cpp (FR-031: show NF glyph instead of Unicode shape when icons active)
+- [X] T060 Display icon-related RCDIR overrides in `display_env_var_help()` in src/usage.rs — port from TCDirCore/Usage.cpp (FR-029: show parsed icon overrides from current RCDIR value)
 
 **Checkpoint**: `/Icons` documented in `/?`. Comma syntax documented in `/env`. Icon status shown in `/config`.
 

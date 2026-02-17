@@ -152,6 +152,12 @@ console.print_error(&format!("Error: {}", msg));
 - Handle wide strings (`OsString`, `OsStr`) for Windows paths
 - Use `widestring` crate for UTF-16 string handling
 
+### Function Size & Structure
+- Keep functions focused and short — ideally under ~50 lines (roughly one screen)
+- Aggressively factor out helper functions that do just one thing
+- Avoid excessive nesting: if a function requires more than 2–3 levels of indentation, extract that inner logic into its own function
+- Each function should have a single clear purpose
+
 ### Performance
 - Prefer stack allocation over heap when feasible
 - Use `Vec::with_capacity` when size is known
@@ -180,6 +186,14 @@ console.print_error(&format!("Error: {}", msg));
 
 ---
 
+## Shell and Terminal Rules
+
+### PowerShell is the Default Shell
+- **ALL** terminal windows use PowerShell, not CMD
+- **ALWAYS** format commands for PowerShell syntax
+
+---
+
 ## Build and Test
 
 ### Cargo Commands
@@ -198,36 +212,19 @@ console.print_error(&format!("Error: {}", msg));
 
 ## Commit Messages
 
-Use conventional commit format: `type(scope): description`
-
-### Types
-- `feat` - New feature or capability
-- `fix` - Bug fix
-- `docs` - Documentation only
-- `refactor` - Code change that neither fixes a bug nor adds a feature
-- `test` - Adding or updating tests
-- `chore` - Build, CI, or tooling changes
-- `perf` - Performance improvement
-
-### Scope
-Use the module or component name (e.g., `console`, `config`, `cli`, `color`)
-
-### Examples
-```
-feat(cli): add --owner switch for file ownership display
-fix(color): correct ANSI code for bright magenta
-docs(readme): add installation instructions
-refactor(config): extract env var parsing to separate module
-test(sorting): add tests for reverse sort order
-chore(ci): update Rust toolchain to 1.82
-perf(enumerate): use parallel iteration for recursive listing
-```
-
-### Rules
+- Use [Conventional Commits](https://www.conventionalcommits.org/) format: `type(scope): description`
+- **Scope is always required** — never omit it
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`
+- Use bullet list in the body for multiple changes OR additional details about the changes
 - Use lowercase for type and scope
 - Use imperative mood in description ("add" not "added")
 - Keep first line under 72 characters
 - Add body for complex changes (blank line after subject)
+- Examples:
+  - `feat(cli): add --owner switch for file ownership display`
+  - `fix(color): correct ANSI code for bright magenta`
+  - `refactor(config): extract env var parsing to separate module`
+  - `docs(readme): add installation instructions`
 
 ---
 
@@ -239,7 +236,7 @@ perf(enumerate): use parallel iteration for recursive listing
 
 ---
 
-*Last Updated: 2026-02-10*
+*Last Updated: 2026-02-16*
 *These rules apply globally to all RCDir work*
 
 ````

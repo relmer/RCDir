@@ -1414,24 +1414,38 @@ impl Config {
 
         let back = if let Some(bs) = back_str {
             if !bs.is_empty() {
-                parse_color_name(bs, true).unwrap_or_else(|_| {
-                    let equal_pos = entry.find('=').unwrap_or(0);
-                    let on_in_entry = lower.find(" on ").unwrap_or(0);
-                    let back_offset = equal_pos + 1 + on_in_entry + 4;
-                    self.last_parse_result.errors.push(ErrorInfo {
-                        message:             "Invalid background color".into(),
-                        entry:               entry.into(),
-                        invalid_text:        bs.into(),
-                        invalid_text_offset: back_offset,
-                    });
-                    0
-                })
+                match parse_color_name (bs, true) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        let equal_pos = entry.find ('=').unwrap_or (0);
+                        let on_in_entry = lower.find (" on ").unwrap_or (0);
+                        let back_offset = equal_pos + 1 + on_in_entry + 4;
+                        self.last_parse_result.errors.push (ErrorInfo {
+                            message:             "Invalid background color".into(),
+                            entry:               entry.into(),
+                            invalid_text:        bs.into(),
+                            invalid_text_offset: back_offset,
+                        });
+                        return None;
+                    }
+                }
             } else {
                 0
             }
         } else {
             0
         };
+
+        // Reject entries where foreground == background (unreadable)
+        if back != 0 && fore == (back >> 4) {
+            self.last_parse_result.errors.push (ErrorInfo {
+                message:             "Foreground and background colors are the same".into(),
+                entry:               entry.into(),
+                invalid_text:        value.into(),
+                invalid_text_offset: entry.find ('=').map_or (0, |p| p + 1),
+            });
+            return None;
+        }
 
         Some(fore | back)
     }
@@ -2599,5 +2613,69 @@ mod tests {
         };
         assert! (style_none.icon_code_point.is_none());
         assert! (!style_none.icon_suppressed);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  test_invalid_background_rejects_entire_entry
+    //
+    //  Verifies that an invalid background color (e.g., "Blue on Chartreuse")
+    //  rejects the entire entry rather than silently using the foreground only.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_invalid_background_rejects_entire_entry() {
+        let config = make_config (Some (".txt=Blue on Chartreuse"));
+
+        // Error should have been recorded
+        assert! (!config.last_parse_result.errors.is_empty(),
+            "Should record error for invalid background color");
+
+        let err = &config.last_parse_result.errors[0];
+        assert_eq! (err.message, "Invalid background color");
+        assert_eq! (err.invalid_text, "Chartreuse");
+
+        // The extension should retain its DEFAULT color, not the invalid override.
+        // It should not have Blue foreground (0x01) applied.
+        if let Some (&attr) = config.extension_colors.get (".txt") {
+            assert_ne! (attr & FC_MASK, 0x01, // FC_BLUE = 0x01
+                "Invalid bg entry should not apply foreground color either");
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  test_same_fore_back_color_rejected
+    //
+    //  Verifies that entries where foreground == background color (e.g.,
+    //  "Blue on Blue") are rejected as unreadable.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_same_fore_back_color_rejected() {
+        let config = make_config (Some (".txt=Blue on Blue"));
+
+        // Error should have been recorded
+        assert! (!config.last_parse_result.errors.is_empty(),
+            "Should record error for same fore/back color");
+
+        let err = &config.last_parse_result.errors[0];
+        assert_eq! (err.message, "Foreground and background colors are the same");
+
+        // The extension should retain its DEFAULT color, not the Blue on Blue override.
+        if let Some (&attr) = config.extension_colors.get (".txt") {
+            assert_ne! (attr, 0x01 | 0x10, // Blue fore | Blue back
+                "Same fore/back entry should not apply color");
+        }
     }
 }

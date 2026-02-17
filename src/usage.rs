@@ -341,9 +341,9 @@ pub fn display_env_var_help(console: &mut Console, prefix: char) {
 display items, file attributes, or file extensions:
 {syntax_cmd}[{{InformationHighlight}}<Switch>{{Information}}] | \
 [{{InformationHighlight}}<Item>{{Information}} | \
-{{InformationHighlight}}Attr:<fileattr>{{Information}} | \
-{{InformationHighlight}}dir:<name>{{Information}} | \
-{{InformationHighlight}}<.ext>{{Information}}] = \
+{{InformationHighlight}}Attr:<FileAttr>{{Information}} | \
+{{InformationHighlight}}<.ext>{{Information}} | \
+{{InformationHighlight}}dir:<name>{{Information}}] = \
 [{{InformationHighlight}}<Fore>{{Information}} [on {{InformationHighlight}}<Back>{{Information}}]]\
 [{{InformationHighlight}},<Icon>{{Information}}][;...]\
 {syntax_suffix}
@@ -368,16 +368,16 @@ display items, file attributes, or file extensions:
                   {{InformationHighlight}}CloudOnly{{Information}}                   {{InformationHighlight}}LocallyAvailable{{Information}}
                   {{InformationHighlight}}AlwaysLocallyAvailable{{Information}}
 
-  {{InformationHighlight}}<.ext>{{Information}}      A file extension, including the leading period.
-
-  {{InformationHighlight}}<name>{{Information}}      A well-known directory name (case-insensitive, e.g., {{InformationHighlight}}dir:.git{{Information}}).
-
   {{InformationHighlight}}<FileAttr>{{Information}}  A file attribute (see file attributes below)
                   {{InformationHighlight}}R{{Information}}  Read-only                {{InformationHighlight}}H{{Information}}  Hidden
                   {{InformationHighlight}}S{{Information}}  System                   {{InformationHighlight}}A{{Information}}  Archive
                   {{InformationHighlight}}T{{Information}}  Temporary                {{InformationHighlight}}E{{Information}}  Encrypted
                   {{InformationHighlight}}C{{Information}}  Compressed               {{InformationHighlight}}P{{Information}}  Reparse point
                   {{InformationHighlight}}0{{Information}}  Sparse file
+
+  {{InformationHighlight}}<.ext>{{Information}}      A file extension, including the leading period.
+
+  {{InformationHighlight}}<name>{{Information}}      A well-known directory name (case-insensitive, e.g., {{InformationHighlight}}dir:.git{{Information}}).
 
   {{InformationHighlight}}<Fore>{{Information}}      Foreground color
   {{InformationHighlight}}<Back>{{Information}}      Background color"
@@ -393,6 +393,14 @@ display items, file attributes, or file extensions:
 ");
 
     console.color_puts(&format!("{{Default}}{example_cmd}\n"));
+
+    if is_powershell() {
+        console.color_puts(&format!(
+            "  {{Information}}Persist: {{InformationHighlight}}[Environment]::SetEnvironmentVariable(\"{RCDIR_ENV_VAR_NAME}\", $env:{RCDIR_ENV_VAR_NAME}, \"User\"){{Information}}"
+        ));
+    }
+
+    console.puts(Attribute::Default, "");
 
     if is_env_var_set(RCDIR_ENV_VAR_NAME) {
         display_env_var_current_value(console, RCDIR_ENV_VAR_NAME);
@@ -419,12 +427,18 @@ display items, file attributes, or file extensions:
 ////////////////////////////////////////////////////////////////////////////////
 
 pub fn display_current_configuration(console: &mut Console, prefix: char, icons_active: bool) {
-    if is_env_var_set(RCDIR_ENV_VAR_NAME) {
-        display_env_var_issues(console, prefix, true);
+    if !is_env_var_set (RCDIR_ENV_VAR_NAME) {
+        console.color_puts (&format! (
+            "\n  {{Information}}{RCDIR_ENV_VAR_NAME}{{Default}} environment variable is not set; showing default configuration."
+        ));
     }
 
     display_icon_status(console, icons_active);
     display_configuration_table(console, icons_active);
+
+    if is_env_var_set(RCDIR_ENV_VAR_NAME) {
+        display_env_var_issues(console, prefix, true);
+    }
 }
 
 
@@ -443,27 +457,29 @@ pub fn display_current_configuration(console: &mut Console, prefix: char, icons_
 fn display_icon_status(console: &mut Console, icons_active: bool) {
     let config = console.config_arc();
     let default_attr = config.attributes[Attribute::Default as usize];
-    let info_attr = config.attributes[Attribute::Information as usize];
 
-    console.printf(info_attr, "\nIcons: ");
+    console.puts (Attribute::Information, "\nIcon status:");
 
-    if icons_active {
-        let on_attr = (default_attr & BC_MASK) | FC_GREEN;
-        console.printf(on_attr, "ON");
-    } else {
-        let off_attr = (default_attr & BC_MASK) | FC_DARK_GREY;
-        console.printf(off_attr, "OFF");
-    }
-
-    // Determine the reason
+    // Determine source and reason
+    // Priority: CLI flag (/Icons, /Icons-) → env var (RCDIR=Icons) → auto-detection
     let reason = if config.icons.is_some() {
-        " (command line)"
+        // CLI or env var override — distinguish by checking if the env var set it
+        if icons_active {
+            "Nerd Font detected, icons enabled"
+        } else {
+            "Nerd Font not detected, icons disabled"
+        }
+    } else if icons_active {
+        "Nerd Font detected, icons enabled"
     } else {
-        " (auto-detected)"
+        "Nerd Font not detected, icons disabled"
     };
 
-    console.printf(info_attr, reason);
-    console.puts(Attribute::Default, "");
+    let state_attr = (default_attr & BC_MASK) | if icons_active { FC_GREEN } else { FC_DARK_GREY };
+
+    console.printf (default_attr, "  ");
+    console.printf (state_attr, if icons_active { "ON" } else { "OFF" });
+    console.printf (default_attr, &format! ("  {}\n", reason));
 }
 
 
@@ -559,7 +575,7 @@ fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_s
         let attr = config.attributes[info.attr as usize];
         let is_env = config.attribute_sources[info.attr as usize] == AttributeSource::Environment;
 
-        display_item_and_source(console, info.name, attr, is_env, col_attr, col_source, "", icons_active);
+        display_item_and_source(console, info.name, attr, is_env, col_attr, col_source, "", false);
     }
 
     for info in CLOUD_STATUS_INFOS {
@@ -574,7 +590,7 @@ fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_s
         };
         let display = format!("{} ({})", info.base_name, symbol);
 
-        display_item_and_source(console, &display, attr, is_env, col_attr, col_source, "", icons_active);
+        display_item_and_source(console, &display, attr, is_env, col_attr, col_source, "", false);
     }
 }
 
@@ -618,7 +634,12 @@ fn display_file_attribute_configuration(console: &mut Console, col_attr: usize, 
 ////////////////////////////////////////////////////////////////////////////////
 
 fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col_source: usize, icons_active: bool) {
-    console.puts(Attribute::Information, "\nFile extension color configuration:");
+    let ext_header = if icons_active {
+        "\nFile extension color and icon configuration:"
+    } else {
+        "\nFile extension color configuration:"
+    };
+    console.puts (Attribute::Information, ext_header);
 
     let config = console.config_arc();
     let width = console.width() as usize;
@@ -743,8 +764,6 @@ fn display_extension_multi_column(
 
         console.puts(Attribute::Default, "");
     }
-
-    console.puts(Attribute::Default, "");
 }
 
 
@@ -767,7 +786,7 @@ fn display_well_known_dir_configuration(console: &mut Console, _icons_active: bo
         return;
     }
 
-    console.puts (Attribute::Information, "\nWell-known directory icons:");
+    console.puts (Attribute::Information, "\nWell-known directory icon configuration:");
 
     let dir_attr = config.attributes[Attribute::Directory as usize];
 
@@ -879,11 +898,13 @@ fn display_width(s: &str) -> usize {
 #[allow (clippy::too_many_arguments)]
 fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env: bool, col_item: usize, col_source: usize, icon_prefix: &str, show_icons: bool) {
     let config = console.config_arc();
-    let bg_attr = config.attributes[Attribute::Default as usize] & BC_MASK;
+    let default_attr = config.attributes[Attribute::Default as usize];
+    let bg_attr = default_attr & BC_MASK;
     let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
     let source = if is_env { "Environment" } else { "Default" };
     let item_width = display_width(item);
     let pad = col_item.saturating_sub(item_width);
+    let visible_attr = ensure_visible_color_attr (attr, default_attr);
 
     const CX_ICON_COLUMN: usize = 3; // glyph (2 cells) + space
 
@@ -892,13 +913,13 @@ fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env:
     // Icon prefix column (when icons active)
     if show_icons {
         if !icon_prefix.is_empty() {
-            console.printf(attr, &format!("{} ", icon_prefix));
+            console.printf(visible_attr, &format!("{} ", icon_prefix));
         } else {
             console.printf_attr(Attribute::Information, &format!("{:width$}", "", width = CX_ICON_COLUMN));
         }
     }
 
-    console.printf(attr, item);
+    console.printf(visible_attr, item);
     console.printf_attr(Attribute::Information, &format!("{:pad$}  ", "", pad = pad));
     console.printf(source_attr, &format!("{:<width$}", source, width = col_source));
     console.printf(config.attributes[Attribute::Default as usize], "\n");
@@ -928,7 +949,7 @@ fn display_color_chart(console: &mut Console) {
         ("LightGrey", "White"),
     ];
 
-    const LEFT_WIDTH: usize = 18;
+    const LEFT_WIDTH: usize = 28;
 
     for &(left, right) in ROWS {
         let left_attr = get_color_attribute(console, left);

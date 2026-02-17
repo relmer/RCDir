@@ -1,786 +1,856 @@
-# Data Model: Nerd Font File & Folder Icons
+# Data Model: Nerd Font File & Folder Icons (Rust)
 
-**Feature**: 003-file-icons | **Date**: 2026-02-14
+**Feature**: 003-file-icons | **Date**: 2026-02-16
 
 ---
 
 ## Entity Overview
 
 ```
-CConfig (extended)
-├── SFileDisplayStyle          # Resolved color + icon for a file entry
-├── SIconMappingEntry          # Static default table entry (extension → code point)
-├── m_mapExtensionToIcon       # Runtime extension → icon overrides
-├── m_mapWellKnownDirToIcon    # Runtime well-known dir → icon overrides
-├── m_mapFileAttributeToIcon   # Runtime attribute → icon overrides
-├── m_iconDirectoryDefault     # Default directory icon code point
-├── m_iconFileDefault          # Default file icon code point
-├── m_iconSymlink              # Symlink icon code point
-├── m_iconJunction             # Junction point icon code point
-└── m_fIcons                   # optional<bool> — icons switch from TCDIR env var
+Config (extended)
+├── FileDisplayStyle           # Resolved color + icon for a file entry
+├── extension_icons            # HashMap<String, char> — extension → icon glyph
+├── extension_icon_sources     # HashMap<String, AttributeSource> — source tracking
+├── well_known_dir_icons       # HashMap<String, char> — dir name → icon glyph
+├── well_known_dir_icon_sources # HashMap<String, AttributeSource> — source tracking
+├── file_attr_icons            # HashMap<u32, char> — attribute flag → icon glyph
+├── icon_directory_default     # char — default directory icon
+├── icon_file_default          # char — default file icon
+├── icon_symlink               # char — symlink icon
+├── icon_junction              # char — junction point icon
+├── icon_cloud_only            # char — cloud-only NF glyph
+├── icon_locally_available     # char — locally available NF glyph
+├── icon_always_local          # char — always-local / pinned NF glyph
+└── icons                      # Option<bool> — icons switch from RCDIR env var
 
-CNerdFontDetector (new)
-├── EIconActivation            # Tri-state: Auto / ForceOn / ForceOff
-├── EDetectionResult           # Detected / NotDetected / Inconclusive
-└── Protected virtual methods  # GDI calls overridable in tests via derivation
+NerdFontDetector (new module)
+├── IconActivation             # Tri-state: Auto / ForceOn / ForceOff
+├── DetectionResult            # Detected / NotDetected / Inconclusive
+└── FontProber trait           # GDI calls injectable for testing
 
-WideCharPair (new utility)
-└── CodePointToWideChars()     # constexpr char32_t → wchar_t[2] converter
+IconMapping (new module)
+├── NF_* constants             # Named char constants for every NF code point
+├── DEFAULT_EXTENSION_ICONS    # &[(&str, char)] static array
+├── DEFAULT_WELL_KNOWN_DIR_ICONS # &[(&str, char)] static array
+└── ATTRIBUTE_PRECEDENCE       # &[(u32, char)] static array (PSHERC0TA order)
+
+CommandLine (extended)
+└── icons                      # Option<bool> — /Icons, /Icons-
 ```
 
 ---
 
-## New Structs
+## New Types
 
-### WideCharPair
+### `icon_mapping.rs` — Nerd Font Constants
 
-```cpp
-// Location: IconMapping.h
+```rust
+// Named constants replace magic hex literals throughout the codebase.
+// Grouped by Nerd Font prefix, alphabetical within each group.
+// Rust char is a Unicode scalar value (0–0x10FFFF, excluding surrogates).
 
-struct WideCharPair
-{
-    wchar_t  chars[2];   // UTF-16 representation (1 or 2 wchar_t)
-    unsigned count;      // 1 for BMP, 2 for supplementary, 0 for invalid
-};
+// --- Custom (nf-custom-*) ---
+pub const NF_CUSTOM_ASM:              char = '\u{E6AB}';
+pub const NF_CUSTOM_ELIXIR:          char = '\u{E62D}';
+pub const NF_CUSTOM_ELM:             char = '\u{E62C}';
+pub const NF_CUSTOM_FOLDER:          char = '\u{E5FF}';
+pub const NF_CUSTOM_FOLDER_CONFIG:   char = '\u{E5FC}';
+pub const NF_CUSTOM_KOTLIN:          char = '\u{E634}';
+pub const NF_CUSTOM_MSDOS:           char = '\u{E629}';
 
-constexpr WideCharPair CodePointToWideChars (char32_t cp);
+// --- Seti (nf-seti-*) ---
+pub const NF_SETI_BICEP:             char = '\u{E63B}';
+pub const NF_SETI_CONFIG:            char = '\u{E615}';
+pub const NF_SETI_DB:                char = '\u{E64D}';
+pub const NF_SETI_GIT:               char = '\u{E65D}';    // DEVIATION from TI
+pub const NF_SETI_GITHUB:            char = '\u{E65B}';    // DEVIATION from TI
+pub const NF_SETI_HTML:              char = '\u{E60E}';
+pub const NF_SETI_JSON:              char = '\u{E60B}';
+pub const NF_SETI_JULIA:             char = '\u{E624}';
+pub const NF_SETI_LUA:               char = '\u{E620}';
+pub const NF_SETI_MAKEFILE:          char = '\u{E673}';
+pub const NF_SETI_NPM:               char = '\u{E616}';    // DEVIATION from TI
+pub const NF_SETI_PROJECT:           char = '\u{E601}';
+pub const NF_SETI_PYTHON:            char = '\u{E606}';    // DEVIATION from TI
+pub const NF_SETI_SHELL:             char = '\u{E691}';
+pub const NF_SETI_SVELTE:            char = '\u{E697}';
+pub const NF_SETI_SWIFT:             char = '\u{E699}';
+pub const NF_SETI_TERRAFORM:         char = '\u{E69A}';
+pub const NF_SETI_TYPESCRIPT:        char = '\u{E628}';
+
+// --- Dev (nf-dev-*) ---
+pub const NF_DEV_AWS:                char = '\u{E7AD}';
+pub const NF_DEV_CLOJURE:            char = '\u{E768}';
+pub const NF_DEV_CSS3:               char = '\u{E749}';
+pub const NF_DEV_DART:               char = '\u{E798}';
+pub const NF_DEV_DATABASE:           char = '\u{E706}';
+pub const NF_DEV_DOCKER:             char = '\u{E7B0}';
+pub const NF_DEV_ERLANG:             char = '\u{E7B1}';
+pub const NF_DEV_FSHARP:             char = '\u{E7A7}';
+pub const NF_DEV_GO:                 char = '\u{E724}';
+pub const NF_DEV_GROOVY:             char = '\u{E775}';
+pub const NF_DEV_HASKELL:            char = '\u{E777}';
+pub const NF_DEV_JAVASCRIPT_ALT:     char = '\u{E74E}';
+pub const NF_DEV_LESS:               char = '\u{E758}';
+pub const NF_DEV_MARKDOWN:           char = '\u{E73E}';
+pub const NF_DEV_PERL:               char = '\u{E769}';
+pub const NF_DEV_PHP:                char = '\u{E73D}';
+pub const NF_DEV_REACT:              char = '\u{E7BA}';
+pub const NF_DEV_RUST:               char = '\u{E7A8}';
+pub const NF_DEV_SASS:               char = '\u{E74B}';
+pub const NF_DEV_SCALA:              char = '\u{E737}';
+pub const NF_DEV_VISUAL_STUDIO:      char = '\u{E70C}';
+pub const NF_DEV_VSCODE:             char = '\u{E8DA}';    // DEVIATION from TI
+
+// --- Font Awesome Extension (nf-fae-*) ---
+pub const NF_FAE_JAVA:               char = '\u{E256}';
+
+// --- Octicons (nf-oct-*) ---
+pub const NF_OCT_FILE_BINARY:        char = '\u{F471}';
+pub const NF_OCT_FILE_MEDIA:         char = '\u{F40F}';
+pub const NF_OCT_FILE_ZIP:           char = '\u{F410}';
+pub const NF_OCT_REPO:               char = '\u{F401}';
+pub const NF_OCT_RUBY:               char = '\u{F43B}';
+pub const NF_OCT_TERMINAL:           char = '\u{F489}';
+
+// --- Font Awesome (nf-fa-*) ---
+pub const NF_FA_ARCHIVE:             char = '\u{F187}';
+pub const NF_FA_CERTIFICATE:         char = '\u{F0A3}';
+pub const NF_FA_ENVELOPE:            char = '\u{F0E0}';
+pub const NF_FA_EXTERNAL_LINK:       char = '\u{F08E}';
+pub const NF_FA_FILE:                char = '\u{F15B}';
+pub const NF_FA_FILE_AUDIO_O:        char = '\u{F1C7}';
+pub const NF_FA_FILE_IMAGE_O:        char = '\u{F1C5}';
+pub const NF_FA_FILE_PDF_O:          char = '\u{F1C1}';
+pub const NF_FA_FILE_VIDEO_O:        char = '\u{F1C8}';
+pub const NF_FA_FONT:                char = '\u{F031}';
+pub const NF_FA_GEAR:                char = '\u{F013}';
+pub const NF_FA_GITHUB_ALT:          char = '\u{F113}';
+pub const NF_FA_KEY:                 char = '\u{F084}';
+pub const NF_FA_LIST:                char = '\u{F03A}';
+pub const NF_FA_LOCK:                char = '\u{F023}';
+pub const NF_FA_USERS:               char = '\u{F0C0}';
+pub const NF_FA_WINDOWS:             char = '\u{F17A}';
+
+// --- Material Design (nf-md-*) — supplementary plane (surrogate pair in UTF-16) ---
+pub const NF_MD_APPLICATION:         char = '\u{F08C6}';
+pub const NF_MD_APPS:                char = '\u{F003B}';
+pub const NF_MD_CACHED:              char = '\u{F00E8}';
+pub const NF_MD_CLOUD_CHECK:         char = '\u{F0160}';
+pub const NF_MD_CLOUD_OUTLINE:       char = '\u{F0163}';
+pub const NF_MD_CONSOLE_LINE:        char = '\u{F07B7}';
+pub const NF_MD_CONTACTS:            char = '\u{F06CB}';
+pub const NF_MD_DESKTOP_CLASSIC:     char = '\u{F07C0}';
+pub const NF_MD_FILE_DOCUMENT:       char = '\u{F0219}';
+pub const NF_MD_FILE_EXCEL:          char = '\u{F021B}';
+pub const NF_MD_FILE_POWERPOINT:     char = '\u{F0227}';
+pub const NF_MD_FILE_WORD:           char = '\u{F022C}';
+pub const NF_MD_FOLDER_DOWNLOAD:     char = '\u{F024D}';
+pub const NF_MD_FOLDER_IMAGE:        char = '\u{F024F}';
+pub const NF_MD_FOLDER_STAR:         char = '\u{F069D}';
+pub const NF_MD_FORMAT_ALIGN_LEFT:   char = '\u{F0262}';
+pub const NF_MD_LANGUAGE_C:          char = '\u{F0671}';
+pub const NF_MD_LANGUAGE_CPP:        char = '\u{F0672}';
+pub const NF_MD_LANGUAGE_CSHARP:     char = '\u{F031B}';
+pub const NF_MD_LANGUAGE_R:          char = '\u{F07D4}';
+pub const NF_MD_LANGUAGE_XAML:       char = '\u{F0673}';
+pub const NF_MD_MICROSOFT_AZURE:     char = '\u{F0805}';
+pub const NF_MD_MICROSOFT_ONEDRIVE:  char = '\u{F03CA}';
+pub const NF_MD_MOVIE:               char = '\u{F0381}';
+pub const NF_MD_MUSIC_BOX_MULTIPLE:  char = '\u{F0333}';
+pub const NF_MD_NOTEBOOK:            char = '\u{F082E}';
+pub const NF_MD_ELEPHANT:            char = '\u{F07C6}';
+pub const NF_MD_PACKAGE_VARIANT:     char = '\u{F03D6}';
+pub const NF_MD_PIN:                 char = '\u{F0403}';
+pub const NF_MD_SHIP_WHEEL:          char = '\u{F0833}';
+pub const NF_MD_SVG:                 char = '\u{F0721}';
+pub const NF_MD_TEST_TUBE:           char = '\u{F0668}';
+pub const NF_MD_VUEJS:               char = '\u{F0844}';
+pub const NF_MD_TIMER:               char = '\u{F13AB}';
+pub const NF_MD_XML:                 char = '\u{F05C0}';
+
+// --- Codicons (nf-cod-*) ---
+pub const NF_COD_FILE_SYMLINK_DIR:   char = '\u{EAED}';
+pub const NF_COD_FOLDER_LIBRARY:     char = '\u{EBDF}';
+pub const NF_COD_OUTPUT:             char = '\u{EB9D}';
+pub const NF_COD_PACKAGE:            char = '\u{EB29}';
+pub const NF_COD_PREVIEW:            char = '\u{EB2F}';
 ```
 
-Purpose: Convert Unicode code points (stored as `char32_t`) to UTF-16 for `CConsole::Printf`. Constexpr enables compile-time verification via `static_assert`.
+**Purpose**: Single source of truth for all Nerd Font code points. Every usage site references a named constant — no magic hex literals. Rust `char` handles the full Unicode range natively (including supplementary plane), so no `WideCharPair` / `CodePointToWideChars` equivalent is needed.
 
-### SIconMappingEntry
+### `icon_mapping.rs` — Static Default Tables
 
-```cpp
-// Location: IconMapping.h
+```rust
+/// Default extension → icon mappings.
+/// Aligned to Terminal-Icons devblackops default theme (NF v3.4.0).
+/// Keys are lowercase with leading dot (matching Config::extension_colors convention).
+pub const DEFAULT_EXTENSION_ICONS: &[(&str, char)] = &[
+    // C/C++
+    (".c",       NF_MD_LANGUAGE_C),
+    (".h",       NF_MD_LANGUAGE_C),
+    (".cpp",     NF_MD_LANGUAGE_CPP),
+    (".cxx",     NF_MD_LANGUAGE_CPP),
+    (".c++",     NF_MD_LANGUAGE_CPP),
+    (".hpp",     NF_MD_LANGUAGE_CPP),
+    (".hxx",     NF_MD_LANGUAGE_CPP),
+    (".asm",     NF_CUSTOM_ASM),
+    (".cod",     NF_CUSTOM_ASM),
+    (".i",       NF_CUSTOM_ASM),
 
-struct SIconMappingEntry
-{
-    LPCWSTR   m_pszKey;        // Extension (L".cpp"), dir name (L".git"), etc.
-    char32_t  m_codePoint;     // Nerd Font code point (e.g., 0xE749 = DevCss3)
-};
+    // C# / .NET
+    (".cs",      NF_MD_LANGUAGE_CSHARP),
+    (".csx",     NF_MD_LANGUAGE_CSHARP),
+    (".resx",    NF_MD_XML),
+    (".xaml",    NF_MD_LANGUAGE_XAML),
+
+    // JavaScript / TypeScript
+    (".js",      NF_DEV_JAVASCRIPT_ALT),
+    (".mjs",     NF_DEV_JAVASCRIPT_ALT),
+    (".cjs",     NF_DEV_JAVASCRIPT_ALT),
+    (".jsx",     NF_DEV_REACT),
+    (".ts",      NF_SETI_TYPESCRIPT),
+    (".tsx",     NF_DEV_REACT),
+
+    // Web
+    (".html",    NF_SETI_HTML),
+    (".htm",     NF_SETI_HTML),
+    (".xhtml",   NF_SETI_HTML),
+    (".css",     NF_DEV_CSS3),
+    (".scss",    NF_DEV_SASS),
+    (".sass",    NF_DEV_SASS),
+    (".less",    NF_DEV_LESS),
+    (".vue",     NF_MD_VUEJS),
+    (".svelte",  NF_SETI_SVELTE),
+
+    // Python (DEVIATION: nf-seti-python)
+    (".py",      NF_SETI_PYTHON),
+    (".pyw",     NF_SETI_PYTHON),
+    (".ipynb",   NF_MD_NOTEBOOK),
+
+    // Java
+    (".java",    NF_FAE_JAVA),
+    (".jar",     NF_FAE_JAVA),
+    (".class",   NF_FAE_JAVA),
+    (".gradle",  NF_MD_ELEPHANT),
+
+    // Rust
+    (".rs",      NF_DEV_RUST),
+
+    // Go
+    (".go",      NF_DEV_GO),
+
+    // Ruby
+    (".rb",      NF_OCT_RUBY),
+    (".erb",     NF_OCT_RUBY),
+
+    // F#
+    (".fs",      NF_DEV_FSHARP),
+    (".fsx",     NF_DEV_FSHARP),
+    (".fsi",     NF_DEV_FSHARP),
+
+    // Lua
+    (".lua",     NF_SETI_LUA),
+
+    // Perl
+    (".pl",      NF_DEV_PERL),
+    (".pm",      NF_DEV_PERL),
+
+    // PHP
+    (".php",     NF_DEV_PHP),
+
+    // Haskell
+    (".hs",      NF_DEV_HASKELL),
+
+    // Dart
+    (".dart",    NF_DEV_DART),
+
+    // Kotlin
+    (".kt",      NF_CUSTOM_KOTLIN),
+    (".kts",     NF_CUSTOM_KOTLIN),
+
+    // Swift
+    (".swift",   NF_SETI_SWIFT),
+
+    // Scala
+    (".scala",   NF_DEV_SCALA),
+    (".sc",      NF_DEV_SCALA),
+    (".sbt",     NF_DEV_SCALA),
+
+    // Clojure
+    (".clj",     NF_DEV_CLOJURE),
+    (".cljs",    NF_DEV_CLOJURE),
+    (".cljc",    NF_DEV_CLOJURE),
+
+    // Elixir / Erlang
+    (".ex",      NF_CUSTOM_ELIXIR),
+    (".exs",     NF_CUSTOM_ELIXIR),
+    (".erl",     NF_DEV_ERLANG),
+
+    // Groovy
+    (".groovy",  NF_DEV_GROOVY),
+
+    // Julia
+    (".jl",      NF_SETI_JULIA),
+
+    // R
+    (".r",       NF_MD_LANGUAGE_R),
+    (".rmd",     NF_MD_LANGUAGE_R),
+
+    // Elm
+    (".elm",     NF_CUSTOM_ELM),
+
+    // Data formats
+    (".xml",     NF_MD_XML),
+    (".xsd",     NF_MD_XML),
+    (".xsl",     NF_MD_XML),
+    (".xslt",    NF_MD_XML),
+    (".dtd",     NF_MD_XML),
+    (".plist",   NF_MD_XML),
+    (".manifest", NF_MD_XML),
+    (".json",    NF_SETI_JSON),
+    (".toml",    NF_FA_GEAR),
+    (".yml",     NF_MD_FORMAT_ALIGN_LEFT),
+    (".yaml",    NF_MD_FORMAT_ALIGN_LEFT),
+
+    // Config / Settings
+    (".ini",     NF_FA_GEAR),
+    (".cfg",     NF_FA_GEAR),
+    (".conf",    NF_FA_GEAR),
+    (".config",  NF_FA_GEAR),
+    (".properties", NF_FA_GEAR),
+    (".settings", NF_FA_GEAR),
+    (".reg",     NF_FA_GEAR),
+
+    // Database / SQL
+    (".sql",     NF_DEV_DATABASE),
+    (".sqlite",  NF_DEV_DATABASE),
+    (".mdb",     NF_DEV_DATABASE),
+    (".accdb",   NF_DEV_DATABASE),
+    (".pgsql",   NF_DEV_DATABASE),
+    (".db",      NF_SETI_DB),
+    (".csv",     NF_MD_FILE_EXCEL),
+    (".tsv",     NF_MD_FILE_EXCEL),
+
+    // Build artifacts
+    (".obj",     NF_OCT_FILE_BINARY),
+    (".lib",     NF_OCT_FILE_BINARY),
+    (".res",     NF_OCT_FILE_BINARY),
+    (".pch",     NF_OCT_FILE_BINARY),
+    (".pdb",     NF_DEV_DATABASE),
+
+    // Logs
+    (".wrn",     NF_FA_LIST),
+    (".err",     NF_FA_LIST),
+    (".log",     NF_FA_LIST),
+
+    // Shell
+    (".bash",    NF_OCT_TERMINAL),
+    (".sh",      NF_OCT_TERMINAL),
+    (".zsh",     NF_OCT_TERMINAL),
+    (".fish",    NF_OCT_TERMINAL),
+    (".bat",     NF_CUSTOM_MSDOS),
+    (".cmd",     NF_CUSTOM_MSDOS),
+
+    // PowerShell
+    (".ps1",     NF_MD_CONSOLE_LINE),
+    (".psd1",    NF_MD_CONSOLE_LINE),
+    (".psm1",    NF_MD_CONSOLE_LINE),
+    (".ps1xml",  NF_MD_CONSOLE_LINE),
+
+    // Executables
+    (".exe",     NF_MD_APPLICATION),
+    (".sys",     NF_MD_APPLICATION),
+    (".dll",     NF_FA_ARCHIVE),
+
+    // Installers
+    (".msi",     NF_MD_PACKAGE_VARIANT),
+    (".msix",    NF_MD_PACKAGE_VARIANT),
+    (".deb",     NF_MD_PACKAGE_VARIANT),
+    (".rpm",     NF_MD_PACKAGE_VARIANT),
+
+    // Visual Studio
+    (".sln",     NF_DEV_VISUAL_STUDIO),
+    (".vcproj",  NF_DEV_VISUAL_STUDIO),
+    (".vcxproj", NF_DEV_VISUAL_STUDIO),
+    (".csproj",  NF_DEV_VISUAL_STUDIO),
+    (".csxproj", NF_DEV_VISUAL_STUDIO),
+    (".fsproj",  NF_DEV_FSHARP),
+    (".user",    NF_DEV_VISUAL_STUDIO),
+    (".ncb",     NF_DEV_VISUAL_STUDIO),
+    (".suo",     NF_DEV_VISUAL_STUDIO),
+    (".code-workspace", NF_DEV_VISUAL_STUDIO),
+
+    // Documents
+    (".doc",     NF_MD_FILE_WORD),
+    (".docx",    NF_MD_FILE_WORD),
+    (".rtf",     NF_MD_FILE_WORD),
+    (".ppt",     NF_MD_FILE_POWERPOINT),
+    (".pptx",    NF_MD_FILE_POWERPOINT),
+    (".xls",     NF_MD_FILE_EXCEL),
+    (".xlsx",    NF_MD_FILE_EXCEL),
+    (".pdf",     NF_FA_FILE_PDF_O),
+
+    // Markdown
+    (".md",      NF_DEV_MARKDOWN),
+    (".markdown", NF_DEV_MARKDOWN),
+    (".rst",     NF_DEV_MARKDOWN),
+
+    // Text
+    (".txt",     NF_MD_FILE_DOCUMENT),
+    (".text",    NF_MD_FILE_DOCUMENT),
+    (".!!!",     NF_MD_FILE_DOCUMENT),
+    (".1st",     NF_MD_FILE_DOCUMENT),
+    (".me",      NF_MD_FILE_DOCUMENT),
+    (".now",     NF_MD_FILE_DOCUMENT),
+
+    // Email
+    (".eml",     NF_FA_ENVELOPE),
+
+    // Images
+    (".png",     NF_FA_FILE_IMAGE_O),
+    (".jpg",     NF_FA_FILE_IMAGE_O),
+    (".jpeg",    NF_FA_FILE_IMAGE_O),
+    (".gif",     NF_FA_FILE_IMAGE_O),
+    (".bmp",     NF_FA_FILE_IMAGE_O),
+    (".ico",     NF_FA_FILE_IMAGE_O),
+    (".tif",     NF_FA_FILE_IMAGE_O),
+    (".tiff",    NF_FA_FILE_IMAGE_O),
+    (".webp",    NF_FA_FILE_IMAGE_O),
+    (".psd",     NF_FA_FILE_IMAGE_O),
+    (".cur",     NF_FA_FILE_IMAGE_O),
+    (".raw",     NF_FA_FILE_IMAGE_O),
+    (".svg",     NF_MD_SVG),
+
+    // Audio
+    (".mp3",     NF_FA_FILE_AUDIO_O),
+    (".wav",     NF_FA_FILE_AUDIO_O),
+    (".flac",    NF_FA_FILE_AUDIO_O),
+    (".m4a",     NF_FA_FILE_AUDIO_O),
+    (".wma",     NF_FA_FILE_AUDIO_O),
+    (".aac",     NF_FA_FILE_AUDIO_O),
+    (".ogg",     NF_FA_FILE_AUDIO_O),
+    (".opus",    NF_FA_FILE_AUDIO_O),
+    (".aiff",    NF_FA_FILE_AUDIO_O),
+
+    // Video
+    (".mp4",     NF_FA_FILE_VIDEO_O),
+    (".avi",     NF_FA_FILE_VIDEO_O),
+    (".mkv",     NF_FA_FILE_VIDEO_O),
+    (".mov",     NF_FA_FILE_VIDEO_O),
+    (".wmv",     NF_FA_FILE_VIDEO_O),
+    (".webm",    NF_FA_FILE_VIDEO_O),
+    (".flv",     NF_FA_FILE_VIDEO_O),
+    (".mpg",     NF_FA_FILE_VIDEO_O),
+    (".mpeg",    NF_FA_FILE_VIDEO_O),
+
+    // Fonts
+    (".ttf",     NF_FA_FONT),
+    (".otf",     NF_FA_FONT),
+    (".woff",    NF_FA_FONT),
+    (".woff2",   NF_FA_FONT),
+    (".eot",     NF_FA_FONT),
+    (".ttc",     NF_FA_FONT),
+
+    // Archives
+    (".7z",      NF_OCT_FILE_ZIP),
+    (".arj",     NF_OCT_FILE_ZIP),
+    (".gz",      NF_OCT_FILE_ZIP),
+    (".rar",     NF_OCT_FILE_ZIP),
+    (".tar",     NF_OCT_FILE_ZIP),
+    (".zip",     NF_OCT_FILE_ZIP),
+    (".xz",      NF_OCT_FILE_ZIP),
+    (".bz2",     NF_OCT_FILE_ZIP),
+    (".tgz",     NF_OCT_FILE_ZIP),
+    (".cab",     NF_OCT_FILE_ZIP),
+    (".zst",     NF_OCT_FILE_ZIP),
+
+    // Certificates / Keys
+    (".cer",     NF_FA_CERTIFICATE),
+    (".cert",    NF_FA_CERTIFICATE),
+    (".crt",     NF_FA_CERTIFICATE),
+    (".pfx",     NF_FA_CERTIFICATE),
+    (".pem",     NF_FA_KEY),
+    (".pub",     NF_FA_KEY),
+    (".key",     NF_FA_KEY),
+    (".asc",     NF_FA_KEY),
+    (".gpg",     NF_FA_KEY),
+
+    // Docker
+    (".dockerfile", NF_DEV_DOCKER),
+    (".dockerignore", NF_DEV_DOCKER),
+
+    // Terraform / IaC
+    (".tf",      NF_SETI_TERRAFORM),
+    (".tfvars",  NF_SETI_TERRAFORM),
+    (".bicep",   NF_SETI_BICEP),
+
+    // Lock files
+    (".lock",    NF_FA_LOCK),
+
+    // Resource
+    (".rc",      NF_SETI_CONFIG),
+];
+
+
+/// Default well-known directory name → icon mappings.
+/// Keys are lowercase (matching Config lookup convention).
+pub const DEFAULT_WELL_KNOWN_DIR_ICONS: &[(&str, char)] = &[
+    // Version control / IDEs (DEVIATIONS noted)
+    (".git",             NF_SETI_GIT),             // DEVIATION: nf-seti-git
+    (".github",          NF_SETI_GITHUB),           // DEVIATION: nf-seti-github
+    (".vscode",          NF_DEV_VSCODE),             // DEVIATION: nf-dev-vscode
+    (".vscode-insiders", NF_DEV_VSCODE),
+    ("node_modules",     NF_SETI_NPM),               // DEVIATION: nf-seti-npm
+
+    // Config / Cloud provider
+    (".config",          NF_SETI_CONFIG),
+    (".cargo",           NF_CUSTOM_FOLDER_CONFIG),
+    (".cache",           NF_MD_CACHED),
+    (".docker",          NF_DEV_DOCKER),
+    (".aws",             NF_DEV_AWS),
+    (".azure",           NF_MD_MICROSOFT_AZURE),
+    (".kube",            NF_MD_SHIP_WHEEL),
+
+    // Source / Development
+    ("src",              NF_OCT_TERMINAL),
+    ("source",           NF_OCT_TERMINAL),
+    ("development",      NF_OCT_TERMINAL),
+    ("projects",         NF_SETI_PROJECT),
+
+    // Documentation
+    ("docs",             NF_OCT_REPO),
+    ("doc",              NF_OCT_REPO),
+    ("documents",        NF_OCT_REPO),
+
+    // Build outputs
+    ("bin",              NF_OCT_FILE_BINARY),
+    ("build",            NF_COD_OUTPUT),
+    ("dist",             NF_COD_OUTPUT),
+    ("out",              NF_COD_OUTPUT),
+    ("output",           NF_COD_OUTPUT),
+    ("artifacts",        NF_COD_PACKAGE),
+
+    // Testing
+    ("test",             NF_MD_TEST_TUBE),
+    ("tests",            NF_MD_TEST_TUBE),
+    ("__tests__",        NF_MD_TEST_TUBE),
+    ("spec",             NF_MD_TEST_TUBE),
+    ("specs",            NF_MD_TEST_TUBE),
+    ("benchmark",        NF_MD_TIMER),
+
+    // Libraries / Packages
+    ("lib",              NF_COD_FOLDER_LIBRARY),
+    ("libs",             NF_COD_FOLDER_LIBRARY),
+    ("packages",         NF_SETI_NPM),
+
+    // Scripts
+    ("scripts",          NF_SETI_SHELL),
+
+    // Media / Images
+    ("images",           NF_MD_FOLDER_IMAGE),
+    ("img",              NF_MD_FOLDER_IMAGE),
+    ("photos",           NF_MD_FOLDER_IMAGE),
+    ("pictures",         NF_MD_FOLDER_IMAGE),
+    ("assets",           NF_MD_FOLDER_IMAGE),
+    ("videos",           NF_MD_MOVIE),
+    ("movies",           NF_MD_MOVIE),
+    ("media",            NF_OCT_FILE_MEDIA),
+    ("music",            NF_MD_MUSIC_BOX_MULTIPLE),
+    ("songs",            NF_MD_MUSIC_BOX_MULTIPLE),
+    ("fonts",            NF_FA_FONT),
+
+    // User directories
+    ("downloads",        NF_MD_FOLDER_DOWNLOAD),
+    ("desktop",          NF_MD_DESKTOP_CLASSIC),
+    ("favorites",        NF_MD_FOLDER_STAR),
+    ("contacts",         NF_MD_CONTACTS),
+    ("onedrive",         NF_MD_MICROSOFT_ONEDRIVE),
+    ("users",            NF_FA_USERS),
+    ("windows",          NF_FA_WINDOWS),
+
+    // Other
+    ("apps",             NF_MD_APPS),
+    ("applications",     NF_MD_APPS),
+    ("demo",             NF_COD_PREVIEW),
+    ("samples",          NF_COD_PREVIEW),
+    ("shortcuts",        NF_COD_FILE_SYMLINK_DIR),
+    ("links",            NF_COD_FILE_SYMLINK_DIR),
+    ("github",           NF_FA_GITHUB_ALT),
+];
 ```
 
-Purpose: Static constexpr default icon mapping table entry. Parallels `CConfig::STextAttr` for colors.
+### `file_attribute_map.rs` — Attribute Precedence
 
-### NfIcon Namespace
+```rust
+/// Attribute precedence order for icon/color resolution (PSHERC0TA).
+///
+/// This order determines which file attribute "wins" when multiple attributes
+/// are present on a file. Used by Config::get_display_style_for_file().
+///
+/// NOTE: This is different from FILE_ATTRIBUTE_MAP in file_info.rs (RHSATECP0),
+/// which controls the display column order. Both arrays contain the same 9
+/// attributes but in different sequences.
+pub const ATTRIBUTE_PRECEDENCE: &[(u32, char)] = &[
+    (FILE_ATTRIBUTE_REPARSE_POINT, 'P'),   // Priority 1 (highest) — identity-altering
+    (FILE_ATTRIBUTE_SYSTEM,        'S'),   // Priority 2 — OS-critical
+    (FILE_ATTRIBUTE_HIDDEN,        'H'),   // Priority 3 — intentionally invisible
+    (FILE_ATTRIBUTE_ENCRYPTED,     'E'),   // Priority 4 — access-restricting
+    (FILE_ATTRIBUTE_READONLY,      'R'),   // Priority 5 — access-restricting
+    (FILE_ATTRIBUTE_COMPRESSED,    'C'),   // Priority 6 — informational
+    (FILE_ATTRIBUTE_SPARSE_FILE,   '0'),   // Priority 7 — rare
+    (FILE_ATTRIBUTE_TEMPORARY,     'T'),   // Priority 8 — ephemeral
+    (FILE_ATTRIBUTE_ARCHIVE,       'A'),   // Priority 9 (lowest) — near-universal noise
+];
+```
 
-```cpp
-// Location: IconMapping.h
+**Purpose**: Separate module for attribute precedence, distinct from `file_info::FILE_ATTRIBUTE_MAP` (RHSATECP0 order for display columns). Both arrays contain the same 9 attributes but in different sequences. The precedence array is used exclusively by `Config::get_display_style_for_file()`.
 
-namespace NfIcon
-{
-    // --- Custom (nf-custom-*) ---
-    constexpr char32_t CustomAsm              = 0xE6AB;
-    constexpr char32_t CustomElixir           = 0xE62D;
-    constexpr char32_t CustomElm              = 0xE62C;
-    constexpr char32_t CustomFolder           = 0xE5FF;
-    constexpr char32_t CustomFolderConfig     = 0xE5FC;
-    constexpr char32_t CustomKotlin           = 0xE634;
-    constexpr char32_t CustomMsdos            = 0xE629;
+---
 
-    // --- Seti (nf-seti-*) ---
-    constexpr char32_t SetiBicep              = 0xE63B;
-    constexpr char32_t SetiConfig             = 0xE615;
-    constexpr char32_t SetiDb                 = 0xE64D;
-    constexpr char32_t SetiGit                = 0xE65D;   // DEVIATION from TI
-    constexpr char32_t SetiGithub             = 0xE65B;   // DEVIATION from TI
-    constexpr char32_t SetiHtml               = 0xE60E;
-    constexpr char32_t SetiJson               = 0xE60B;
-    constexpr char32_t SetiJulia              = 0xE624;
-    constexpr char32_t SetiLua                = 0xE620;
-    constexpr char32_t SetiMakefile           = 0xE673;
-    constexpr char32_t SetiNpm                = 0xE616;   // DEVIATION from TI
-    constexpr char32_t SetiProject            = 0xE601;
-    constexpr char32_t SetiPython             = 0xE606;   // DEVIATION from TI
-    constexpr char32_t SetiShell              = 0xE691;
-    constexpr char32_t SetiSvelte             = 0xE697;
-    constexpr char32_t SetiSwift              = 0xE699;
-    constexpr char32_t SetiTerraform          = 0xE69A;
-    constexpr char32_t SetiTypescript         = 0xE628;
+## New Types — `nerd_font_detector.rs`
 
-    // --- Dev (nf-dev-*) ---
-    constexpr char32_t DevAws                 = 0xE7AD;
-    constexpr char32_t DevClojure             = 0xE768;
-    constexpr char32_t DevCss3                = 0xE749;
-    constexpr char32_t DevDart                = 0xE798;
-    constexpr char32_t DevDatabase            = 0xE706;
-    constexpr char32_t DevDocker              = 0xE7B0;
-    constexpr char32_t DevErlang              = 0xE7B1;
-    constexpr char32_t DevFsharp              = 0xE7A7;
-    constexpr char32_t DevGo                  = 0xE724;
-    constexpr char32_t DevGroovy              = 0xE775;
-    constexpr char32_t DevHaskell             = 0xE777;
-    constexpr char32_t DevJavascriptAlt       = 0xE74E;
-    constexpr char32_t DevLess                = 0xE758;
-    constexpr char32_t DevMarkdown            = 0xE73E;
-    constexpr char32_t DevPerl                = 0xE769;
-    constexpr char32_t DevPhp                 = 0xE73D;
-    constexpr char32_t DevReact               = 0xE7BA;
-    constexpr char32_t DevRust                = 0xE7A8;
-    constexpr char32_t DevSass                = 0xE74B;
-    constexpr char32_t DevScala               = 0xE737;
-    constexpr char32_t DevVisualStudio        = 0xE70C;
-    constexpr char32_t DevVscode              = 0xE8DA;   // DEVIATION from TI
+### Detection Enums
 
-    // --- Font Awesome Extension (nf-fae-*) ---
-    constexpr char32_t FaeJava                = 0xE256;
+```rust
+/// How icon display was requested.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IconActivation {
+    /// Determined by auto-detection
+    Auto,
+    /// /Icons CLI flag or RCDIR=Icons
+    ForceOn,
+    /// /Icons- CLI flag or RCDIR=Icons-
+    ForceOff,
+}
 
-    // --- Octicons (nf-oct-*) ---
-    constexpr char32_t OctFileBinary          = 0xF471;
-    constexpr char32_t OctFileMedia           = 0xF40F;
-    constexpr char32_t OctFileZip             = 0xF410;
-    constexpr char32_t OctRepo                = 0xF401;
-    constexpr char32_t OctRuby                = 0xF43B;
-    constexpr char32_t OctTerminal            = 0xF489;
 
-    // --- Font Awesome (nf-fa-*) ---
-    constexpr char32_t FaArchive              = 0xF187;
-    constexpr char32_t FaCertificate          = 0xF0A3;
-    constexpr char32_t FaEnvelope             = 0xF0E0;
-    constexpr char32_t FaExternalLink         = 0xF08E;
-    constexpr char32_t FaFile                 = 0xF15B;
-    constexpr char32_t FaFileAudioO           = 0xF1C7;
-    constexpr char32_t FaFileImageO           = 0xF1C5;
-    constexpr char32_t FaFilePdfO             = 0xF1C1;
-    constexpr char32_t FaFileVideoO           = 0xF1C8;
-    constexpr char32_t FaFont                 = 0xF031;
-    constexpr char32_t FaGear                 = 0xF013;
-    constexpr char32_t FaGithubAlt            = 0xF113;
-    constexpr char32_t FaKey                  = 0xF084;
-    constexpr char32_t FaList                 = 0xF03A;
-    constexpr char32_t FaLock                 = 0xF023;
-    constexpr char32_t FaUsers                = 0xF0C0;
-    constexpr char32_t FaWindows              = 0xF17A;
-
-    // --- Material Design (nf-md-*) — surrogate pair range ---
-    constexpr char32_t MdApplication          = 0xF08C6;
-    constexpr char32_t MdApps                 = 0xF003B;
-    constexpr char32_t MdCached               = 0xF00E8;
-    constexpr char32_t MdCloudCheck           = 0xF0160;
-    constexpr char32_t MdCloudOutline         = 0xF0163;
-    constexpr char32_t MdConsoleLine          = 0xF07B7;
-    constexpr char32_t MdContacts             = 0xF06CB;
-    constexpr char32_t MdDesktopClassic       = 0xF07C0;
-    constexpr char32_t MdFileDocument         = 0xF0219;
-    constexpr char32_t MdFileExcel            = 0xF021B;
-    constexpr char32_t MdFilePowerpoint       = 0xF0227;
-    constexpr char32_t MdFileWord             = 0xF022C;
-    constexpr char32_t MdFolderDownload       = 0xF024D;
-    constexpr char32_t MdFolderImage          = 0xF024F;
-    constexpr char32_t MdFolderStar           = 0xF069D;
-    constexpr char32_t MdFormatAlignLeft      = 0xF0262;
-    constexpr char32_t MdLanguageC            = 0xF0671;
-    constexpr char32_t MdLanguageCpp          = 0xF0672;
-    constexpr char32_t MdLanguageCsharp       = 0xF031B;
-    constexpr char32_t MdLanguageR            = 0xF07D4;
-    constexpr char32_t MdLanguageXaml         = 0xF0673;
-    constexpr char32_t MdMicrosoftAzure       = 0xF0805;
-    constexpr char32_t MdMicrosoftOnedrive    = 0xF03CA;
-    constexpr char32_t MdMovie                = 0xF0381;
-    constexpr char32_t MdMusicBoxMultiple     = 0xF0333;
-    constexpr char32_t MdNotebook             = 0xF082E;
-    constexpr char32_t MdElephant             = 0xF07C6;
-    constexpr char32_t MdPackageVariant       = 0xF03D6;
-    constexpr char32_t MdPin                  = 0xF0403;
-    constexpr char32_t MdShipWheel            = 0xF0833;
-    constexpr char32_t MdSvg                  = 0xF0721;
-    constexpr char32_t MdTestTube             = 0xF0668;
-    constexpr char32_t MdVuejs                = 0xF0844;
-    constexpr char32_t MdTimer                = 0xF13AB;
-    constexpr char32_t MdXml                  = 0xF05C0;
-
-    // --- Codicons (nf-cod-*) ---
-    constexpr char32_t CodFileSymlinkDir      = 0xEAED;
-    constexpr char32_t CodFolderLibrary       = 0xEBDF;
-    constexpr char32_t CodOutput              = 0xEB9D;
-    constexpr char32_t CodPackage             = 0xEB29;
-    constexpr char32_t CodPreview             = 0xEB2F;
+/// Result of the Nerd Font detection probe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DetectionResult {
+    /// Nerd Font confirmed (canary glyph found or WezTerm env)
+    Detected,
+    /// No Nerd Font found
+    NotDetected,
+    /// Detection failed or inconclusive — default to OFF
+    Inconclusive,
 }
 ```
 
-Purpose: Single source of truth for all Nerd Font code points. Eliminates magic hex literals — every usage site references a named constant. Grouped by Nerd Font prefix, alphabetical within each group.
+### FontProber Trait
 
-### SFileDisplayStyle
+```rust
+/// Abstraction over GDI-dependent Nerd Font probing operations.
+///
+/// RCDir production code uses DefaultFontProber; tests use MockFontProber.
+/// Replaces TCDir's protected virtual methods on CNerdFontDetector.
+pub trait FontProber {
+    /// Probe the current console font for a specific canary glyph.
+    /// Returns Ok(true) if the glyph is present, Ok(false) if missing.
+    fn probe_console_font_for_glyph(
+        &self,
+        console_handle: HANDLE,
+        canary: char,
+    ) -> Result<bool, AppError>;
 
-```cpp
-// Location: Config.h
-
-struct SFileDisplayStyle
-{
-    WORD      m_wTextAttr;       // Resolved color attribute (Windows console WORD)
-    char32_t  m_iconCodePoint;   // Resolved icon code point (0 = no icon configured)
-    bool      m_fIconSuppressed; // true if icon explicitly set to empty (user typed ",")
-};
+    /// Check whether any Nerd Font is installed system-wide via font enumeration.
+    fn is_nerd_font_installed(&self) -> Result<bool, AppError>;
+}
 ```
 
-Purpose: Return type of the unified precedence resolver. Both color and icon resolved in a single walk. `m_fIconSuppressed` distinguishes "no icon configured at any level" (show nothing) from "icon explicitly removed" (also show nothing, but don't fall through).
+### Detection Function
 
-### EIconActivation
-
-```cpp
-// Location: NerdFontDetector.h
-
-enum class EIconActivation
-{
-    Auto,       // Determined by auto-detection
-    ForceOn,    // /Icons CLI flag or TCDIR=Icons
-    ForceOff    // /Icons- CLI flag or TCDIR=Icons-
-};
-```
-
-### EDetectionResult
-
-```cpp
-// Location: NerdFontDetector.h
-
-enum class EDetectionResult
-{
-    Detected,        // Nerd Font confirmed (canary hit or WezTerm)
-    NotDetected,     // No Nerd Font found
-    Inconclusive     // Detection failed — default to OFF
-};
-```
-
-### CNerdFontDetector
-
-```cpp
-// Location: NerdFontDetector.h
-
-class CNerdFontDetector
-{
-public:
-    HRESULT Detect (
-        HANDLE                       hConsole,
-        const IEnvironmentProvider & envProvider,
-        _Out_ EDetectionResult *     pResult);
-
-protected:
-    // GDI-dependent methods — virtual so tests can derive and override
-    virtual HRESULT ProbeConsoleFontForGlyph (HANDLE hConsole, WCHAR wchCanary, _Out_ bool * pfHasGlyph);
-    virtual HRESULT IsNerdFontInstalled      (_Out_ bool * pfFound);
-
-private:
-    static bool  IsWezTerm        (const IEnvironmentProvider & envProvider);
-    static bool  IsConPtyTerminal (const IEnvironmentProvider & envProvider);
-};
-```
-
-Purpose: Font detection with GDI-dependent methods as `protected virtual` so tests can derive and override them (same pattern as `ConfigProbe : public CConfig`). Env var logic is testable via the existing `IEnvironmentProvider` / `CTestEnvironmentProvider`. Displayers receive a plain `bool fIconsActive` — no interface needed.
-
----
-
-## Extended Structures (CConfig)
-
-### New Members on CConfig
-
-```cpp
-// Location: Config.h — added to CConfig class
-
-// Icon mapping tables (parallel to color tables)
-unordered_map<wstring, char32_t>   m_mapExtensionToIcon;          // ".cpp" → NfIcon::MdLanguageCpp
-unordered_map<wstring, char32_t>   m_mapWellKnownDirToIcon;       // ".git" → NfIcon::SetiGit
-unordered_map<DWORD, char32_t>     m_mapFileAttributeToIcon;      // FILE_ATTRIBUTE_HIDDEN → 0 (none by default)
-
-// Icon source tracking (parallel to color source tracking)
-unordered_map<wstring, EAttributeSource>  m_mapExtensionIconSources;
-unordered_map<wstring, EAttributeSource>  m_mapWellKnownDirIconSources;
-
-// Type fallback icons
-char32_t  m_iconDirectoryDefault    = NfIcon::CustomFolder;
-char32_t  m_iconFileDefault         = NfIcon::FaFile;
-char32_t  m_iconSymlink             = NfIcon::CodFileSymlinkDir;
-char32_t  m_iconJunction            = NfIcon::FaExternalLink;
-
-// Cloud status NF glyphs (used when icons active)
-char32_t  m_iconCloudOnly           = NfIcon::MdCloudOutline;
-char32_t  m_iconLocallyAvailable    = NfIcon::MdCloudCheck;
-char32_t  m_iconAlwaysLocal         = NfIcon::MdPin;
-
-// Icon switch from env var (parallel to m_fWideListing etc.)
-optional<bool>  m_fIcons;
-```
-
-### New Methods on CConfig
-
-```cpp
-// Location: Config.h — added to CConfig class
-
-public:
-    SFileDisplayStyle  GetDisplayStyleForFile    (const WIN32_FIND_DATA & wfd);
-    char32_t           GetCloudStatusIcon        (DWORD dwCloudStatus);
-
-protected:
-    void     InitializeExtensionToIconMap     (void);
-    void     InitializeWellKnownDirToIconMap  (void);
-    void     ProcessFileExtensionIconOverride (wstring_view extension, char32_t iconCodePoint, bool fSuppressed);
-    void     ProcessWellKnownDirIconOverride  (wstring_view dirName, char32_t iconCodePoint, bool fSuppressed);
-    void     ProcessFileAttributeIconOverride (DWORD dwAttribute, char32_t iconCodePoint);
-    HRESULT  ParseIconValue                   (wstring_view iconSpec, char32_t & codePoint, bool & fSuppressed);
-```
-
-### Modified Methods on CConfig
-
-```
-ProcessColorOverrideEntry() — extended to detect comma, split, and parse icon part
-GetTextAttrForFile()        — now delegates to GetDisplayStyleForFile().m_wTextAttr for backward compat
-IsSwitchName()              — handles "Icons" and "Icons-"
-ProcessSwitchOverride()     — handles Icons/Icons- switch
+```rust
+/// Run the layered Nerd Font detection chain.
+///
+/// Detection order (identical to TCDir):
+///   1. WezTerm environment → Detected
+///   2. ConPTY terminal detected → skip GDI canary (unreliable), fall to font enum
+///   3. Classic conhost — GDI canary probe U+E5FF
+///   4. System font enumeration for NF-pattern font names
+///   5. Fallback → Inconclusive (treated as OFF)
+pub fn detect(
+    console_handle: HANDLE,
+    env_provider: &dyn EnvironmentProvider,
+    prober: &dyn FontProber,
+) -> DetectionResult {
+    // ...
+}
 ```
 
 ---
 
-## Static Default Tables
+## Extended Types — `Config`
 
-### Extension Icon Table
+### New Fields
 
-```cpp
-// Location: IconMapping.cpp
-// Aligned to Terminal-Icons devblackops default theme (NF v3.4.0).
-// See "Deviations from Terminal-Icons" in spec.md for rationale.
+```rust
+pub struct Config {
+    // --- Existing fields (unchanged) ---
+    pub attributes:                [u16; Attribute::COUNT],
+    pub attribute_sources:         [AttributeSource; Attribute::COUNT],
+    pub extension_colors:          HashMap<String, u16>,
+    pub extension_sources:         HashMap<String, AttributeSource>,
+    pub file_attr_colors:          HashMap<u32, FileAttrStyle>,
+    pub wide_listing:              Option<bool>,
+    pub bare_listing:              Option<bool>,
+    pub recurse:                   Option<bool>,
+    pub perf_timer:                Option<bool>,
+    pub multi_threaded:            Option<bool>,
+    pub show_owner:                Option<bool>,
+    pub show_streams:              Option<bool>,
+    pub last_parse_result:         ValidationResult,
 
-const SIconMappingEntry g_rgDefaultExtensionIcons[] =
-{
-    // C/C++ (Terminal-Icons: nf-md-language_c / nf-md-language_cpp)
-    { L".c",       NfIcon::MdLanguageC },
-    { L".h",       NfIcon::MdLanguageC },
-    { L".cpp",     NfIcon::MdLanguageCpp },
-    { L".cxx",     NfIcon::MdLanguageCpp },
-    { L".c++",     NfIcon::MdLanguageCpp },
-    { L".hpp",     NfIcon::MdLanguageCpp },
-    { L".hxx",     NfIcon::MdLanguageCpp },
-    { L".asm",     NfIcon::CustomAsm },
-    { L".cod",     NfIcon::CustomAsm },
-    { L".i",       NfIcon::CustomAsm },
+    // --- New icon fields ---
+    pub extension_icons:           HashMap<String, char>,
+    pub extension_icon_sources:    HashMap<String, AttributeSource>,
+    pub well_known_dir_icons:      HashMap<String, char>,
+    pub well_known_dir_icon_sources: HashMap<String, AttributeSource>,
+    pub file_attr_icons:           HashMap<u32, char>,
+    pub icons:                     Option<bool>,
 
-    // C# / .NET (Terminal-Icons: nf-md-language_csharp, nf-md-xml for resx)
-    { L".cs",      NfIcon::MdLanguageCsharp },
-    { L".csx",     NfIcon::MdLanguageCsharp },
-    { L".resx",    NfIcon::MdXml },
-    { L".xaml",    NfIcon::MdLanguageXaml },
+    // Type fallback icons
+    pub icon_directory_default:    char,           // '\u{E5FF}' NF_CUSTOM_FOLDER
+    pub icon_file_default:         char,           // '\u{F15B}' NF_FA_FILE
+    pub icon_symlink:              char,           // '\u{EAED}' NF_COD_FILE_SYMLINK_DIR
+    pub icon_junction:             char,           // '\u{F08E}' NF_FA_EXTERNAL_LINK
 
-    // JavaScript / TypeScript (Terminal-Icons: nf-dev-javascript_alt)
-    { L".js",      NfIcon::DevJavascriptAlt },
-    { L".mjs",     NfIcon::DevJavascriptAlt },
-    { L".cjs",     NfIcon::DevJavascriptAlt },
-    { L".jsx",     NfIcon::DevReact },
-    { L".ts",      NfIcon::SetiTypescript },
-    { L".tsx",     NfIcon::DevReact },
-
-    // Web (Terminal-Icons: nf-dev-css3)
-    { L".html",    NfIcon::SetiHtml },
-    { L".htm",     NfIcon::SetiHtml },
-    { L".xhtml",   NfIcon::SetiHtml },
-    { L".css",     NfIcon::DevCss3 },
-    { L".scss",    NfIcon::DevSass },
-    { L".sass",    NfIcon::DevSass },
-    { L".less",    NfIcon::DevLess },
-    { L".vue",     NfIcon::MdVuejs },
-    { L".svelte",  NfIcon::SetiSvelte },
-
-    // Python (DEVIATION: nf-seti-python for legibility)
-    { L".py",      NfIcon::SetiPython },
-    { L".pyw",     NfIcon::SetiPython },
-    { L".ipynb",   NfIcon::MdNotebook },
-
-    // Java (Terminal-Icons: nf-fae-java)
-    { L".java",    NfIcon::FaeJava },
-    { L".jar",     NfIcon::FaeJava },
-    { L".class",   NfIcon::FaeJava },
-    { L".gradle",  NfIcon::MdElephant },
-
-    // Rust
-    { L".rs",      NfIcon::DevRust },
-
-    // Go (Terminal-Icons: nf-dev-go)
-    { L".go",      NfIcon::DevGo },
-
-    // Ruby (Terminal-Icons: nf-oct-ruby)
-    { L".rb",      NfIcon::OctRuby },
-    { L".erb",     NfIcon::OctRuby },
-
-    // F# (Terminal-Icons: nf-dev-fsharp)
-    { L".fs",      NfIcon::DevFsharp },
-    { L".fsx",     NfIcon::DevFsharp },
-    { L".fsi",     NfIcon::DevFsharp },
-
-    // Lua
-    { L".lua",     NfIcon::SetiLua },
-
-    // Perl (Terminal-Icons: nf-dev-perl)
-    { L".pl",      NfIcon::DevPerl },
-    { L".pm",      NfIcon::DevPerl },
-
-    // PHP
-    { L".php",     NfIcon::DevPhp },
-
-    // Haskell (Terminal-Icons: nf-dev-haskell)
-    { L".hs",      NfIcon::DevHaskell },
-
-    // Dart (Terminal-Icons: nf-dev-dart)
-    { L".dart",    NfIcon::DevDart },
-
-    // Kotlin
-    { L".kt",      NfIcon::CustomKotlin },
-    { L".kts",     NfIcon::CustomKotlin },
-
-    // Swift (not in TI; keep Seti)
-    { L".swift",   NfIcon::SetiSwift },
-
-    // Scala (Terminal-Icons: nf-dev-scala)
-    { L".scala",   NfIcon::DevScala },
-    { L".sc",      NfIcon::DevScala },
-    { L".sbt",     NfIcon::DevScala },
-
-    // Clojure (Terminal-Icons: nf-dev-clojure)
-    { L".clj",     NfIcon::DevClojure },
-    { L".cljs",    NfIcon::DevClojure },
-    { L".cljc",    NfIcon::DevClojure },
-
-    // Elixir / Erlang
-    { L".ex",      NfIcon::CustomElixir },
-    { L".exs",     NfIcon::CustomElixir },
-    { L".erl",     NfIcon::DevErlang },
-
-    // Groovy
-    { L".groovy",  NfIcon::DevGroovy },
-
-    // Julia
-    { L".jl",      NfIcon::SetiJulia },
-
-    // R
-    { L".r",       NfIcon::MdLanguageR },
-    { L".rmd",     NfIcon::MdLanguageR },
-
-    // Elm
-    { L".elm",     NfIcon::CustomElm },
-
-    // Data formats (Terminal-Icons: nf-md-xml, nf-md-format_align_left)
-    { L".xml",     NfIcon::MdXml },
-    { L".xsd",     NfIcon::MdXml },
-    { L".xsl",     NfIcon::MdXml },
-    { L".xslt",    NfIcon::MdXml },
-    { L".dtd",     NfIcon::MdXml },
-    { L".plist",   NfIcon::MdXml },
-    { L".manifest",NfIcon::MdXml },
-    { L".json",    NfIcon::SetiJson },
-    { L".toml",    NfIcon::FaGear },
-    { L".yml",     NfIcon::MdFormatAlignLeft },
-    { L".yaml",    NfIcon::MdFormatAlignLeft },
-
-    // Config / Settings (Terminal-Icons: nf-fa-gear)
-    { L".ini",     NfIcon::FaGear },
-    { L".cfg",     NfIcon::FaGear },
-    { L".conf",    NfIcon::FaGear },
-    { L".config",  NfIcon::FaGear },
-    { L".properties", NfIcon::FaGear },
-    { L".settings",NfIcon::FaGear },
-    { L".reg",     NfIcon::FaGear },
-
-    // Database / SQL (Terminal-Icons: nf-dev-database, nf-seti-db)
-    { L".sql",     NfIcon::DevDatabase },
-    { L".sqlite",  NfIcon::DevDatabase },
-    { L".mdb",     NfIcon::DevDatabase },
-    { L".accdb",   NfIcon::DevDatabase },
-    { L".pgsql",   NfIcon::DevDatabase },
-    { L".db",      NfIcon::SetiDb },
-    { L".csv",     NfIcon::MdFileExcel },
-    { L".tsv",     NfIcon::MdFileExcel },
-
-    // Build artifacts
-    { L".obj",     NfIcon::OctFileBinary },
-    { L".lib",     NfIcon::OctFileBinary },
-    { L".res",     NfIcon::OctFileBinary },
-    { L".pch",     NfIcon::OctFileBinary },
-    { L".pdb",     NfIcon::DevDatabase },
-
-    // Logs
-    { L".wrn",     NfIcon::FaList },
-    { L".err",     NfIcon::FaList },
-    { L".log",     NfIcon::FaList },
-
-    // Shell (Terminal-Icons: nf-oct-terminal for sh)
-    { L".bash",    NfIcon::OctTerminal },
-    { L".sh",      NfIcon::OctTerminal },
-    { L".zsh",     NfIcon::OctTerminal },
-    { L".fish",    NfIcon::OctTerminal },
-    { L".bat",     NfIcon::CustomMsdos },
-    { L".cmd",     NfIcon::CustomMsdos },
-
-    // PowerShell (Terminal-Icons: nf-md-console_line)
-    { L".ps1",     NfIcon::MdConsoleLine },
-    { L".psd1",    NfIcon::MdConsoleLine },
-    { L".psm1",    NfIcon::MdConsoleLine },
-    { L".ps1xml",  NfIcon::MdConsoleLine },
-
-    // Executables
-    { L".exe",     NfIcon::MdApplication },
-    { L".sys",     NfIcon::MdApplication },
-    { L".dll",     NfIcon::FaArchive },
-
-    // Installers (Terminal-Icons: nf-md-package_variant)
-    { L".msi",     NfIcon::MdPackageVariant },
-    { L".msix",    NfIcon::MdPackageVariant },
-    { L".deb",     NfIcon::MdPackageVariant },
-    { L".rpm",     NfIcon::MdPackageVariant },
-
-    // Visual Studio
-    { L".sln",     NfIcon::DevVisualStudio },
-    { L".vcproj",  NfIcon::DevVisualStudio },
-    { L".vcxproj", NfIcon::DevVisualStudio },
-    { L".csproj",  NfIcon::DevVisualStudio },
-    { L".csxproj", NfIcon::DevVisualStudio },
-    { L".fsproj",  NfIcon::DevFsharp },
-    { L".user",    NfIcon::DevVisualStudio },
-    { L".ncb",     NfIcon::DevVisualStudio },
-    { L".suo",     NfIcon::DevVisualStudio },
-    { L".code-workspace", NfIcon::DevVisualStudio },
-
-    // Documents (Terminal-Icons: nf-md-file_word, nf-md-file_excel)
-    { L".doc",     NfIcon::MdFileWord },
-    { L".docx",    NfIcon::MdFileWord },
-    { L".rtf",     NfIcon::MdFileWord },
-    { L".ppt",     NfIcon::MdFilePowerpoint },
-    { L".pptx",    NfIcon::MdFilePowerpoint },
-    { L".xls",     NfIcon::MdFileExcel },
-    { L".xlsx",    NfIcon::MdFileExcel },
-    { L".pdf",     NfIcon::FaFilePdfO },
-
-    // Markdown (Terminal-Icons: nf-dev-markdown)
-    { L".md",      NfIcon::DevMarkdown },
-    { L".markdown",NfIcon::DevMarkdown },
-    { L".rst",     NfIcon::DevMarkdown },
-
-    // Text
-    { L".txt",     NfIcon::MdFileDocument },
-    { L".text",    NfIcon::MdFileDocument },
-    { L".!!!",     NfIcon::MdFileDocument },
-    { L".1st",     NfIcon::MdFileDocument },
-    { L".me",      NfIcon::MdFileDocument },
-    { L".now",     NfIcon::MdFileDocument },
-
-    // Email
-    { L".eml",     NfIcon::FaEnvelope },
-
-    // Images (Terminal-Icons: nf-fa-file_image_o)
-    { L".png",     NfIcon::FaFileImageO },
-    { L".jpg",     NfIcon::FaFileImageO },
-    { L".jpeg",    NfIcon::FaFileImageO },
-    { L".gif",     NfIcon::FaFileImageO },
-    { L".bmp",     NfIcon::FaFileImageO },
-    { L".ico",     NfIcon::FaFileImageO },
-    { L".tif",     NfIcon::FaFileImageO },
-    { L".tiff",    NfIcon::FaFileImageO },
-    { L".webp",    NfIcon::FaFileImageO },
-    { L".psd",     NfIcon::FaFileImageO },
-    { L".cur",     NfIcon::FaFileImageO },
-    { L".raw",     NfIcon::FaFileImageO },
-    { L".svg",     NfIcon::MdSvg },
-
-    // Audio (Terminal-Icons: nf-fa-file_audio_o)
-    { L".mp3",     NfIcon::FaFileAudioO },
-    { L".wav",     NfIcon::FaFileAudioO },
-    { L".flac",    NfIcon::FaFileAudioO },
-    { L".m4a",     NfIcon::FaFileAudioO },
-    { L".wma",     NfIcon::FaFileAudioO },
-    { L".aac",     NfIcon::FaFileAudioO },
-    { L".ogg",     NfIcon::FaFileAudioO },
-    { L".opus",    NfIcon::FaFileAudioO },
-    { L".aiff",    NfIcon::FaFileAudioO },
-
-    // Video (Terminal-Icons: nf-fa-file_video_o)
-    { L".mp4",     NfIcon::FaFileVideoO },
-    { L".avi",     NfIcon::FaFileVideoO },
-    { L".mkv",     NfIcon::FaFileVideoO },
-    { L".mov",     NfIcon::FaFileVideoO },
-    { L".wmv",     NfIcon::FaFileVideoO },
-    { L".webm",    NfIcon::FaFileVideoO },
-    { L".flv",     NfIcon::FaFileVideoO },
-    { L".mpg",     NfIcon::FaFileVideoO },
-    { L".mpeg",    NfIcon::FaFileVideoO },
-
-    // Fonts (Terminal-Icons: nf-fa-font)
-    { L".ttf",     NfIcon::FaFont },
-    { L".otf",     NfIcon::FaFont },
-    { L".woff",    NfIcon::FaFont },
-    { L".woff2",   NfIcon::FaFont },
-    { L".eot",     NfIcon::FaFont },
-    { L".ttc",     NfIcon::FaFont },
-
-    // Archives
-    { L".7z",      NfIcon::OctFileZip },
-    { L".arj",     NfIcon::OctFileZip },
-    { L".gz",      NfIcon::OctFileZip },
-    { L".rar",     NfIcon::OctFileZip },
-    { L".tar",     NfIcon::OctFileZip },
-    { L".zip",     NfIcon::OctFileZip },
-    { L".xz",      NfIcon::OctFileZip },
-    { L".bz2",     NfIcon::OctFileZip },
-    { L".tgz",     NfIcon::OctFileZip },
-    { L".cab",     NfIcon::OctFileZip },
-    { L".zst",     NfIcon::OctFileZip },
-
-    // Certificates / Keys (Terminal-Icons: nf-fa-certificate, nf-fa-key)
-    { L".cer",     NfIcon::FaCertificate },
-    { L".cert",    NfIcon::FaCertificate },
-    { L".crt",     NfIcon::FaCertificate },
-    { L".pfx",     NfIcon::FaCertificate },
-    { L".pem",     NfIcon::FaKey },
-    { L".pub",     NfIcon::FaKey },
-    { L".key",     NfIcon::FaKey },
-    { L".asc",     NfIcon::FaKey },
-    { L".gpg",     NfIcon::FaKey },
-
-    // Docker (Terminal-Icons: nf-dev-docker)
-    { L".dockerfile", NfIcon::DevDocker },
-    { L".dockerignore", NfIcon::DevDocker },
-
-    // Terraform (using seti-terraform for NF v3 compat)
-    { L".tf",      NfIcon::SetiTerraform },
-    { L".tfvars",  NfIcon::SetiTerraform },
-    { L".bicep",   NfIcon::SetiBicep },
-
-    // Lock files (Terminal-Icons: nf-fa-lock)
-    { L".lock",    NfIcon::FaLock },
-
-    // Resource (.rc)
-    { L".rc",      NfIcon::SetiConfig },
-};
+    // Cloud status NF glyphs (used when icons are active)
+    pub icon_cloud_only:           char,           // '\u{F0163}' NF_MD_CLOUD_OUTLINE
+    pub icon_locally_available:    char,           // '\u{F0160}' NF_MD_CLOUD_CHECK
+    pub icon_always_local:         char,           // '\u{F0403}' NF_MD_PIN
+}
 ```
 
-### Well-Known Directory Icon Table
+### FileDisplayStyle (Return Type)
 
-```cpp
-// Location: IconMapping.cpp
-// Aligned to Terminal-Icons devblackops default theme (NF v3.4.0).
-// DEVIATION entries noted — see spec.md for rationale.
-
-const SIconMappingEntry g_rgDefaultWellKnownDirIcons[] =
-{
-    // Version control / IDEs (DEVIATIONS for legibility)
-    { L".git",         NfIcon::SetiGit },            // DEVIATION: nf-seti-git (not TI's nf-custom-folder_git)
-    { L".github",      NfIcon::SetiGithub },          // DEVIATION: nf-seti-github
-    { L".vscode",      NfIcon::DevVscode },            // DEVIATION: nf-dev-vscode
-    { L".vscode-insiders", NfIcon::DevVscode },
-    { L"node_modules", NfIcon::SetiNpm },              // DEVIATION: nf-seti-npm (not TI's nf-custom-folder_npm)
-
-    // Config / Cloud provider directories (Terminal-Icons)
-    { L".config",      NfIcon::SetiConfig },
-    { L".cargo",       NfIcon::CustomFolderConfig },
-    { L".cache",       NfIcon::MdCached },
-    { L".docker",      NfIcon::DevDocker },
-    { L".aws",         NfIcon::DevAws },
-    { L".azure",       NfIcon::MdMicrosoftAzure },
-    { L".kube",        NfIcon::MdShipWheel },
-
-    // Source / Development (Terminal-Icons)
-    { L"src",          NfIcon::OctTerminal },
-    { L"source",       NfIcon::OctTerminal },
-    { L"development",  NfIcon::OctTerminal },
-    { L"projects",     NfIcon::SetiProject },
-
-    // Documentation (Terminal-Icons)
-    { L"docs",         NfIcon::OctRepo },
-    { L"doc",          NfIcon::OctRepo },
-    { L"documents",    NfIcon::OctRepo },
-
-    // Build outputs (Terminal-Icons)
-    { L"bin",          NfIcon::OctFileBinary },
-    { L"build",        NfIcon::CodOutput },
-    { L"dist",         NfIcon::CodOutput },
-    { L"out",          NfIcon::CodOutput },
-    { L"output",       NfIcon::CodOutput },
-    { L"artifacts",    NfIcon::CodPackage },
-
-    // Testing (Terminal-Icons)
-    { L"test",         NfIcon::MdTestTube },
-    { L"tests",        NfIcon::MdTestTube },
-    { L"__tests__",    NfIcon::MdTestTube },
-    { L"spec",         NfIcon::MdTestTube },
-    { L"specs",        NfIcon::MdTestTube },
-    { L"benchmark",    NfIcon::MdTimer },
-
-    // Libraries / Packages
-    { L"lib",          NfIcon::CodFolderLibrary },
-    { L"libs",         NfIcon::CodFolderLibrary },
-    { L"packages",     NfIcon::SetiNpm },
-
-    // Scripts
-    { L"scripts",      NfIcon::SetiShell },
-
-    // Media / Images (Terminal-Icons)
-    { L"images",       NfIcon::MdFolderImage },
-    { L"img",          NfIcon::MdFolderImage },
-    { L"photos",       NfIcon::MdFolderImage },
-    { L"pictures",     NfIcon::MdFolderImage },
-    { L"assets",       NfIcon::MdFolderImage },
-    { L"videos",       NfIcon::MdMovie },
-    { L"movies",       NfIcon::MdMovie },
-    { L"media",        NfIcon::OctFileMedia },
-    { L"music",        NfIcon::MdMusicBoxMultiple },
-    { L"songs",        NfIcon::MdMusicBoxMultiple },
-    { L"fonts",        NfIcon::FaFont },
-
-    // User directories (Terminal-Icons)
-    { L"downloads",    NfIcon::MdFolderDownload },
-    { L"desktop",      NfIcon::MdDesktopClassic },
-    { L"favorites",    NfIcon::MdFolderStar },
-    { L"contacts",     NfIcon::MdContacts },
-    { L"onedrive",     NfIcon::MdMicrosoftOnedrive },
-    { L"users",        NfIcon::FaUsers },
-    { L"windows",      NfIcon::FaWindows },
-
-    // Other (Terminal-Icons)
-    { L"apps",         NfIcon::MdApps },
-    { L"applications", NfIcon::MdApps },
-    { L"demo",         NfIcon::CodPreview },
-    { L"samples",      NfIcon::CodPreview },
-    { L"shortcuts",    NfIcon::CodFileSymlinkDir },
-    { L"links",        NfIcon::CodFileSymlinkDir },
-    { L"github",       NfIcon::FaGithubAlt },
-};
+```rust
+/// Resolved display style for a single file entry.
+/// Returned by Config::get_display_style_for_file().
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FileDisplayStyle {
+    /// Resolved color attribute (Windows console WORD)
+    pub text_attr:        u16,
+    /// Resolved icon glyph (None = no icon configured at any level)
+    pub icon_code_point:  Option<char>,
+    /// true if icon was explicitly suppressed (user typed ",")
+    pub icon_suppressed:  bool,
+}
 ```
 
-### Attribute Precedence Array (New Order)
+**Purpose**: Replaces TCDir's `SFileDisplayStyle`. Both color and icon resolved in a single precedence walk. `icon_suppressed` distinguishes "no icon configured" from "icon explicitly removed by user override" — both display no icon, but the suppressed flag prevents fall-through to lower precedence levels.
 
-```cpp
-// Location: IconMapping.cpp
-// Note: This is for color+icon precedence ONLY, NOT for display column order.
-// The display column order (k_rgFileAttributeMap in FileAttributeMap.h) retains
-// the existing RHSATECP0 order.
+### New Methods
 
-const SFileAttributeMap k_rgAttributePrecedenceOrder[] =
-{
-    { FILE_ATTRIBUTE_REPARSE_POINT, L'P' },   // Priority 1 (highest)
-    { FILE_ATTRIBUTE_SYSTEM,        L'S' },   // Priority 2
-    { FILE_ATTRIBUTE_HIDDEN,        L'H' },   // Priority 3
-    { FILE_ATTRIBUTE_ENCRYPTED,     L'E' },   // Priority 4
-    { FILE_ATTRIBUTE_READONLY,      L'R' },   // Priority 5
-    { FILE_ATTRIBUTE_COMPRESSED,    L'C' },   // Priority 6
-    { FILE_ATTRIBUTE_SPARSE_FILE,   L'0' },   // Priority 7
-    { FILE_ATTRIBUTE_TEMPORARY,     L'T' },   // Priority 8
-    { FILE_ATTRIBUTE_ARCHIVE,       L'A' },   // Priority 9 (lowest)
-};
+```rust
+impl Config {
+    /// Resolve both color and icon for a file in a single precedence walk.
+    ///
+    /// Precedence (highest → lowest):
+    ///   1. File attribute (PSHERC0TA order from ATTRIBUTE_PRECEDENCE)
+    ///   2. Well-known directory name (icon only)
+    ///   3. File extension
+    ///   4. Type fallback (directory/file/symlink/junction)
+    ///
+    /// Color locks at the first matching level.
+    /// Icon evaluation continues to lower levels if the winning color level
+    /// has no icon configured (FR-020).
+    pub fn get_display_style_for_file(
+        &self,
+        file_attributes: u32,
+        file_name: &OsStr,
+    ) -> FileDisplayStyle { /* ... */ }
+
+    /// Get the NF glyph for a cloud status (when icons are active).
+    pub fn get_cloud_status_icon(&self, status: CloudStatus) -> char { /* ... */ }
+
+    // Internal initialization
+    fn initialize_extension_icons(&mut self) { /* ... */ }
+    fn initialize_well_known_dir_icons(&mut self) { /* ... */ }
+
+    // Internal override processing (called during RCDIR env var parsing)
+    fn process_extension_icon_override(
+        &mut self,
+        extension: &str,
+        icon: char,
+        suppressed: bool,
+    ) { /* ... */ }
+
+    fn process_well_known_dir_icon_override(
+        &mut self,
+        dir_name: &str,
+        icon: char,
+        suppressed: bool,
+    ) { /* ... */ }
+
+    fn process_file_attribute_icon_override(
+        &mut self,
+        attribute_flag: u32,
+        icon: char,
+    ) { /* ... */ }
+
+    /// Parse an icon value from the RCDIR env var comma syntax.
+    /// - Empty string → icon suppressed
+    /// - Single BMP char → literal glyph
+    /// - "U+XXXX" (4–6 hex digits) → code point
+    fn parse_icon_value(icon_str: &str) -> Result<(Option<char>, bool), String> { /* ... */ }
+}
 ```
+
+### Modified Methods (Existing)
+
+| Method | Change |
+|--------|--------|
+| `initialize_with_provider()` | Call `initialize_extension_icons()` and `initialize_well_known_dir_icons()` |
+| `process_color_override_entry()` | Split value on first comma; left = color, right = icon |
+| `get_text_attr_for_file()` | Delegates to `get_display_style_for_file().text_attr` for backward compat |
+| `is_switch_name()` (internal) | Recognize "Icons" and "Icons-" |
+| `process_switch_override()` (internal) | Handle Icons/Icons- → `self.icons = Some(bool)` |
+
+---
+
+## Extended Types — `CommandLine`
+
+### New Field
+
+```rust
+pub struct CommandLine {
+    // --- Existing fields (unchanged) ---
+    pub recurse:          bool,
+    // ... all existing fields ...
+    pub debug:            bool,
+
+    // --- New ---
+    pub icons:            Option<bool>,  // None = not specified, Some(true) = /Icons, Some(false) = /Icons-
+}
+```
+
+### Modified Methods
+
+| Method | Change |
+|--------|--------|
+| `handle_long_switch()` | Match "Icons" → `Some(true)`, "Icons-" → `Some(false)` |
+| `default()` | Initialize `icons: None` |
 
 ---
 
 ## Relationships
 
 ```
-CCommandLine  ──parses──>  m_fIcons (optional<bool>)
-                            m_fIconsFromCLI (bool, true only if /Icons or /Icons- on CLI)
+CommandLine  ──parses──>  icons: Option<bool>  (/Icons, /Icons-)
 
-CConfig       ──reads───>  TCDIR env var ──extends──> icon override maps
-              ──owns───>   extension icon map, well-known dir map, attribute icon map
-              ──exposes──> GetDisplayStyleForFile() → SFileDisplayStyle
+Config       ──reads───>  RCDIR env var ──extends──> icon maps + icons switch
+             ──owns───>   extension_icons, well_known_dir_icons, file_attr_icons
+             ──exposes──> get_display_style_for_file() → FileDisplayStyle
 
-CNerdFontDetector ──uses──> IEnvironmentProvider (env var detection)
-                  ──uses──> Win32 GDI APIs (protected virtual — overridable in tests)
-                  ──returns──> EDetectionResult
+NerdFontDetector
+  detect()   ──uses──>  &dyn EnvironmentProvider (env var detection)
+             ──uses──>  &dyn FontProber (GDI operations)
+             ──returns──> DetectionResult
 
-Displayers    ──receive──> bool fIconsActive (plain boolean, no interface)
-              ──call───>   CConfig::GetDisplayStyleForFile()
-              ──emit───>   icon glyph + space via CConsole::Printf
+Displayers   ──receive──> icons_active: bool (plain boolean)
+             ──call───>   config.get_display_style_for_file()
+             ──emit───>   icon glyph + space via console buffer
 ```
 
 ---
@@ -788,28 +858,30 @@ Displayers    ──receive──> bool fIconsActive (plain boolean, no interfac
 ## State Flow
 
 ```
-1. CCommandLine::Parse()
-   └── Sets m_fIcons = true/false if /Icons or /Icons- present
+1. CommandLine::parse_from()
+   └── Sets icons = Some(true/false) if /Icons or /Icons- present
 
-2. CConfig::Initialize()
-   ├── InitializeExtensionToTextAttrMap()   (existing — colors)
-   ├── InitializeExtensionToIconMap()       (new — icons)
-   ├── InitializeWellKnownDirToIconMap()    (new — icons)
-   ├── InitializeFileAttributeToTextAttrMap() (existing — colors)
-   └── ApplyUserColorOverrides()            (extended — parses both color AND icon from TCDIR)
+2. Config::initialize_with_provider()
+   ├── initialize_extension_colors()         (existing — colors)
+   ├── initialize_extension_icons()          (new — default icons)
+   ├── initialize_well_known_dir_icons()     (new — default dir icons)
+   ├── initialize_file_attr_colors()         (existing — colors)
+   └── apply_user_color_overrides()          (extended — parses color AND icon)
 
-3. TCDir.cpp main flow
-   ├── CLI check: if m_fIcons has value → use it (ForceOn/ForceOff)
-   ├── Env var check: if config.m_fIcons has value → use it
-   └── Auto-detect: CNerdFontDetector::Detect() → EDetectionResult
-   └── Set g_fIconsActive = resolved boolean
+3. main.rs / lib.rs run flow
+   ├── CLI check: if cmd.icons.is_some() → use it (ForceOn / ForceOff)
+   ├── Env var check: if config.icons.is_some() → use it
+   └── Auto-detect: nerd_font_detector::detect() → DetectionResult
+   └── Set icons_active: bool = resolved value
 
 4. Displayers (per-file)
-   ├── style = config.GetDisplayStyleForFile(wfd)
-   ├── if g_fIconsActive && style.m_iconCodePoint != 0 && !style.m_fIconSuppressed:
-   │   ├── pair = CodePointToWideChars(style.m_iconCodePoint)
-   │   └── Printf(style.m_wTextAttr, L"%s ", szIcon)
-   └── Printf(style.m_wTextAttr, L"%s", filename)
+   ├── style = config.get_display_style_for_file(attrs, name)
+   ├── if icons_active && style.icon_code_point.is_some() && !style.icon_suppressed:
+   │   ├── console.push(style.icon_code_point.unwrap())
+   │   └── console.push(' ')
+   ├── elif icons_active && style.icon_suppressed:
+   │   └── console.push_str("  ")   // 2 spaces to maintain column alignment (FR-007)
+   └── console.printf_attr(style.text_attr, filename)
 ```
 
 ---
@@ -818,18 +890,35 @@ Displayers    ──receive──> bool fIconsActive (plain boolean, no interfac
 
 | Entity | Rule | Error Handling |
 |--------|------|---------------|
-| Icon code point (U+XXXX) | 4–6 hex digits after `U+`, range 0x0001–0x10FFFF, not in D800–DFFF | ErrorInfo with underline on invalid hex |
-| Icon literal glyph | Single BMP char OR valid surrogate pair | ErrorInfo if invalid |
-| Icon comma syntax | At most one comma per entry | ErrorInfo if multiple commas |
-| Duplicate key | First-write-wins, subsequent flagged | ErrorInfo on duplicate, value preserved from first |
-| Icons / Icons- switch | Mutual exclusive (first wins) | ErrorInfo on conflicting switch |
+| Icon code point (U+XXXX) | 4–6 hex digits, range 0x0001–0x10FFFF, not D800–DFFF | `ErrorInfo` with underline on invalid hex |
+| Icon literal glyph | Single BMP `char` | `ErrorInfo` if multi-char or invalid |
+| Icon comma syntax | At most one comma per entry | `ErrorInfo` if multiple commas |
+| Duplicate key | First-write-wins for both color and icon | `ErrorInfo` on duplicate, value preserved from first |
+| Icons / Icons- switch | Mutually exclusive (first wins in env var) | `ErrorInfo` on conflicting switch |
+
+---
+
+## Key Design Differences from TCDir (C++)
+
+| Aspect | TCDir (C++) | RCDir (Rust) |
+|--------|-------------|--------------|
+| Unicode storage | `char32_t` | `char` (Unicode scalar value, functionally identical) |
+| UTF-16 encoding | `WideCharPair` + `CodePointToWideChars()` | `char::encode_utf16(&mut [u16; 2])` — no custom type needed |
+| Icon map key type | `wstring` | `String` (lowercase, with leading dot) |
+| File attribute map | `DWORD` → `char32_t` | `u32` → `char` |
+| Testability | Protected virtual methods + derivation | `FontProber` trait + `&dyn FontProber` injection |
+| Error handling | `HRESULT` + EHM macros | `Result<T, AppError>` + `?` operator |
+| Display style | `SFileDisplayStyle { m_wTextAttr, m_iconCodePoint, m_fIconSuppressed }` | `FileDisplayStyle { text_attr, icon_code_point: Option<char>, icon_suppressed }` |
+| Suppressed icon | `m_iconCodePoint == 0 && m_fIconSuppressed == true` | `icon_code_point == None && icon_suppressed == true` |
 
 ---
 
 ## No External Contracts
 
-This feature has no external APIs, REST endpoints, or IPC interfaces. All contracts are internal C++ class interfaces:
-- `IEnvironmentProvider` — existing injection interface for env var access
-- `IResultsDisplayer` — existing interface for display output
+This feature has no REST APIs, IPC interfaces, or external service integrations. All contracts are internal Rust module interfaces:
 
-No new interfaces are introduced. `CNerdFontDetector` uses protected virtual methods for testability (derivation pattern), consistent with `ConfigProbe : public CConfig` elsewhere in the test suite.
+- `EnvironmentProvider` trait — existing injection interface for env var access
+- `FontProber` trait — new injection interface for GDI operations
+- `ResultsDisplayer` trait — existing interface for display output
+
+No new external crates are required. Only the `windows` crate gains one additional feature flag (`Win32_Graphics_Gdi`).

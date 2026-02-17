@@ -1,6 +1,6 @@
-# Quickstart: Implementing Nerd Font File & Folder Icons
+# Quickstart: Implementing Nerd Font File & Folder Icons (Rust)
 
-**Feature**: 003-file-icons | **Date**: 2026-02-14
+**Feature**: 003-file-icons | **Date**: 2026-02-16
 
 This guide walks through the implementation in dependency order. Each section can be implemented and tested independently.
 
@@ -9,9 +9,10 @@ This guide walks through the implementation in dependency order. Each section ca
 ## Prerequisites
 
 - Branch: `003-file-icons`
-- All existing tests pass (`Build + Test Debug`)
-- Visual Studio 2026 / MSBuild + VS Code with existing tasks
-- **Coding conventions**: [.github/copilot-instructions.md](../../.github/copilot-instructions.md) — this is the authoritative reference for formatting, EHM patterns, indentation, column alignment, include rules, and all other coding standards
+- All existing tests pass (`cargo test`)
+- Rust stable toolchain 1.85+ (edition 2024)
+- VS Code with existing tasks, PowerShell terminal
+- **Coding conventions**: [.github/copilot-instructions.md](../../.github/copilot-instructions.md) — authoritative reference for formatting, spacing, function headers, and all coding standards
 
 ---
 
@@ -19,489 +20,549 @@ This guide walks through the implementation in dependency order. Each section ca
 
 ```
 Phase 1: Foundation (no visible output yet)
-  1. IconMapping.h/cpp    — Code point table, surrogate helper, lookup functions
-  2. NerdFontDetector.h/cpp — Detection interface + implementation
-  3. Config.h/cpp         — Icon maps, TCDIR parsing, unified precedence resolver
-  4. CommandLine.h/cpp    — /Icons, /Icons- switches
-  5. pch.h                — gdi32.lib link
+  1. icon_mapping.rs              — NF constants, default tables, lookup helpers
+  2. file_attribute_map.rs        — PSHERC0TA precedence array
+  3. nerd_font_detector.rs        — FontProber trait + detection chain
+  4. config.rs (extend)           — Icon maps, comma-syntax parsing, get_display_style_for_file()
+  5. command_line.rs (extend)     — /Icons, /Icons- switches
+  6. Cargo.toml                   — Add Win32_Graphics_Gdi feature
 
 Phase 2: Display Integration
-  6. ResultsDisplayerNormal.cpp  — Icon column in normal mode
-  7. ResultsDisplayerWide.cpp    — Icon + bracket suppression + cloud status
-  8. ResultsDisplayerBare.cpp    — Icon in bare mode
-  9. TCDir.cpp                   — Detection chain orchestration
+  7. results_displayer.rs         — Icon glyph emission in Normal/Wide/Bare
+  8. cloud_status.rs              — NF glyph alternatives for cloud symbols
+  9. console.rs                   — Minor: no changes needed (char pushes to String buffer)
+  10. lib.rs / main.rs            — Detection chain orchestration, wire icons_active
 
 Phase 3: Diagnostics & Polish
-  10. Usage.cpp  — /? help, /env docs, /config display
-  11. Version.h  — Major version bump
+  11. usage.rs                    — /? help, /env docs, /config display for icons
+  12. lib.rs                      — Add pub mod declarations for 3 new modules
 
 Phase 4: Tests
-  12. IconMappingTests.cpp         — Table coverage, surrogate encoding, precedence
-  13. NerdFontDetectorTests.cpp    — Detection chain with mocked env provider
-  14. ConfigTests.cpp (extended)   — TCDIR icon syntax, duplicates, precedence
-  15. CommandLineTests.cpp (extended) — /Icons, /Icons- parsing
-  16. ResultsDisplayerTests.cpp (extended) — Icon display in all modes
-  17. DirectoryListerScenarioTests.cpp (extended) — End-to-end with icons
+  13. icon_mapping tests          — Table coverage, constant validity, lookup
+  14. nerd_font_detector tests    — Detection chain with mock prober + env provider
+  15. config tests (extend)       — RCDIR icon comma syntax, duplicates, precedence
+  16. command_line tests (extend) — /Icons, /Icons- parsing
+  17. results_displayer tests     — Icon display in all modes
+  18. tests/output_parity.rs      — End-to-end icon-mode parity scenarios
 ```
 
 ---
 
 ## Phase 1: Foundation
 
-### 1. IconMapping.h/cpp
+### Step 1. `src/icon_mapping.rs` — New File
 
-**New files** in `TCDirCore/`.
+**Purpose**: All Nerd Font constants and static default tables in one module.
 
-#### IconMapping.h
+#### 1a. Named Constants
 
-```cpp
-#pragma once
+Define all `NF_*` constants as `pub const char` values. See [data-model.md](data-model.md) for the complete list. Key guidelines:
 
-// Forward declarations only — no Windows headers needed in the header.
-// All Windows types come from pch.h.
+- Group by NF prefix: Custom, Seti, Dev, Fae, Oct, Fa, Md, Cod
+- Use `'\u{XXXX}'` syntax for all code points
+- Comment DEVIATION entries
+- Alphabetical within each group
 
-////////////////////////////////////////////////////////////////////////////////
-//
-//  WideCharPair
-//
-//  UTF-16 encoding of a Unicode code point. BMP code points produce 1 wchar_t;
-//  supplementary plane code points produce a surrogate pair (2 wchar_t).
-//
-////////////////////////////////////////////////////////////////////////////////
-
-struct WideCharPair
-{
-    wchar_t  chars[2];
-    unsigned count;      // 1 = BMP, 2 = surrogate pair, 0 = invalid
-};
-
-constexpr WideCharPair CodePointToWideChars (char32_t cp);
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
-//  SIconMappingEntry
-//
-//  Static default icon mapping entry. Parallels CConfig::STextAttr for colors.
-//
-////////////////////////////////////////////////////////////////////////////////
-
-struct SIconMappingEntry
-{
-    LPCWSTR   m_pszKey;
-    char32_t  m_codePoint;
-};
-
-
-// Default tables (defined in IconMapping.cpp)
-extern const SIconMappingEntry g_rgDefaultExtensionIcons[];
-extern const size_t            g_cDefaultExtensionIcons;
-
-extern const SIconMappingEntry g_rgDefaultWellKnownDirIcons[];
-extern const size_t            g_cDefaultWellKnownDirIcons;
-
-
-// Attribute precedence order for color+icon resolution (PSHERC0TA).
-// Distinct from k_rgFileAttributeMap (display column order RHSATECP0).
-extern const SFileAttributeMap k_rgAttributePrecedenceOrder[];
-extern const size_t            k_cAttributePrecedenceOrder;
+```rust
+// Example (see data-model.md for full list):
+pub const NF_CUSTOM_FOLDER: char = '\u{E5FF}';
+pub const NF_DEV_RUST:      char = '\u{E7A8}';
+pub const NF_MD_PIN:         char = '\u{F0403}';  // supplementary plane
 ```
 
-#### IconMapping.cpp
+#### 1b. Default Extension Table
 
-```cpp
-#include "pch.h"
-#include "IconMapping.h"
-#include "FileAttributeMap.h"
+```rust
+pub const DEFAULT_EXTENSION_ICONS: &[(&str, char)] = &[
+    (".c",   NF_MD_LANGUAGE_C),
+    (".cpp", NF_MD_LANGUAGE_CPP),
+    // ... ~180 entries — see data-model.md for complete list
+];
+```
 
-// constexpr implementation
-constexpr WideCharPair CodePointToWideChars (char32_t cp)
-{
-    if (cp <= 0xFFFF)
-    {
-        if (cp >= 0xD800 && cp <= 0xDFFF)
-            return { { 0, 0 }, 0 };                      // Surrogate code points invalid
+#### 1c. Default Well-Known Directory Table
 
-        return { { static_cast<wchar_t>(cp), 0 }, 1 };
+```rust
+pub const DEFAULT_WELL_KNOWN_DIR_ICONS: &[(&str, char)] = &[
+    (".git",         NF_SETI_GIT),
+    ("node_modules", NF_SETI_NPM),
+    // ... ~65 entries — see data-model.md for complete list
+];
+```
+
+#### 1d. Tests
+
+```rust
+#[cfg(test)]
+mod tests {
+    // - All NF_* constants are valid Unicode scalar values (implied by char type)
+    // - DEFAULT_EXTENSION_ICONS has no duplicate keys
+    // - DEFAULT_WELL_KNOWN_DIR_ICONS has no duplicate keys
+    // - All keys are lowercase
+    // - All extension keys start with '.'
+    // - Table lengths match expected counts
+}
+```
+
+**Checkpoint**: `cargo test` passes. New module compiles.
+
+---
+
+### Step 2. `src/file_attribute_map.rs` — New File
+
+**Purpose**: Attribute precedence array for icon/color resolution.
+
+```rust
+use windows::Win32::Storage::FileSystem::*;
+
+pub const ATTRIBUTE_PRECEDENCE: &[(u32, char)] = &[
+    (FILE_ATTRIBUTE_REPARSE_POINT, 'P'),
+    (FILE_ATTRIBUTE_SYSTEM,        'S'),
+    (FILE_ATTRIBUTE_HIDDEN,        'H'),
+    (FILE_ATTRIBUTE_ENCRYPTED,     'E'),
+    (FILE_ATTRIBUTE_READONLY,      'R'),
+    (FILE_ATTRIBUTE_COMPRESSED,    'C'),
+    (FILE_ATTRIBUTE_SPARSE_FILE,   '0'),
+    (FILE_ATTRIBUTE_TEMPORARY,     'T'),
+    (FILE_ATTRIBUTE_ARCHIVE,       'A'),
+];
+```
+
+#### Tests
+
+```rust
+#[cfg(test)]
+mod tests {
+    // - ATTRIBUTE_PRECEDENCE has exactly 9 entries
+    // - Same flags as FILE_ATTRIBUTE_MAP (different order)
+    // - No duplicate flags
+    // - No duplicate chars
+}
+```
+
+**Checkpoint**: `cargo test` passes.
+
+---
+
+### Step 3. `src/nerd_font_detector.rs` — New File
+
+**Purpose**: Layered Nerd Font detection with injectable GDI operations.
+
+#### 3a. Types
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IconActivation { Auto, ForceOn, ForceOff }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DetectionResult { Detected, NotDetected, Inconclusive }
+
+pub trait FontProber {
+    fn probe_console_font_for_glyph(&self, console_handle: HANDLE, canary: char) -> Result<bool, AppError>;
+    fn is_nerd_font_installed(&self) -> Result<bool, AppError>;
+}
+```
+
+#### 3b. DefaultFontProber
+
+```rust
+pub struct DefaultFontProber;
+
+impl FontProber for DefaultFontProber {
+    fn probe_console_font_for_glyph(&self, console_handle: HANDLE, canary: char) -> Result<bool, AppError> {
+        // 1. GetCurrentConsoleFontEx → get font face name
+        // 2. CreateCompatibleDC(None)
+        // 3. CreateFontW with face name
+        // 4. SelectObject
+        // 5. GetGlyphIndicesW with GGI_MARK_NONEXISTING_GLYPHS
+        // 6. Cleanup: SelectObject(old), DeleteObject(font), DeleteDC(dc)
+        // 7. Return Ok(glyph_index != 0xFFFF)
     }
 
-    if (cp <= 0x10FFFF)
-    {
-        char32_t adj = cp - 0x10000;
-        return { { static_cast<wchar_t>(0xD800 + (adj >> 10)),
-                    static_cast<wchar_t>(0xDC00 + (adj & 0x3FF)) }, 2 };
+    fn is_nerd_font_installed(&self) -> Result<bool, AppError> {
+        // 1. CreateCompatibleDC(None)
+        // 2. EnumFontFamiliesExW with callback
+        // 3. Callback checks for "Nerd Font" / "NerdFont" / "NF " in face name
+        // 4. Cleanup: DeleteDC
+        // 5. Return Ok(found)
+    }
+}
+```
+
+#### 3c. Detection Function
+
+```rust
+pub fn detect(
+    console_handle: HANDLE,
+    env_provider: &dyn EnvironmentProvider,
+    prober: &dyn FontProber,
+) -> DetectionResult {
+    // Step 1: WezTerm check
+    if is_wezterm(env_provider) { return DetectionResult::Detected; }
+
+    // Step 2: ConPTY check
+    let is_conpty = is_conpty_terminal(env_provider);
+
+    // Step 3: Classic conhost GDI canary (skip if ConPTY)
+    if !is_conpty {
+        match prober.probe_console_font_for_glyph(console_handle, NF_CUSTOM_FOLDER) {
+            Ok(true)  => return DetectionResult::Detected,
+            Ok(false) => return DetectionResult::NotDetected,
+            Err(_)    => {}  // fall through to font enum
+        }
     }
 
-    return { { 0, 0 }, 0 };
+    // Step 4: System font enumeration
+    match prober.is_nerd_font_installed() {
+        Ok(true)  => DetectionResult::Detected,
+        Ok(false) => DetectionResult::NotDetected,
+        Err(_)    => DetectionResult::Inconclusive,
+    }
 }
 
-// Compile-time verification of key code points
-static_assert (CodePointToWideChars(NfIcon::DevCss3).count == 1);        // BMP (0xE749)
-static_assert (CodePointToWideChars(NfIcon::SetiTypescript).count == 1);  // BMP (0xE628)
-static_assert (CodePointToWideChars(0xF08C6).count == 2);
-static_assert (CodePointToWideChars(0xF0219).count == 2);
-static_assert (CodePointToWideChars(0xD800).count == 0);
-static_assert (CodePointToWideChars(0x110000).count == 0);
+fn is_wezterm(env: &dyn EnvironmentProvider) -> bool {
+    env.get_env_var("TERM_PROGRAM").as_deref() == Some("WezTerm")
+}
 
-// ... default tables as specified in data-model.md ...
+fn is_conpty_terminal(env: &dyn EnvironmentProvider) -> bool {
+    env.get_env_var("WT_SESSION").is_some()
+    || env.get_env_var("TERM_PROGRAM").is_some()
+    || env.get_env_var("ConEmuPID").is_some()
+    || env.get_env_var("ALACRITTY_WINDOW_ID").is_some()
+}
 ```
 
-**Key conventions**:
-- `pch.h` is always the first include
-- All tables are `const` (not `constexpr`) because `LPCWSTR` members aren't constexpr-friendly in MSVC
-- Use `static_assert` for compile-time code point verification
+#### 3d. Tests
 
-### 2. NerdFontDetector.h/cpp
+```rust
+#[cfg(test)]
+mod tests {
+    struct MockFontProber { canary_result: Result<bool, AppError>, nf_installed: Result<bool, AppError> }
+    impl FontProber for MockFontProber { /* return configured values */ }
 
-**New files** in `TCDirCore/`.
-
-#### NerdFontDetector.h
-
-```cpp
-#pragma once
-
-#include "EnvironmentProviderBase.h"
-
-enum class EDetectionResult { Detected, NotDetected, Inconclusive };
-
-class CNerdFontDetector
-{
-public:
-    HRESULT Detect (
-        HANDLE                       hConsole,
-        const IEnvironmentProvider & envProvider,
-        _Out_ EDetectionResult *     pResult);
-
-protected:
-    // GDI-dependent methods — virtual so tests can derive and override
-    virtual HRESULT ProbeConsoleFontForGlyph (HANDLE hConsole, WCHAR wchCanary, _Out_ bool * pfHasGlyph);
-    virtual HRESULT IsNerdFontInstalled      (_Out_ bool * pfFound);
-
-private:
-    static bool  IsWezTerm        (const IEnvironmentProvider & envProvider);
-    static bool  IsConPtyTerminal (const IEnvironmentProvider & envProvider);
-};
+    // - WezTerm detected → Detected (prober never called)
+    // - ConPTY + NF installed → Detected (canary skipped)
+    // - ConPTY + NF not installed → NotDetected
+    // - Classic conhost + canary hit → Detected
+    // - Classic conhost + canary miss → NotDetected
+    // - All probes fail → Inconclusive
+    // - is_wezterm with/without env var
+    // - is_conpty_terminal with various env combos
+}
 ```
 
-**Testing approach**: Derive a test probe (same pattern as `ConfigProbe`):
-```cpp
-struct NerdFontDetectorProbe : public CNerdFontDetector
-{
-    bool    m_fProbeResult    = false;   // What ProbeConsoleFontForGlyph returns
-    bool    m_fInstalledResult = false;  // What IsNerdFontInstalled returns
-    HRESULT m_hrProbe         = S_OK;
-    HRESULT m_hrInstalled     = S_OK;
+**Checkpoint**: `cargo test` passes. Detection logic fully unit-tested.
 
-    HRESULT ProbeConsoleFontForGlyph (HANDLE, WCHAR, _Out_ bool * pf) override
-    {
-        *pf = m_fProbeResult;
-        return m_hrProbe;
+---
+
+### Step 4. `src/config.rs` — Extend
+
+#### 4a. Add New Fields to `Config` Struct
+
+Add icon-related fields after existing fields. See data-model.md for complete list.
+
+```rust
+// In Config struct:
+pub extension_icons:           HashMap<String, char>,
+pub extension_icon_sources:    HashMap<String, AttributeSource>,
+pub well_known_dir_icons:      HashMap<String, char>,
+pub well_known_dir_icon_sources: HashMap<String, AttributeSource>,
+pub file_attr_icons:           HashMap<u32, char>,
+pub icons:                     Option<bool>,
+pub icon_directory_default:    char,
+pub icon_file_default:         char,
+pub icon_symlink:              char,
+pub icon_junction:             char,
+pub icon_cloud_only:           char,
+pub icon_locally_available:    char,
+pub icon_always_local:         char,
+```
+
+#### 4b. Initialize in `new()` and `initialize_with_provider()`
+
+```rust
+// In new():
+extension_icons:           HashMap::new(),
+extension_icon_sources:    HashMap::new(),
+well_known_dir_icons:      HashMap::new(),
+well_known_dir_icon_sources: HashMap::new(),
+file_attr_icons:           HashMap::new(),
+icons:                     None,
+icon_directory_default:    NF_CUSTOM_FOLDER,
+icon_file_default:         NF_FA_FILE,
+icon_symlink:              NF_COD_FILE_SYMLINK_DIR,
+icon_junction:             NF_FA_EXTERNAL_LINK,
+icon_cloud_only:           NF_MD_CLOUD_OUTLINE,
+icon_locally_available:    NF_MD_CLOUD_CHECK,
+icon_always_local:         NF_MD_PIN,
+
+// In initialize_with_provider():
+self.initialize_extension_icons();
+self.initialize_well_known_dir_icons();
+```
+
+#### 4c. Add `FileDisplayStyle` and `get_display_style_for_file()`
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FileDisplayStyle {
+    pub text_attr:       u16,
+    pub icon_code_point: Option<char>,
+    pub icon_suppressed: bool,
+}
+
+pub fn get_display_style_for_file(&self, file_attributes: u32, file_name: &OsStr) -> FileDisplayStyle {
+    // Walk ATTRIBUTE_PRECEDENCE for color + icon
+    // Then check well-known dirs (icon only if not yet resolved)
+    // Then check extension (color if not yet resolved, icon if not yet resolved)
+    // Then type fallback
+    // Return FileDisplayStyle
+}
+```
+
+#### 4d. Extend `process_color_override_entry()` for Comma Syntax
+
+Split value on first comma. Left = color part (existing logic). Right = icon part (new `parse_icon_value()`).
+
+#### 4e. Add `parse_icon_value()`
+
+```rust
+fn parse_icon_value(icon_str: &str) -> Result<(Option<char>, bool), String> {
+    if icon_str.is_empty() {
+        return Ok((None, true));  // suppressed
     }
-
-    HRESULT IsNerdFontInstalled (_Out_ bool * pf) override
-    {
-        *pf = m_fInstalledResult;
-        return m_hrInstalled;
+    if let Some(hex) = icon_str.strip_prefix("U+").or_else(|| icon_str.strip_prefix("u+")) {
+        // Parse hex, validate range, return char
     }
-};
+    // Single char literal
+    let mut chars = icon_str.chars();
+    let ch = chars.next().ok_or("empty icon value")?;
+    if chars.next().is_some() {
+        return Err("icon value must be a single character or U+XXXX".into());
+    }
+    Ok((Some(ch), false))
+}
 ```
 
-### 3. Config.h/cpp Extensions
+#### 4f. Handle `Icons`/`Icons-` in Switch Processing
 
-**Add to Config.h** (new members shown in data-model.md):
+Extend `is_switch_name()` and `process_switch_override()` to recognize `Icons`/`Icons-`.
 
-Key changes:
-- Add `SFileDisplayStyle` struct
-- Add icon mapping members (`m_mapExtensionToIcon`, `m_mapWellKnownDirToIcon`, etc.)
-- Add `m_fIcons` optional
-- Add `GetDisplayStyleForFile()` — the unified resolver
-- Add `ParseIconValue()` — parse `U+XXXX`, literal glyph, or empty
-- Extend `ProcessColorOverrideEntry()` — detect comma, split, parse icon
+#### 4g. Tests
 
-**Backward compatibility**: `GetTextAttrForFile()` remains, delegating to `GetDisplayStyleForFile().m_wTextAttr`. Existing callers unchanged.
-
-**TCDIR parsing extension** in `ProcessColorOverrideEntry()`:
-```
-Before: entry → ParseKeyAndValue → ParseColorValue → dispatch
-After:  entry → ParseKeyAndValue → SplitOnComma → ParseColorValue + ParseIconValue → dispatch
-```
-
-The comma split is performed on the value part only (after `=`). If no comma, icon parsing is skipped entirely — zero behavior change for existing entries.
-
-### 4. CommandLine.h/cpp
-
-Add `/Icons` and `/Icons-` as a long switch:
-
-```cpp
-// In CommandLine.h:
-optional<bool> m_fIcons;      // /Icons = true, /Icons- = false, not present = nullopt
-
-// In CommandLine.cpp, s_krgLongSwitches[]:
-{ L"icons",  &CCommandLine::m_fIcons },
+```rust
+// - Comma syntax: ".rs=Yellow,U+E7A8" → color=Yellow, icon='\u{E7A8}'
+// - Color only: ".rs=Yellow" → color=Yellow, icon unchanged
+// - Icon suppressed: ".rs=Yellow," → color=Yellow, icon_suppressed
+// - Icon only: ".rs=,U+E7A8" → default color, icon='\u{E7A8}'
+// - Invalid hex: ".rs=Yellow,U+ZZZZ" → error
+// - Surrogate range: ".rs=Yellow,U+D800" → error
+// - Multi-char icon: ".rs=Yellow,AB" → error
+// - get_display_style_for_file() precedence tests
+// - Icons/Icons- switch parsing
+// - Duplicate Icons/Icons- → first wins + error
 ```
 
-The existing long switch infrastructure handles the `-` suffix for negation automatically.
+**Checkpoint**: `cargo test` passes. Config fully extended.
 
-### 5. pch.h
+---
 
-Add the gdi32 library link:
-```cpp
-#pragma comment (lib, "gdi32.lib")
+### Step 5. `src/command_line.rs` — Extend
+
+#### 5a. Add Field
+
+```rust
+pub icons: Option<bool>,  // None, Some(true), Some(false)
 ```
 
-Place alongside the existing `#pragma comment (lib, "cldapi.lib")`.
+#### 5b. Default
+
+```rust
+icons: None,
+```
+
+#### 5c. Handle in `handle_long_switch()`
+
+```rust
+"icons" => {
+    if self.icons.is_none() {
+        self.icons = Some(true);
+    }
+}
+"icons-" => {
+    if self.icons.is_none() {
+        self.icons = Some(false);
+    }
+}
+```
+
+#### 5d. Tests
+
+```rust
+// - /Icons → icons = Some(true)
+// - /Icons- → icons = Some(false)
+// - No switch → icons = None
+// - /Icons /Icons- → first wins (Some(true))
+// - Case insensitive: /ICONS, /icons
+```
+
+**Checkpoint**: `cargo test` passes.
+
+---
+
+### Step 6. `Cargo.toml` — Add Feature
+
+Add `"Win32_Graphics_Gdi"` to the windows crate features list.
+
+**Checkpoint**: `cargo check` passes.
 
 ---
 
 ## Phase 2: Display Integration
 
-### 6. ResultsDisplayerNormal.cpp
+### Step 7. `src/results_displayer.rs` — Extend
 
-In `DisplayFileResults()`, after the owner column and before filename output:
+#### Normal Mode
 
-```cpp
-// Existing: owner column
-// NEW: icon column
-if (fIconsActive)
-{
-    SFileDisplayStyle style = m_configPtr->GetDisplayStyleForFile (fileInfo);
-    if (style.m_iconCodePoint != 0 && !style.m_fIconSuppressed)
-    {
-        wchar_t szIcon[3] = {};
-        auto pair = CodePointToWideChars (style.m_iconCodePoint);
-        szIcon[0] = pair.chars[0];
-        if (pair.count > 1)
-            szIcon[1] = pair.chars[1];
+In `display_file_results()` for normal mode, before printing the filename:
 
-        m_consolePtr->Printf (style.m_wTextAttr, L"%s ", szIcon);
+```rust
+if icons_active {
+    match style.icon_code_point {
+        Some(glyph) if !style.icon_suppressed => {
+            console.printf_attr (style.text_attr, &format!("{} ", glyph));
+        }
+        _ if style.icon_suppressed => {
+            console.print ("  ");  // 2 spaces for alignment (FR-007)
+        }
+        _ => {
+            console.print ("  ");  // no icon at any level → 2 spaces
+        }
     }
 }
-// Existing: filename output
 ```
 
-Note: `GetDisplayStyleForFile()` resolves both color and icon. The `m_wTextAttr` from the style is used for both the icon and the filename, ensuring they always match.
+#### Wide Mode
 
-### 7. ResultsDisplayerWide.cpp
+- Same icon emission before filename
+- Suppress bracket column when icons active (FR-013)
+- Use `config.get_cloud_status_icon()` for cloud status when icons active (FR-014)
 
-Three changes:
-1. **Icon before filename**: Same pattern as normal mode
-2. **Bracket suppression**: When `fIconsActive`, directory names shown without `[brackets]`
-3. **Cloud status per entry** (FR-033): Add cloud status symbol before icon in wide mode
+#### Bare Mode
 
-In `GetWideFormattedName()` or `DisplayFile()`:
-```cpp
-if (fIconsActive && (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-{
-    // No brackets — folder icon provides distinction
-    return wfd.cFileName;
-}
-else if (wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-{
-    // Brackets as before
-    return L"[" + name + L"]";
+- Icon emission before path (same pattern)
+
+### Step 8. `src/cloud_status.rs` — Extend
+
+Add method or modify `symbol()` to return NF glyph when icons are active:
+
+```rust
+pub fn nf_symbol(self, config: &Config) -> char {
+    match self {
+        CloudStatus::None      => ' ',
+        CloudStatus::CloudOnly => config.icon_cloud_only,
+        CloudStatus::Local     => config.icon_locally_available,
+        CloudStatus::Pinned    => config.icon_always_local,
+    }
 }
 ```
 
-Column width calculation must account for icon width (+2 chars: icon + space).
+### Step 9. `src/console.rs` — No Changes Needed
 
-### 8. ResultsDisplayerBare.cpp
+NF glyphs are valid `char` values that push directly into the `String` buffer. The existing `WriteConsoleW` flush path handles them correctly via `encode_utf16()`.
 
-Simple: prepend `icon + space` before each filename when icons active. Same `GetDisplayStyleForFile()` + `CodePointToWideChars()` + `Printf()` pattern.
+### Step 10. `src/lib.rs` / `src/main.rs` — Wire Detection
 
-### 9. TCDir.cpp — Detection Orchestration
+```rust
+// In the main flow, after Config and CommandLine are initialized:
+let icons_active = resolve_icons(
+    &cmd,
+    &config,
+    console_handle,
+    &DefaultEnvironmentProvider,
+    &DefaultFontProber,
+);
 
-In the main flow, after command-line parsing and config initialization:
-
-```cpp
-// Resolve icon activation state
-bool fIconsActive = false;
-
-if (commandLine.m_fIcons.has_value())
-{
-    fIconsActive = commandLine.m_fIcons.value();   // CLI wins
+fn resolve_icons(
+    cmd: &CommandLine,
+    config: &Config,
+    handle: HANDLE,
+    env: &dyn EnvironmentProvider,
+    prober: &dyn FontProber,
+) -> bool {
+    // 1. CLI override
+    if let Some(v) = cmd.icons { return v; }
+    // 2. Env var override
+    if let Some(v) = config.icons { return v; }
+    // 3. Auto-detect
+    matches!(nerd_font_detector::detect(handle, env, prober), DetectionResult::Detected)
 }
-else if (config.m_fIcons.has_value())
-{
-    fIconsActive = config.m_fIcons.value();        // Env var next
-}
-else
-{
-    // Auto-detect
-    CNerdFontDetector detector;
-    EDetectionResult result = EDetectionResult::Inconclusive;
-    HRESULT hr = detector.Detect (hStdOut, config.m_environmentProviderDefault, &result);
-
-    if (SUCCEEDED(hr) && result == EDetectionResult::Detected)
-        fIconsActive = true;
-    // else: NotDetected or Inconclusive → OFF
-}
-
-// Pass fIconsActive to displayer construction
 ```
+
+Pass `icons_active` to displayers (add parameter to `display_file_results()` or store on displayer struct).
+
+**Checkpoint**: `cargo build` succeeds. Icons visible when Nerd Font is present.
 
 ---
 
 ## Phase 3: Diagnostics & Polish
 
-### 10. Usage.cpp
+### Step 11. `src/usage.rs` — Extend
 
-Extend three existing display functions:
+- Add `/Icons` and `/Icons-` to the switch help text in `show_help()`
+- Add comma syntax documentation to `show_env_help()`
+- Add icon table display to `show_config()`
 
-- **`DisplayUsage()`** (`/?`): Add `/Icons` and `/Icons-` to the switch list with descriptions
-- **`DisplayEnvVarHelp()`** (`/env`): Document `Icons`/`Icons-` switch, `[color][,icon]` comma syntax, `U+XXXX` format, `dir:` prefix, and literal glyph syntax
-- **`DisplayCurrentConfiguration()`** (`/config`): Add icon status section showing:
-  - Detection result and reason (e.g., "NF detected via font enumeration", "Icons forced via /Icons")
-  - Resolved icon state (ON/OFF)
-  - Icon mapping table with source indicators (Built-in / TCDIR)
+### Step 12. `src/lib.rs` — Module Declarations
 
-### 11. Version.h
-
-```cpp
-#define VERSION_MAJOR 5    // Was 4 — major version bump for icons feature
+```rust
+pub mod icon_mapping;
+pub mod nerd_font_detector;
+pub mod file_attribute_map;
 ```
+
+**Checkpoint**: `cargo clippy` clean. `cargo test` passes.
 
 ---
 
 ## Phase 4: Tests
 
-### Testing Strategy
+### Step 13–16. Unit Tests
 
-| Component | Test File | Mock Dependencies | Key Scenarios |
-|-----------|-----------|-------------------|---------------|
-| IconMapping | IconMappingTests.cpp | None | Surrogate encoding, table completeness, lookup |
-| NerdFontDetector | NerdFontDetectorTests.cpp | CTestEnvironmentProvider + NerdFontDetectorProbe (derivation) | WezTerm detection, ConPTY detection, detection chain |
-| Config icon parsing | ConfigTests.cpp | CTestEnvironmentProvider | Comma syntax, U+XXXX, literal glyph, suppression, duplicates |
-| Config precedence | ConfigTests.cpp | CTestEnvironmentProvider | Color+icon unified walk, attribute override, fallthrough |
-| CommandLine | CommandLineTests.cpp | None | /Icons, /Icons-, precedence over env var |
-| Normal displayer | ResultsDisplayerTests.cpp | FileSystemMock | Icon in output, correct color, spacing |
-| Wide displayer | ResultsDisplayerTests.cpp | FileSystemMock | Brackets, cloud status, column width |
-| Bare displayer | ResultsDisplayerTests.cpp | FileSystemMock | Icon + filename only |
-| End-to-end | DirectoryListerScenarioTests.cpp | FileSystemMock | Full listing with mixed file types |
+Each module has inline `#[cfg(test)]` tests. Key coverage:
 
-### Mock Pattern
+| Module | Tests |
+|--------|-------|
+| `icon_mapping` | Constants valid, no duplicate keys, keys lowercase, extension keys have dots |
+| `file_attribute_map` | 9 entries, same flags as FILE_ATTRIBUTE_MAP, no duplicates |
+| `nerd_font_detector` | All 5 detection steps with mock prober, WezTerm/ConPTY env combos |
+| `config` | Comma syntax (all variants), precedence resolution, Icons switch, duplicates, errors |
+| `command_line` | /Icons, /Icons-, case insensitivity, first-wins |
 
-The existing `ConfigProbe` pattern (test struct deriving from `CConfig`, exposing protected methods) is reused for icon tests:
+### Step 17. `tests/output_parity.rs` — Extend
 
-```cpp
-struct IconConfigProbe : public CConfig
-{
-    CTestEnvironmentProvider m_testEnvProvider;
+Add integration test scenarios that verify:
 
-    IconConfigProbe ()
-    {
-        SetEnvironmentProvider (&m_testEnvProvider);
-    }
-
-    void SetEnvVar (const wstring & value)
-    {
-        m_testEnvProvider.SetVariable (TCDIR_ENV_VAR_NAME, value);
-    }
-
-    using CConfig::GetDisplayStyleForFile;
-    using CConfig::ParseIconValue;
-};
-```
-
-### Key Test Scenarios (minimum coverage)
-
-**IconMappingTests.cpp:**
-1. `CodePointToWideChars` — BMP produces count=1, supplementary produces count=2, surrogates rejected
-2. `CodePointToWideChars` — verify exact surrogate values for all Material Design code points in spec
-3. Default extension table — every extension in `g_rgDefaultExtensionIcons` has non-zero code point
-4. Default well-known dir table — every entry has non-zero code point, no duplicates
-5. Table completeness — every extension in `s_rgTextAttrs[]` (color table) has a matching icon entry
-
-**NerdFontDetectorTests.cpp:**
-6. WezTerm detected → `Detected` (TERM_PROGRAM=WezTerm)
-7. VS Code detected but no NF → delegates to font enumeration (overridden via NerdFontDetectorProbe)
-8. No env vars → classic conhost path (glyph probe overridden via NerdFontDetectorProbe)
-9. Multiple ConPTY vars set → earliest match wins, no crash
-10. Empty env vars → each variable individually empty/missing combinations
-
-**ConfigTests.cpp (icon extensions):**
-11. `TCDIR=.cpp=Green,U+F0672` → color=Green, icon=MdLanguageCpp
-12. `TCDIR=.cpp=,U+F0672` → default color, icon=MdLanguageCpp
-13. `TCDIR=.cpp=Green` → color=Green, icon=default built-in (backward compat)
-14. `TCDIR=.obj=,` → icon suppressed (m_fIconSuppressed=true)
-15. `TCDIR=dir:.git=,U+F1D3` → well-known dir icon override
-16. `TCDIR=attr:H=DarkGrey,U+F21B` → attribute icon override
-17. `TCDIR=.cpp=Green,U+F0672;.cpp=Red` → first wins, second flagged as error
-18. `TCDIR=Icons;Icons-` → first wins (Icons=ON), second flagged
-19. `TCDIR=.cpp=Green,U+ZZZZ` → invalid hex → ErrorInfo generated
-20. `TCDIR=.cpp=Green,U+D800` → surrogate code point → ErrorInfo
-21. `TCDIR=Icons` → config.m_fIcons = true
-22. `TCDIR=Icons-` → config.m_fIcons = false
-23. Precedence: hidden .cpp file → DarkGrey color (attribute) + C++ icon (extension fallthrough)
-24. Precedence: hidden .git dir → DarkGrey color + Git icon (well-known dir)
-25. Precedence: user sets `attr:H=DarkGrey,U+F21B` → ghost icon locks at attribute level
-26. Precedence: plain .cpp file → extension color + extension icon
-27. Precedence: unknown extension → default file icon
-
-**CommandLineTests.cpp (icon extensions):**
-28. `/Icons` → m_fIcons = true
-29. `/Icons-` → m_fIcons = false
-30. `--Icons` → m_fIcons = true (long switch)
-31. No icons flag → m_fIcons = nullopt
-32. `/Icons` with `TCDIR=Icons-` → CLI wins (verify via integration with config)
-
-**ResultsDisplayerTests.cpp (icon extensions):**
-33. Normal mode: icon glyph + space before filename when icons active
-34. Normal mode: no icon when icons inactive (backward compat)
-35. Normal mode: icon color matches filename color
-36. Wide mode: no brackets on directory when icons active
-37. Wide mode: brackets on directory when icons inactive
-38. Wide mode: cloud status shows NF glyph when icons active
-39. Wide mode: cloud status shows Unicode circles when icons inactive
-40. Bare mode: icon + space + filename when icons active
-41. Bare mode: filename only when icons inactive
-42. Column alignment correct with icons (normal and wide modes)
+- Icons off → output is byte-identical to pre-feature baseline
+- Icons on → icon glyphs appear before filenames
+- Suppressed icons → 2-space placeholder
+- Wide mode → brackets suppressed, NF cloud symbols
+- Bare mode → icon + space + path
 
 ---
 
-## Build & Verify
+## Verification Checklist
 
-After each phase, run the build + test task:
+After all phases:
 
-```
-VS Code Task: Build + Test Debug (current arch)
-```
-
-Or for both architectures:
-
-```
-VS Code Task: Build Debug x64
-VS Code Task: Build Debug ARM64
-```
-
-Use `get_errors` to verify no compiler warnings or errors after each file change.
-
----
-
-## Files Checklist
-
-| File | Action | Phase |
-|------|--------|-------|
-| `TCDirCore/IconMapping.h` | NEW | 1 |
-| `TCDirCore/IconMapping.cpp` | NEW | 1 |
-| `TCDirCore/NerdFontDetector.h` | NEW | 1 |
-| `TCDirCore/NerdFontDetector.cpp` | NEW | 1 |
-| `TCDirCore/Config.h` | MODIFY | 1 |
-| `TCDirCore/Config.cpp` | MODIFY | 1 |
-| `TCDirCore/CommandLine.h` | MODIFY | 1 |
-| `TCDirCore/CommandLine.cpp` | MODIFY | 1 |
-| `TCDirCore/pch.h` | MODIFY | 1 |
-| `TCDirCore/ResultsDisplayerNormal.cpp` | MODIFY | 2 |
-| `TCDirCore/ResultsDisplayerWide.cpp` | MODIFY | 2 |
-| `TCDirCore/ResultsDisplayerBare.cpp` | MODIFY | 2 |
-| `TCDirCore/ResultsDisplayerWithHeaderAndFooter.h` | MODIFY | 2 |
-| `TCDirCore/TCDir.cpp` | MODIFY | 2 |
-| `TCDirCore/Usage.cpp` | MODIFY | 3 |
-| `TCDirCore/Usage.h` | MODIFY | 3 |
-| `TCDirCore/Version.h` | MODIFY | 3 |
-| `UnitTest/IconMappingTests.cpp` | NEW | 4 |
-| `UnitTest/NerdFontDetectorTests.cpp` | NEW | 4 |
-
-| `UnitTest/ConfigTests.cpp` | MODIFY | 4 |
-| `UnitTest/CommandLineTests.cpp` | MODIFY | 4 |
-| `UnitTest/ResultsDisplayerTests.cpp` | MODIFY | 4 |
-| `UnitTest/DirectoryListerScenarioTests.cpp` | MODIFY | 4 |
+- [ ] `cargo build` succeeds (debug)
+- [ ] `cargo build --release` succeeds
+- [ ] `cargo test` — all tests pass
+- [ ] `cargo clippy` — no warnings
+- [ ] Icons appear with Nerd Font terminal
+- [ ] Icons do not appear without Nerd Font
+- [ ] `/Icons` forces icons on
+- [ ] `/Icons-` forces icons off
+- [ ] RCDIR comma syntax works for extensions, dirs, attributes
+- [ ] Output is byte-identical when icons are off (SC-002)
+- [ ] Performance within 5% on 1000+ file directory (SC-004)

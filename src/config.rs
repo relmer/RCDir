@@ -2202,4 +2202,103 @@ mod tests {
         assert_eq!(Attribute::COUNT, 16);
         assert_eq!(Attribute::ALL.len(), 16);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  entry_without_comma_backward_compat
+    //
+    //  FR-024: Entries without a comma produce identical behavior to
+    //  the pre-icon code path — color set, icon unchanged, no side
+    //  effects.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn entry_without_comma_backward_compat() {
+        let cfg = make_config (Some (".py=Green"));
+
+        // Color should be set to Green
+        assert_eq!(cfg.extension_colors.get(".py"), Some (&FC_GREEN));
+
+        // Icon should remain at the default (populated from DEFAULT_EXTENSION_ICONS)
+        // and NOT be modified or suppressed
+        let default_icon = cfg.extension_icons.get(".py");
+        assert!(default_icon.is_some(), ".py should have a default icon");
+        assert_ne!(*default_icon.unwrap(), '\0', "icon should not be suppressed");
+
+        // No errors
+        assert!(cfg.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  comma_syntax_sets_color_and_icon
+    //
+    //  Verify comma-syntax sets both color and icon.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn comma_syntax_sets_color_and_icon() {
+        let cfg = make_config (Some (".txt=Yellow,A"));
+
+        assert_eq!(cfg.extension_colors.get (".txt"), Some (&FC_YELLOW));
+        assert_eq!(cfg.extension_icons.get (".txt"), Some (&'A'));
+        assert!(cfg.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  comma_syntax_suppresses_icon
+    //
+    //  Verify comma-syntax with empty icon suppresses it.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn comma_syntax_suppresses_icon() {
+        let cfg = make_config (Some (".txt=Red,"));
+
+        assert_eq!(cfg.extension_colors.get (".txt"), Some (&FC_RED));
+        assert_eq!(cfg.extension_icons.get (".txt"), Some (&'\0'));
+        assert!(cfg.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  comma_syntax_icon_only
+    //
+    //  Verify comma-syntax with no color sets only icon.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn comma_syntax_icon_only() {
+        let cfg = make_config (Some (".rs=,X"));
+
+        // Color should remain at whatever the default was
+        let before_cfg = make_config (None);
+        let default_rs_color = before_cfg.extension_colors.get (".rs").copied();
+        assert_eq!(cfg.extension_colors.get (".rs").copied(), default_rs_color);
+
+        // Icon should be 'X'
+        assert_eq!(cfg.extension_icons.get (".rs"), Some (&'X'));
+        assert!(cfg.last_parse_result.errors.is_empty());
+    }
 }

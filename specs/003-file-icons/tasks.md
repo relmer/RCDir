@@ -120,15 +120,15 @@
 
 ### Implementation for User Story 4
 
-- [ ] T040 [US4] Implement `process_extension_icon_override()` in src/config.rs — port `ApplyIconOverride()` extension path from TCDirCore/Config.cpp (insert into extension_icons HashMap with source tracking)
-- [ ] T041 [US4] Implement `process_well_known_dir_icon_override()` in src/config.rs — port `ApplyIconOverride()` dir path from TCDirCore/Config.cpp (insert into well_known_dir_icons HashMap)
-- [ ] T042 [US4] Implement `process_file_attribute_icon_override()` in src/config.rs — port `ApplyIconOverride()` attribute path from TCDirCore/Config.cpp (insert into file_attr_icons HashMap)
-- [ ] T043 [US4] Wire comma-syntax icon overrides into `apply_user_color_overrides()` pipeline in src/config.rs — port from TCDirCore/Config.cpp (call icon override methods after parsing comma value for extension, dir:, attr: entries)
-- [ ] T044 [US4] Handle duplicate/conflicting icon entries in src/config.rs — port first-write-wins + ErrorInfo from TCDirCore/Config.cpp
+- [X] T040 [US4] Implement `process_extension_icon_override()` in src/config.rs — port `ApplyIconOverride()` extension path from TCDirCore/Config.cpp (insert into extension_icons HashMap with source tracking)
+- [X] T041 [US4] Implement `process_well_known_dir_icon_override()` in src/config.rs — port `ApplyIconOverride()` dir path from TCDirCore/Config.cpp (insert into well_known_dir_icons HashMap)
+- [X] T042 [US4] Implement `process_file_attribute_icon_override()` in src/config.rs — port `ApplyIconOverride()` attribute path from TCDirCore/Config.cpp (insert into file_attr_icons HashMap)
+- [X] T043 [US4] Wire comma-syntax icon overrides into `apply_user_color_overrides()` pipeline in src/config.rs — port from TCDirCore/Config.cpp (call icon override methods after parsing comma value for extension, dir:, attr: entries)
+- [X] T044 [US4] Handle duplicate/conflicting icon entries in src/config.rs — port first-write-wins + ErrorInfo from TCDirCore/Config.cpp
 
 **Checkpoint**: All comma-syntax examples from cli-contract.md work correctly. Backward compatibility maintained for entries without commas.
 
-- [ ] T070 [US4] Add unit test verifying entries without comma produce identical behavior to pre-feature format (FR-024) — parse `RCDIR=.py=Green` and confirm: color set, icon unchanged, no side effects vs. old code path
+- [X] T070 [US4] Add unit test verifying entries without comma produce identical behavior to pre-feature format (FR-024) — parse `RCDIR=.py=Green` and confirm: color set, icon unchanged, no side effects vs. old code path
 
 ---
 

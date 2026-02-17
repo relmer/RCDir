@@ -157,8 +157,8 @@
 
 ### Implementation for User Story 6
 
-- [ ] T049 [US6] Verify `resolve_directory_style()` performs well-known dir name lookup in src/config.rs — port from TCDirCore/Config.cpp ResolveDirectoryStyle() (case-insensitive name match in well_known_dir_icons HashMap)
-- [ ] T050 [US6] Verify user `dir:` prefix overrides built-in well-known dir icons in src/config.rs — port from TCDirCore/Config.cpp (RCDIR=dir:src=,U+ABCD overrides default)
+- [X] T049 [US6] Verify `resolve_directory_style()` performs well-known dir name lookup in src/config.rs — port from TCDirCore/Config.cpp ResolveDirectoryStyle() (case-insensitive name match in well_known_dir_icons HashMap)
+- [X] T050 [US6] Verify user `dir:` prefix overrides built-in well-known dir icons in src/config.rs — port from TCDirCore/Config.cpp (RCDIR=dir:src=,U+ABCD overrides default)
 
 **Checkpoint**: 60 well-known directory names show specific icons. User `dir:` overrides work.
 

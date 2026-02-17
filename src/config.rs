@@ -2301,4 +2301,90 @@ mod tests {
         assert_eq!(cfg.extension_icons.get (".rs"), Some (&'X'));
         assert!(cfg.last_parse_result.errors.is_empty());
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  well_known_dir_icon_lookup
+    //
+    //  Verify resolve_directory_style performs case-insensitive well-known
+    //  dir lookup.  T049 verification.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn well_known_dir_icon_lookup() {
+        use crate::file_info::FileInfo;
+        use crate::icon_mapping::NF_SETI_GIT;
+
+        let cfg = make_config (None);
+
+        // ".git" is a well-known dir — should get its specific icon
+        let fi_git = FileInfo {
+            file_name:        std::ffi::OsString::from (".git"),
+            file_attributes:  FILE_ATTRIBUTE_DIRECTORY,
+            file_size:        0,
+            creation_time:    0,
+            last_write_time:  0,
+            last_access_time: 0,
+            reparse_tag:      0,
+            streams:          Vec::new(),
+        };
+        let style = cfg.get_display_style_for_file (&fi_git);
+        assert!(style.icon_code_point.is_some(), ".git should have an icon");
+        assert_eq!(style.icon_code_point.unwrap(), NF_SETI_GIT);
+
+        // Case-insensitive: ".GIT" should match too
+        let fi_git_upper = FileInfo {
+            file_name:        std::ffi::OsString::from (".GIT"),
+            file_attributes:  FILE_ATTRIBUTE_DIRECTORY,
+            file_size:        0,
+            creation_time:    0,
+            last_write_time:  0,
+            last_access_time: 0,
+            reparse_tag:      0,
+            streams:          Vec::new(),
+        };
+        let style_upper = cfg.get_display_style_for_file (&fi_git_upper);
+        assert_eq!(style_upper.icon_code_point, style.icon_code_point);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  dir_prefix_overrides_default_icon
+    //
+    //  Verify user `dir:` prefix overrides built-in well-known dir icons.
+    //  T050 verification.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn dir_prefix_overrides_default_icon() {
+        use crate::file_info::FileInfo;
+
+        // Override .git dir icon with 'X'
+        let cfg = make_config (Some ("dir:.git=,X"));
+
+        let fi_git = FileInfo {
+            file_name:        std::ffi::OsString::from (".git"),
+            file_attributes:  FILE_ATTRIBUTE_DIRECTORY,
+            file_size:        0,
+            creation_time:    0,
+            last_write_time:  0,
+            last_access_time: 0,
+            reparse_tag:      0,
+            streams:          Vec::new(),
+        };
+        let style = cfg.get_display_style_for_file (&fi_git);
+        assert_eq!(style.icon_code_point, Some ('X'), "dir: override should replace default icon");
+        assert!(!style.icon_suppressed);
+        assert!(cfg.last_parse_result.errors.is_empty());
+    }
 }

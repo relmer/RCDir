@@ -105,8 +105,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Ensure icon emission uses `style.text_attr` in `display_file_results()` in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerNormal.cpp (Printf with textAttr for icon glyph, same attribute used for filename)
-- [ ] T039 [US3] Verify attribute-level color carries through to icon in `get_display_style_for_file()` in src/config.rs — port from TCDirCore/Config.cpp (when attribute matches, color locks but icon can fall through to extension level per FR-020)
+- [X] T038 [US3] Ensure icon emission uses `style.text_attr` in `display_file_results()` in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerNormal.cpp (Printf with textAttr for icon glyph, same attribute used for filename)
+- [X] T039 [US3] Verify attribute-level color carries through to icon in `get_display_style_for_file()` in src/config.rs — port from TCDirCore/Config.cpp (when attribute matches, color locks but icon can fall through to extension level per FR-020)
 
 **Checkpoint**: Icon color is visually identical to filename color for all file types.
 

@@ -1,138 +1,212 @@
-# Tasks: Nerd Font File & Folder Icons
+mmit# Tasks: Nerd Font File & Folder Icons
 
 **Input**: Design documents from `/specs/003-file-icons/`
-**Prerequisites**: plan.md, spec.md, data-model.md, quickstart.md, research.md
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/cli-contract.md, quickstart.md
+**Reference Implementation**: TCDir C++ (`TCDirCore/IconMapping.*`, `NerdFontDetector.*`, `FileAttributeMap.h`, `Config.*`, `CommandLine.*`, `ResultsDisplayer*.*`, `Usage.cpp`)
 
-**Tests**: Included — the project has comprehensive test infrastructure (Microsoft C++ Unit Test Framework) and 42 documented test scenarios in quickstart.md.
-
-**Organization**: Tasks grouped by user story. US3 (Icon Colors Match) is merged into US1 since color resolution is inherent in the unified `GetDisplayStyleForFile` implementation. US6 (Well-Known Folder Icons) is merged into US5 since the well-known dir table is created in Foundational and the resolver is implemented in US1 — US6 has no unique implementation tasks beyond what US1+US4 already provide.
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2)
-- Exact file paths included in descriptions
+- All file paths relative to repository root
 
 ---
 
 ## Phase 1: Setup
 
-**Purpose**: Add new library dependency required by font detection APIs
+**Purpose**: Project scaffolding and dependency configuration
 
-- [X] T001 Add `#pragma comment(lib, "gdi32.lib")` to TCDirCore/pch.h alongside existing cldapi.lib pragma
+- [ ] T001 Add `Win32_Graphics_Gdi` feature to `windows` crate in Cargo.toml
+- [ ] T002 [P] Add `pub mod icon_mapping` declaration in src/lib.rs
+- [ ] T003 [P] Add `pub mod nerd_font_detector` declaration in src/lib.rs
+- [ ] T004 [P] Add `pub mod file_attribute_map` declaration in src/lib.rs
+
+**Checkpoint**: `cargo check` passes with the new feature flag and empty modules
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Icon mapping infrastructure and CLI activation mechanism that ALL user stories depend on
+**Purpose**: Core data structures and detection logic that ALL user stories depend on. Port directly from TCDir.
 
-**CRITICAL**: No user story work can begin until this phase is complete
+**CRITICAL**: No user story work can begin until this phase is complete.
 
-- [X] T002 [P] Create TCDirCore/IconMapping.h with WideCharPair struct, SIconMappingEntry struct, NfIcon namespace (42 constexpr constants), and extern declarations for default tables and attribute precedence array
-- [X] T003 Create TCDirCore/IconMapping.cpp with constexpr CodePointToWideChars implementation, static_asserts for key code points, default extension icon table (75+ entries), well-known directory icon table (27 entries), and attribute precedence array (PSHERC0TA order)
-- [X] T004 [P] Add /Icons and /Icons- long switch (optional&lt;bool&gt; m_fIcons) to TCDirCore/CommandLine.h and s_krgLongSwitches[] in TCDirCore/CommandLine.cpp
-- [X] T005 Add SFileDisplayStyle struct, EIconActivation enum, icon mapping members (m_mapExtensionToIcon, m_mapWellKnownDirToIcon, m_mapFileAttributeToIcon, fallback icons, cloud icons, m_fIcons), and icon method declarations to TCDirCore/Config.h
+- [ ] T005 Create NF named constants in src/icon_mapping.rs — port all `NfIcon` constants from TCDirCore/IconMapping.h (~90 `pub const char` values, 8 groups: Custom, Seti, Dev, Fae, Oct, Fa, Md, Cod)
+- [ ] T006 [P] Create `DEFAULT_EXTENSION_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultExtensionIcons[]` from TCDirCore/IconMapping.cpp (~180 `(&str, char)` entries)
+- [ ] T007 [P] Create `DEFAULT_WELL_KNOWN_DIR_ICONS` static table in src/icon_mapping.rs — port `g_rgDefaultWellKnownDirIcons[]` from TCDirCore/IconMapping.cpp (~55 `(&str, char)` entries)
+- [ ] T008 Create `ATTRIBUTE_PRECEDENCE` array in src/file_attribute_map.rs — port `g_rgAttributePrecedenceOrder[]` from TCDirCore/IconMapping.cpp (9 entries, PSHERC0TA order)
+- [ ] T009 Create `IconActivation` and `DetectionResult` enums in src/nerd_font_detector.rs — port `EDetectionResult` from TCDirCore/NerdFontDetector.h
+- [ ] T010 Create `FontProber` trait in src/nerd_font_detector.rs — port virtual methods from `CNerdFontDetector` (probe_console_font_for_glyph, is_nerd_font_installed)
+- [ ] T011 Implement `DefaultFontProber` struct in src/nerd_font_detector.rs — port `CNerdFontDetector::ProbeConsoleFontForGlyph()` (GetCurrentConsoleFontEx → CreateCompatibleDC → CreateFontW → SelectObject → GetGlyphIndicesW) and `IsNerdFontInstalled()` (EnumFontFamiliesExW + callback) from TCDirCore/NerdFontDetector.cpp
+- [ ] T012 Implement `detect()` function in src/nerd_font_detector.rs — port 5-step detection chain from `CNerdFontDetector::Detect()` in TCDirCore/NerdFontDetector.cpp (WezTerm → ConPTY check → canary probe → font enum → fallback)
+- [ ] T013 Implement `is_wezterm()` and `is_conpty_terminal()` helpers in src/nerd_font_detector.rs — port `IsWezTerm()` and `IsConPtyTerminal()` from TCDirCore/NerdFontDetector.cpp
+- [ ] T014 Add `FileDisplayStyle` struct to src/config.rs — port `SFileDisplayStyle` from TCDirCore/Config.h (text_attr: u16, icon_code_point: Option\<char\>, icon_suppressed: bool)
+- [ ] T015 Add icon fields to `Config` struct in src/config.rs — port icon map fields from TCDirCore/Config.h (extension_icons, well_known_dir_icons, file_attr_icons, icons: Option\<bool\>, type fallback icons, cloud status icons)
+- [ ] T016 Implement `initialize_extension_icons()` in src/config.rs — port `PopulateIconMap()` for extensions from TCDirCore/Config.cpp (seed HashMap from DEFAULT_EXTENSION_ICONS)
+- [ ] T017 Implement `initialize_well_known_dir_icons()` in src/config.rs — port `PopulateIconMap()` for well-known dirs from TCDirCore/Config.cpp (seed HashMap from DEFAULT_WELL_KNOWN_DIR_ICONS)
+- [ ] T018 Wire `initialize_extension_icons()` and `initialize_well_known_dir_icons()` calls into `Config::initialize()` / `initialize_with_provider()` in src/config.rs — port from TCDirCore/Config.cpp `Initialize()`
+- [ ] T019 Implement `parse_icon_value()` in src/config.rs — port `ParseIconValue()` from TCDirCore/Config.cpp (empty → suppressed, single char → literal, U+XXXX → code point)
+- [ ] T020 Extend `process_color_override_entry()` in src/config.rs to split on first comma — port comma-syntax parsing from `ParseOverrideValue()` in TCDirCore/Config.cpp (left = color, right = icon)
+- [ ] T021 Add `Icons`/`Icons-` switch handling in src/config.rs — port switch recognition from `s_switchMappings[]` in TCDirCore/Config.cpp
+- [ ] T022 Add `icons: Option<bool>` field to `CommandLine` struct in src/command_line.rs — port `m_fIcons` from TCDirCore/CommandLine.h
+- [ ] T023 Handle `/Icons` and `/Icons-` switch parsing in src/command_line.rs — port switch detection (trailing `-` negation, case-insensitive) from TCDirCore/CommandLine.cpp
+- [ ] T024 Implement `apply_config_defaults()` merge for icons in src/command_line.rs — port config→cmdline merge from TCDirCore/CommandLine.cpp (~line 73: if config has icons and cmdline doesn't, inherit)
 
-**Checkpoint**: Icon data tables exist, CLI flag parses, Config header ready for implementation
-
----
-
-## Phase 3: User Story 1 + User Story 3 — File-Type Icons with Correct Colors in Normal Mode (Priority: P1) 🎯 MVP
-
-**Goal**: Icons appear before filenames in normal listings. Each icon uses the same color as its filename, resolved through the unified precedence chain (attribute → well-known dir → extension → type fallback) with independent color/icon locking.
-
-**Independent Test**: Run `tcdir /Icons` in a directory with .cpp, .h, .exe, .txt, folders, and symlinks. Verify each entry shows an appropriate icon glyph in the correct color before the filename.
-
-- [X] T006 [US1] Implement InitializeExtensionToIconMap (seed m_mapExtensionToIcon from g_rgDefaultExtensionIcons) in TCDirCore/Config.cpp
-- [X] T007 [US1] Implement InitializeWellKnownDirToIconMap (seed m_mapWellKnownDirToIcon from g_rgDefaultWellKnownDirIcons) in TCDirCore/Config.cpp
-- [X] T008 [US1] Implement GetDisplayStyleForFile unified precedence resolver in TCDirCore/Config.cpp — single walk over attribute/well-known-dir/extension/type-fallback levels with independent color and icon locking per R6 design
-- [X] T009 [US1] Add fIconsActive parameter to displayer construction and storage in TCDirCore/ResultsDisplayerWithHeaderAndFooter.h and TCDirCore/ResultsDisplayerWithHeaderAndFooter.cpp
-- [X] T010 [US1] Implement icon column display (CodePointToWideChars + Printf with wchar_t[3] buffer) before filename in TCDirCore/ResultsDisplayerNormal.cpp — adjust truncation logic to account for +2 character width (icon + space)
-- [X] T011 [US1] Wire CLI /Icons flag to fIconsActive and pass to displayer construction in TCDirCore/TCDir.cpp (CLI-only path — full detection chain added in US2)
-
-**Checkpoint**: `tcdir /Icons` shows icons in normal mode with correct colors. `tcdir` without /Icons shows classic output. US1 acceptance scenarios 1–4 and US3 acceptance scenarios 1–4 are satisfied.
-
----
-
-## Phase 4: User Story 2 — Nerd Font Auto-Detection with Manual Override (Priority: P1)
-
-**Goal**: Icons are automatically detected and enabled when a Nerd Font is available. The 6-step layered detection chain (CLI → env var → WezTerm → canary probe → font enumeration → OFF) determines activation. CLI flags always win.
-
-**Independent Test**: On a system with a Nerd Font as console font, run `tcdir` (no flags) and verify icons appear automatically. On a non-NF system, verify classic output. Test `/Icons` and `/Icons-` overrides in both environments.
-
-- [X] T012 [P] [US2] Create TCDirCore/NerdFontDetector.h with EDetectionResult enum and CNerdFontDetector class (Detect method, protected virtual ProbeConsoleFontForGlyph and IsNerdFontInstalled, private static IsWezTerm and IsConPtyTerminal)
-- [X] T013 [US2] Create TCDirCore/NerdFontDetector.cpp implementing the layered detection chain: WezTerm short-circuit → ConPTY check → classic conhost canary probe via GetGlyphIndicesW (R1) → system font enumeration via EnumFontFamiliesExW (R2) → fallback OFF
-- [X] T014 [US2] Implement full detection orchestration (CLI → config.m_fIcons → CNerdFontDetector::Detect) in TCDirCore/TCDir.cpp, replacing the CLI-only path from T011
-- [X] T015 [US2] Add Icons/Icons- switch handling to CConfig env var processing (IsSwitchName and ProcessSwitchOverride) in TCDirCore/Config.cpp
-
-**Checkpoint**: `tcdir` auto-detects NF availability. `/Icons` and `/Icons-` override detection. `TCDIR=Icons` and `TCDIR=Icons-` control default state. US2 acceptance scenarios 1–10 are satisfied.
+**Checkpoint**: `cargo build` succeeds. All foundational types and data tables compile. Detection chain implemented.
 
 ---
 
-## Phase 5: User Story 4 — Environment Variable Icon Configuration (Priority: P2)
+## Phase 3: User Story 1 — Display File-Type Icons in Normal Listings (Priority: P1, MVP)
 
-**Goal**: Users customize icons through the existing TCDIR environment variable using the extended `[color][,icon]` comma syntax. Supports U+XXXX hex code points, literal glyphs, empty (suppress), and the `dir:` prefix for well-known directories.
+**Goal**: Each file entry shows an appropriate icon glyph prepended to the filename in normal display mode.
 
-**Independent Test**: Set `TCDIR=.cpp=Green,U+E61D;dir:.git=,U+E5FB;.obj=,` and verify: .cpp files show C++ icon in Green, .git directories show Git icon, .obj files show no icon (suppressed).
+**Independent Test**: Run `rcdir` with a Nerd Font and verify icon glyphs appear before each filename.
 
-- [X] T016 [US4] Implement ParseIconValue (U+XXXX hex parsing, literal glyph extraction, empty = suppressed, validation with ErrorInfo) in TCDirCore/Config.cpp
-- [X] T017 [US4] Extend ProcessColorOverrideEntry with first-comma splitting to separate color and icon values per R5 design in TCDirCore/Config.cpp
-- [X] T018 [US4] Implement icon override dispatch methods (ProcessFileExtensionIconOverride, ProcessWellKnownDirIconOverride, ProcessFileAttributeIconOverride) with source tracking in TCDirCore/Config.cpp
-- [X] T019 [US4] Add duplicate and conflict detection for icon entries (first-write-wins, ErrorInfo on subsequent duplicates) in TCDirCore/Config.cpp
+### Implementation for User Story 1
 
-**Checkpoint**: `TCDIR=.cpp=Green,U+E61D` sets Green color + C++ icon. Entries without comma behave identically to pre-feature (zero regression). US4 acceptance scenarios 1–8 are satisfied.
+- [ ] T025 [US1] Implement `get_display_style_for_file()` in src/config.rs — port `GetDisplayStyleForFile()` from TCDirCore/Config.cpp (unified color+icon precedence walk: attributes → well-known dir → extension → type fallback)
+- [ ] T026 [US1] Implement `resolve_directory_style()` helper in src/config.rs — port `ResolveDirectoryStyle()` from TCDirCore/Config.cpp (well-known dir name lookup → reparse point check → default dir icon)
+- [ ] T027 [US1] Implement `resolve_extension_style()` helper in src/config.rs — port `ResolveExtensionStyle()` from TCDirCore/Config.cpp (extension lookup for both color + icon)
+- [ ] T028 [US1] Implement `resolve_file_attribute_style()` helper in src/config.rs — port `ResolveFileAttributeStyle()` from TCDirCore/Config.cpp (walk ATTRIBUTE_PRECEDENCE for color + icon)
+- [ ] T029 [US1] Implement `resolve_file_fallback_icon()` helper in src/config.rs — port `ResolveFileFallbackIcon()` from TCDirCore/Config.cpp (symlink/junction/default file icon)
+- [ ] T030 [US1] Implement `resolve_icons()` function in src/lib.rs — port icon activation resolution from `CreateDisplayer()` in TCDirCore/TCDir.cpp (CLI → env var → auto-detect priority cascade)
+- [ ] T031 [US1] Add `icons_active: bool` field to displayer structs in src/results_displayer.rs — port `m_fIconsActive` from TCDirCore/ResultsDisplayerNormal.cpp (pass through constructor)
+- [ ] T032 [US1] Add icon emission to `display_file_results()` in src/results_displayer.rs for Normal mode — port icon rendering from TCDirCore/ResultsDisplayerNormal.cpp (~line 90: if icons_active && icon != 0 && !suppressed → emit glyph + space; if suppressed → emit 2 spaces)
+- [ ] T033 [US1] Wire `resolve_icons()` into `run()` flow in src/lib.rs — port from TCDirCore/TCDir.cpp `CreateDisplayer()` (call after Config+CommandLine init, pass result to displayer creation)
 
----
-
-## Phase 6: User Story 5 + User Story 6 — Wide/Bare Display Modes + Well-Known Folder Icons (Priority: P3)
-
-**Goal**: Icons appear in wide (`/W`) and bare (`/B`) display modes with correct alignment. In wide mode, directory brackets are suppressed when icons are active (folder icon provides distinction). Well-known folder icons (`.git`, `src`, `docs`, etc.) display specific icons — this is already implemented via the foundational table (T003) and unified resolver (T008); this phase confirms it works across all display modes.
-
-**Independent Test**: Run `tcdir /W /Icons` and `tcdir /B /Icons` in a directory with well-known folders (.git, src, node_modules) and mixed files. Verify icons appear, columns align, and directories show without brackets in wide mode.
-
-- [X] T020 [P] [US5] Add icon display, directory bracket suppression when icons active, and column width adjustment (+2 for icon+space) to TCDirCore/ResultsDisplayerWide.cpp
-- [X] T021 [P] [US5] Add icon display before each filename to TCDirCore/ResultsDisplayerBare.cpp
-
-**Checkpoint**: All three display modes show icons correctly. Wide mode suppresses brackets. Column alignment accounts for icon width. US5 acceptance scenarios 1–5 and US6 acceptance scenarios 1–3 are satisfied. US6 scenario 4 (dir: override) was satisfied in Phase 5.
+**Checkpoint**: Icons appear in normal listings. Generic file/folder/symlink/junction icons display correctly. Extension-specific icons map to the correct glyph.
 
 ---
 
-## Phase 7: User Story 7 — Enhanced Cloud Status Symbols (Priority: P3)
+## Phase 4: User Story 2 — Auto-Detection of Nerd Font with Manual Override (Priority: P1)
 
-**Goal**: When icons are active in a cloud sync root, cloud status symbols upgrade from Unicode geometric shapes (○ ◐ ●) to Nerd Font glyphs (cloud outline, cloud check, pin). When icons are inactive, original symbols are preserved.
+**Goal**: Icons are auto-detected at startup; user can force-enable or force-disable via CLI or env var.
 
-**Independent Test**: Run `tcdir /Icons` in a OneDrive-synced folder. Verify cloud-only files show cloud outline glyph, locally available files show cloud-check glyph, and pinned files show pin glyph. Run `tcdir /Icons-` and verify original circles.
+**Independent Test**: On Nerd Font system → icons auto-appear. On non-NF system → classic output. /Icons forces on, /Icons- forces off.
 
-- [X] T022 [US7] Implement GetCloudStatusIcon method (returns NfIcon glyph when icons active, original Unicode shape when not) in TCDirCore/Config.cpp
-- [X] T023 [US7] Upgrade cloud status column output to call GetCloudStatusIcon in TCDirCore/ResultsDisplayerNormal.cpp
-- [X] T024 [US7] Add per-entry cloud status with NF glyph upgrade (FR-033) in TCDirCore/ResultsDisplayerWide.cpp
+### Implementation for User Story 2
 
-**Checkpoint**: Cloud symbols upgrade to NF glyphs with icons active. Zero regression when icons off. US7 acceptance scenarios 1–4 are satisfied.
+- [ ] T034 [US2] Wire `DefaultFontProber` and `DefaultEnvironmentProvider` into `resolve_icons()` in src/lib.rs — port from TCDirCore/TCDir.cpp (instantiate CNerdFontDetector, call Detect with console handle + env provider)
+- [ ] T035 [US2] Pass console output handle to `resolve_icons()` in src/lib.rs — port handle acquisition from TCDirCore/TCDir.cpp (use Console's stdout handle for GDI canary probe)
+- [ ] T036 [US2] Verify `/Icons` CLI flag overrides auto-detect in src/lib.rs — port priority 1 check from TCDirCore/TCDir.cpp CreateDisplayer()
+- [ ] T037 [US2] Verify `RCDIR=Icons` env var overrides auto-detect in src/lib.rs — port priority 2 check from TCDirCore/TCDir.cpp CreateDisplayer()
 
----
-
-## Phase 8: Polish & Cross-Cutting Concerns
-
-**Purpose**: Diagnostics, help text, version bump, and documentation updates
-
-- [X] T025 Extend DisplayUsage (`/?`) with /Icons and /Icons- flag documentation in TCDirCore/Usage.cpp
-- [X] T026 Extend DisplayEnvVarHelp (`/env`) with icon syntax documentation ([color][,icon], U+XXXX, dir: prefix, literal glyph) in TCDirCore/Usage.cpp
-- [X] T027 Extend DisplayCurrentConfiguration (`/config`) with icon detection status, resolved state, and icon mapping table with source indicators in TCDirCore/Usage.cpp
-- [X] T028 [P] Bump VERSION_MAJOR from 4 to 5 in TCDirCore/Version.h
+**Checkpoint**: Auto-detection works in WezTerm, classic conhost, and ConPTY terminals. CLI and env var overrides behave correctly.
 
 ---
 
-## Phase 9: Tests
+## Phase 5: User Story 3 — Icon Colors Match File Type Colors (Priority: P1)
 
-**Purpose**: Comprehensive test coverage for all user stories. 42 test scenarios documented in quickstart.md.
+**Goal**: Icon glyph inherits the same color as the filename for each entry.
 
-- [X] T029 [P] Create UnitTest/IconMappingTests.cpp — BMP/surrogate encoding (scenarios 1–2), table completeness and no-duplicate checks (scenarios 3–5), CodePointToWideChars edge cases
-- [X] T030 [P] Create UnitTest/NerdFontDetectorTests.cpp — WezTerm detection (scenario 6), ConPTY delegation (scenario 7), classic conhost canary probe (scenario 8), multiple env vars (scenario 9), empty env vars (scenario 10) using NerdFontDetectorProbe derivation pattern + CTestEnvironmentProvider
-- [X] T031 Extend UnitTest/ConfigTests.cpp with icon parsing tests (scenarios 11–22: comma syntax, U+XXXX, literal glyph, suppression, dir: prefix, attr: prefix, duplicates, Icons switch, invalid hex, surrogate rejection) and precedence tests (scenarios 23–27: hidden .cpp fallthrough, hidden .git dir, attribute icon lock, plain extension, unknown extension)
-- [X] T032 [P] Extend UnitTest/CommandLineTests.cpp with /Icons and /Icons- parsing tests (scenarios 28–32: enable, disable, long switch, nullopt default, CLI-over-env-var precedence)
-- [X] T033 Extend UnitTest/ResultsDisplayerTests.cpp with icon display tests for all modes (scenarios 33–42: normal icon/spacing/color, wide brackets/cloud-status/NF-glyph, bare icon+filename, column alignment)
-- [X] T034 Extend UnitTest/DirectoryListerScenarioTests.cpp with end-to-end icon scenarios (mixed file types, icons on/off, wide+bare modes with icons)
+**Independent Test**: Run `rcdir` with icons active; verify icon color matches filename color for directories, extensions, and attribute overrides.
+
+### Implementation for User Story 3
+
+- [ ] T038 [US3] Ensure icon emission uses `style.text_attr` in `display_file_results()` in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerNormal.cpp (Printf with textAttr for icon glyph, same attribute used for filename)
+- [ ] T039 [US3] Verify attribute-level color carries through to icon in `get_display_style_for_file()` in src/config.rs — port from TCDirCore/Config.cpp (when attribute matches, color locks but icon can fall through to extension level per FR-020)
+
+**Checkpoint**: Icon color is visually identical to filename color for all file types.
+
+---
+
+## Phase 6: User Story 4 — Environment Variable Icon Configuration (Priority: P2)
+
+**Goal**: Users customize icons via `RCDIR` env var using comma syntax `key=[color][,icon]`.
+
+**Independent Test**: Set `RCDIR=.py=Green,U+E606` and verify Python files show the custom icon in Green.
+
+### Implementation for User Story 4
+
+- [ ] T040 [US4] Implement `process_extension_icon_override()` in src/config.rs — port `ApplyIconOverride()` extension path from TCDirCore/Config.cpp (insert into extension_icons HashMap with source tracking)
+- [ ] T041 [US4] Implement `process_well_known_dir_icon_override()` in src/config.rs — port `ApplyIconOverride()` dir path from TCDirCore/Config.cpp (insert into well_known_dir_icons HashMap)
+- [ ] T042 [US4] Implement `process_file_attribute_icon_override()` in src/config.rs — port `ApplyIconOverride()` attribute path from TCDirCore/Config.cpp (insert into file_attr_icons HashMap)
+- [ ] T043 [US4] Wire comma-syntax icon overrides into `apply_user_color_overrides()` pipeline in src/config.rs — port from TCDirCore/Config.cpp (call icon override methods after parsing comma value for extension, dir:, attr: entries)
+- [ ] T044 [US4] Handle duplicate/conflicting icon entries in src/config.rs — port first-write-wins + ErrorInfo from TCDirCore/Config.cpp
+
+**Checkpoint**: All comma-syntax examples from cli-contract.md work correctly. Backward compatibility maintained for entries without commas.
+
+---
+
+## Phase 7: User Story 5 — Icons in Wide and Bare Display Modes (Priority: P3)
+
+**Goal**: Icons appear correctly in `/W` (wide) and `/B` (bare) modes with proper column alignment.
+
+**Independent Test**: Run `rcdir /W` and `rcdir /B` with icons active; verify icons appear with correct spacing.
+
+### Implementation for User Story 5
+
+- [ ] T045 [US5] Add icon emission to Wide display mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 175-184: icon glyph before filename, cchName += 2 for column width)
+- [ ] T046 [US5] Adjust column width calculation for icon in Wide mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 217: account for icon+space +2 width)
+- [ ] T047 [US5] Suppress directory brackets `[name]` in Wide mode when icons active in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (folder icon provides visual distinction, FR-008a)
+- [ ] T048 [US5] Add icon emission to Bare display mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerBare.cpp (~line 54-62: icon + space before path)
+
+**Checkpoint**: Wide columns align correctly with icon width. Bare mode shows icon + space + path. Directory brackets suppressed in wide mode with icons.
+
+---
+
+## Phase 8: User Story 6 — Well-Known Folder Icons (Priority: P3)
+
+**Goal**: Directories like `.git`, `node_modules`, `src` show specific icons instead of the generic folder icon.
+
+**Independent Test**: Create directories with well-known names and verify each shows its distinct icon.
+
+### Implementation for User Story 6
+
+- [ ] T049 [US6] Verify `resolve_directory_style()` performs well-known dir name lookup in src/config.rs — port from TCDirCore/Config.cpp ResolveDirectoryStyle() (case-insensitive name match in well_known_dir_icons HashMap)
+- [ ] T050 [US6] Verify user `dir:` prefix overrides built-in well-known dir icons in src/config.rs — port from TCDirCore/Config.cpp (RCDIR=dir:src=,U+ABCD overrides default)
+
+**Checkpoint**: ~55 well-known directory names show specific icons. User `dir:` overrides work.
+
+---
+
+## Phase 9: User Story 7 — Enhanced Cloud Status Symbols (Priority: P3)
+
+**Goal**: Cloud status column upgrades from Unicode circles to Nerd Font glyphs when icons are active.
+
+**Independent Test**: Run `rcdir` with icons in a OneDrive folder; verify cloud symbols are NF glyphs.
+
+### Implementation for User Story 7
+
+- [ ] T051 [US7] Add `nf_symbol()` method to `CloudStatus` enum in src/cloud_status.rs — port cloud icon lookup from `Config::GetCloudStatusIcon()` in TCDirCore/Config.cpp (CloudOnly → cloud_outline, Local → cloud_check, Pinned → pin)
+- [ ] T052 [US7] Modify `display_cloud_status_symbol()` in src/results_displayer.rs to use NF glyphs when icons active — port from TCDirCore/ResultsDisplayerNormal.cpp (~line 303: if icons_active → nf_symbol, else → Unicode symbols)
+- [ ] T053 [US7] Add cloud status NF glyph emission in Wide mode in src/results_displayer.rs — port from TCDirCore/ResultsDisplayerWide.cpp (~line 133-150: NF cloud glyphs before icon/filename)
+
+**Checkpoint**: Cloud status uses NF glyphs when icons on, Unicode circles when off. Zero regression.
+
+---
+
+## Phase 10: Diagnostics & Help
+
+**Purpose**: Documentation and configuration display for the icons feature.
+
+- [ ] T054 Add `/Icons` and `/Icons-` to `display_usage()` in src/usage.rs — port switch table and syntax line from TCDirCore/Usage.cpp
+- [ ] T055 Add comma syntax and `dir:` prefix documentation to `display_env_var_help()` in src/usage.rs — port env help text from TCDirCore/Usage.cpp (icon formats, U+XXXX, literal glyph, empty=suppressed, per FR-028)
+- [ ] T056 Add icon status line to `display_current_configuration()` in src/usage.rs — port icon detection result display from TCDirCore/Usage.cpp (FR-026: "Icons: On (auto-detected)" etc.)
+- [ ] T057 Add icon glyphs to extension color table in `display_current_configuration()` in src/usage.rs — port inline icon display from TCDirCore/Usage.cpp (~line 501-514: when icons active, show glyph before each extension entry, FR-027)
+- [ ] T058 Add well-known directory icon table to `display_current_configuration()` in src/usage.rs — port separate dir icon table from TCDirCore/Usage.cpp (FR-027: show when icons active, with source indicators)
+- [ ] T059 Add cloud status NF glyphs to config display item table in src/usage.rs — port from TCDirCore/Usage.cpp (FR-031: show NF glyph instead of Unicode shape when icons active)
+- [ ] T060 Display icon-related RCDIR overrides in `display_env_var_help()` in src/usage.rs — port from TCDirCore/Usage.cpp (FR-029: show parsed icon overrides from current RCDIR value)
+
+**Checkpoint**: `/Icons` documented in `/?`. Comma syntax documented in `/env`. Icon status shown in `/config`.
+
+---
+
+## Phase 11: Polish & Cross-Cutting Concerns
+
+**Purpose**: Final integration, validation, and cleanup
+
+- [ ] T061 Verify `display_env_var_issues()` reports icon-related errors in src/usage.rs — port error display for invalid U+XXXX, multi-char icons, duplicate icon entries from TCDirCore error handling
+- [ ] T062 Run `cargo clippy` and fix all warnings across modified and new files
+- [ ] T063 Run `cargo build --release` and verify clean build
+- [ ] T064 Run `cargo test` and verify all existing tests still pass (zero regression)
+- [ ] T065 Manual verification: icons appear with Nerd Font terminal, classic output without Nerd Font
+- [ ] T066 Manual verification: `/Icons` forces on, `/Icons-` forces off, `RCDIR=Icons`/`Icons-` work
+- [ ] T067 Manual verification: Wide mode columns align with icons, brackets suppressed
+- [ ] T068 Manual verification: Cloud status NF glyphs in OneDrive folder
+- [ ] T069 Run quickstart.md verification checklist (all items)
 
 ---
 
@@ -140,96 +214,88 @@
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies — start immediately
-- **Foundational (Phase 2)**: Depends on Setup — **BLOCKS all user stories**
-- **US1+US3 (Phase 3)**: Depends on Foundational — delivers the MVP
-- **US2 (Phase 4)**: Depends on Phase 3 (needs displayer wiring to replace CLI-only path)
-- **US4 (Phase 5)**: Depends on Phase 3 (needs Config icon infrastructure). Independent of US2.
-- **US5+US6 (Phase 6)**: Depends on Phase 3 (needs icon display pattern from Normal displayer). Independent of US2/US4.
-- **US7 (Phase 7)**: Depends on Phase 3 (needs icon active state). Independent of US2/US4/US5.
-- **Polish (Phase 8)**: Depends on Phases 3–7 (needs all features implemented)
-- **Tests (Phase 9)**: Depends on Phases 3–7 (tests the implementations)
+- **Phase 1 (Setup)**: No dependencies — start immediately
+- **Phase 2 (Foundational)**: Depends on Phase 1 — BLOCKS all user stories
+- **Phases 3–5 (US1–US3, P1)**: All depend on Phase 2 completion. US1 must complete before US3 (icon color requires icon emission). US2 can proceed in parallel with US1.
+- **Phase 6 (US4, P2)**: Depends on Phase 2 + US1 (needs comma syntax wired into config override pipeline)
+- **Phases 7–8 (US5–US6, P3)**: Depend on Phase 2 + US1. Can proceed in parallel with each other.
+- **Phase 9 (US7, P3)**: Depends on Phase 2 + US1.
+- **Phase 10 (Diagnostics)**: Depends on US1 + US2 at minimum (icons must work before documenting)
+- **Phase 11 (Polish)**: Depends on all prior phases
 
 ### User Story Dependencies
 
-- **US1+US3 (P1)**: Can start after Foundational — no dependencies on other stories
-- **US2 (P1)**: Can start after US1+US3 — replaces CLI-only activation with full detection chain
-- **US4 (P2)**: Can start after US1+US3 — extends Config parsing. Independent of US2.
-- **US5+US6 (P3)**: Can start after US1+US3 — extends displayers. Independent of US2/US4.
-- **US7 (P3)**: Can start after US1+US3 — extends cloud output. Independent of US2/US4/US5.
+- **US1 (Display Icons)**: Foundation only → MVP core
+- **US2 (Auto-Detection)**: Foundation only → can run in parallel with US1
+- **US3 (Icon Colors)**: Depends on US1 (icon emission must exist to verify color)
+- **US4 (Env Var Config)**: Depends on Foundation + US1 icon resolution
+- **US5 (Wide/Bare Modes)**: Depends on US1 (normal mode icons must work first)
+- **US6 (Well-Known Dirs)**: Depends on Foundation (well-known dir table + resolve_directory_style)
+- **US7 (Cloud Status)**: Depends on US1 (icons_active flag must be wired)
 
 ### Within Each User Story
 
-- Header files before implementation files
-- Config infrastructure before displayer integration
-- Core implementation before wiring/orchestration
+- Config/data changes before displayer changes
+- Resolution logic before emission logic
+- Core implementation before integration wiring
 
 ### Parallel Opportunities
 
-**After Foundational completes:**
-- US4, US5+US6, and US7 can all proceed in parallel (different files, no cross-dependencies)
-- US2 should complete before US4 (T015 adds env var switch handling needed for full TCDIR parsing)
+**Phase 2 parallel batch** (different files, no deps):
+- T005, T008 can start together (icon_mapping.rs vs file_attribute_map.rs)
+- T006, T007 can run in parallel (both in icon_mapping.rs but independent table sections)
+- T009, T010 can start together (nerd_font_detector.rs types)
+- T014, T015 can start together (config.rs new types + fields)
+- T022, T023 can start together (command_line.rs field + parsing)
 
-**Within Foundational (Phase 2):**
-- T002 (IconMapping.h) and T004 (CommandLine) — different files, parallel
-- T003 depends on T002 (needs header)
-- T005 depends on T002 (references NfIcon types)
-
-**Within Tests (Phase 9):**
-- T029 (IconMappingTests) and T030 (NerdFontDetectorTests) — new files, parallel
-- T032 (CommandLineTests) — different file from T031, parallel with T031
-- T033 and T034 — sequential (displayer tests before end-to-end)
-
----
-
-## Parallel Example: After Foundational
-
-```
-# Parallel batch 1 — after Phase 3 (US1+US3) completes:
-Developer A: Phase 4 (US2) — NerdFontDetector + detection orchestration
-Developer B: Phase 6 (US5+US6) — Wide/Bare displayers
-Developer C: Phase 7 (US7) — Cloud status upgrade
-
-# Parallel batch 2 — after US2 completes:
-Developer A: Phase 5 (US4) — TCDIR icon parsing
-Developer B: Phase 8 (Polish) — Usage + Version
-```
+**After Phase 2, these story tracks can parallelize**:
+- US1 (T025–T033) and US2 (T034–T037) — different areas of code
+- US5 (T045–T048) and US6 (T049–T050) — after US1 completes
+- US7 (T051–T053) can run alongside US5/US6
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (User Story 1+3 Only)
+### MVP First (US1 + US2 + US3)
 
-1. Complete Phase 1: Setup (T001)
-2. Complete Phase 2: Foundational (T002–T005)
-3. Complete Phase 3: US1+US3 (T006–T011)
-4. **STOP and VALIDATE**: `tcdir /Icons` shows icons in normal mode with correct colors
-5. This is a shippable MVP — manual `/Icons` flag enables the feature
+1. Complete Phase 1: Setup (T001–T004)
+2. Complete Phase 2: Foundational (T005–T024)
+3. Complete Phase 3: US1 — icons display in normal mode (T025–T033)
+4. Complete Phase 4: US2 — auto-detection works (T034–T037)
+5. Complete Phase 5: US3 — icon colors correct (T038–T039)
+6. **STOP and VALIDATE**: Icons work end-to-end with correct colors
 
 ### Incremental Delivery
 
-1. Setup + Foundational → Infrastructure ready
-2. US1+US3 → Icons in normal mode with `/Icons` override → **MVP!**
-3. US2 → Auto-detection makes icons zero-config → Feature complete for most users
-4. US4 → TCDIR customization → Power user configuration
-5. US5+US6 → Wide/Bare modes + well-known folders → Full display mode coverage
-6. US7 → Cloud status upgrade → Visual polish
-7. Polish + Tests → Production ready with v5.0 version bump
+7. Phase 6: US4 — env var customization (T040–T044)
+8. Phase 7: US5 — wide/bare modes (T045–T048)
+9. Phase 8: US6 — well-known dir icons (T049–T050)
+10. Phase 9: US7 — cloud status NF glyphs (T051–T053)
+11. Phase 10: Diagnostics (T054–T060)
+12. Phase 11: Polish (T061–T069)
 
-### Suggested MVP Scope
+### Approach
 
-Phase 1 + Phase 2 + Phase 3 = **11 tasks** (T001–T011). This delivers icons in normal mode with the `/Icons` flag, which is sufficient to demo and validate the core feature.
+Every task ports directly from the TCDir C++ reference implementation. Examine the TCDir source for each task, understand the algorithm, then translate to idiomatic Rust using the same logic, same data flow, same behavior.
 
 ---
 
-## Notes
+## Summary
 
-- [P] = different files, no dependencies on incomplete tasks in the same phase
-- [US*] label maps task to specific user story for traceability
-- US3 (icon colors match) is inherent in the GetDisplayStyleForFile unified resolver (US1 T008)
-- US6 (well-known folder icons) is inherent in the foundational table (T003) + US1 resolver (T008) + US4 dir: override (T018)
-- All new .h/.cpp files must be added to the corresponding .vcxproj and .vcxproj.filters
-- Test files follow the existing ConfigProbe/NerdFontDetectorProbe derivation pattern
-- Commit after each task or logical group; stop at any checkpoint to validate
-- 42 test scenarios from quickstart.md are mapped to tasks T029–T034
+| Metric | Value |
+|--------|-------|
+| Total tasks | 69 |
+| Phase 1 (Setup) | 4 |
+| Phase 2 (Foundational) | 20 |
+| US1 (Display Icons) | 9 |
+| US2 (Auto-Detection) | 4 |
+| US3 (Icon Colors) | 2 |
+| US4 (Env Var Config) | 5 |
+| US5 (Wide/Bare) | 4 |
+| US6 (Well-Known Dirs) | 2 |
+| US7 (Cloud Status) | 3 |
+| Diagnostics | 7 |
+| Polish | 9 |
+| Parallel opportunities | T005–T007, T009–T010, T014–T015, T022–T023 (foundational); US1∥US2 (story-level) |
+| MVP scope | US1 + US2 + US3 (Phases 1–5, T001–T039) |

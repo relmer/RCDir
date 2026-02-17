@@ -7,6 +7,26 @@
 
 Add Nerd Font file and folder icons to RCDir directory listings, matching TCDir's implementation identically. Icons are auto-detected via a layered strategy (WezTerm → conhost GDI canary → system font enumeration), controllable via `/Icons`/`/Icons-` CLI flags and the `RCDIR` environment variable's extended comma syntax (`key=[color][,icon]`). The implementation adds 3 new modules (`icon_mapping`, `nerd_font_detector`, `file_attribute_map`), extends `Config` and `CommandLine` with icon fields, and modifies all 3 displayers to emit icon glyphs before filenames. Cloud status symbols upgrade to NF glyphs when icons are active.
 
+## Implementation Approach
+
+**This feature is a direct port from TCDir's C++ implementation.** For every task, the implementer must examine the corresponding TCDir source file first, understand the algorithm and data flow, then translate it to idiomatic Rust — same logic, same behavior, same edge-case handling. Do not invent new approaches where TCDir already has a working solution.
+
+**Reference source files** (in the `TCDir/TCDirCore/` workspace folder):
+
+| RCDir module | TCDir source | What to port |
+|---|---|---|
+| `src/icon_mapping.rs` | `IconMapping.h`, `IconMapping.cpp` | NF constants, extension table, well-known dir table, attribute precedence |
+| `src/nerd_font_detector.rs` | `NerdFontDetector.h`, `NerdFontDetector.cpp` | Detection enums, 5-step detect chain, GDI canary probe, font enumeration |
+| `src/file_attribute_map.rs` | `IconMapping.cpp` (precedence array) | `ATTRIBUTE_PRECEDENCE` order (PSHERC0TA) |
+| `src/config.rs` | `Config.h`, `Config.cpp` | `FileDisplayStyle`, icon fields, icon maps, `parse_icon_value`, `get_display_style_for_file`, comma-syntax override pipeline |
+| `src/command_line.rs` | `CommandLine.h`, `CommandLine.cpp` | `icons` field, `/Icons`/`/Icons-` parsing, config merge |
+| `src/results_displayer.rs` | `ResultsDisplayerNormal.cpp`, `ResultsDisplayerWide.cpp`, `ResultsDisplayerBare.cpp` | Icon emission, column width adjustment, bracket suppression, cloud NF glyphs |
+| `src/cloud_status.rs` | `Config.cpp` (`GetCloudStatusIcon`) | `nf_symbol()` method on `CloudStatus` enum |
+| `src/usage.rs` | `Usage.cpp` | `/Icons` switch docs, comma syntax docs, config display with icons |
+| `src/lib.rs` | `TCDir.cpp` (`CreateDisplayer`) | `resolve_icons()` — CLI → env var → auto-detect priority cascade |
+
+**Key principle**: When in doubt about behavior, check what TCDir does and match it exactly.
+
 ## Technical Context
 
 **Language/Version**: Rust stable (edition 2024, toolchain 1.85+)

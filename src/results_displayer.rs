@@ -72,9 +72,10 @@ pub trait ResultsDisplayer {
 ///
 /// Port of: CResultsDisplayerNormal + CResultsDisplayerWithHeaderAndFooter
 pub struct NormalDisplayer {
-    console: Console,
-    cmd:     Arc<CommandLine>,
-    config:  Arc<Config>,
+    console:      Console,
+    cmd:          Arc<CommandLine>,
+    config:       Arc<Config>,
+    icons_active: bool,
 }
 
 
@@ -99,8 +100,8 @@ impl NormalDisplayer {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
-        NormalDisplayer { console, cmd, config }
+    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>, icons_active: bool) -> Self {
+        NormalDisplayer { console, cmd, config, icons_active }
     }
 
 
@@ -175,7 +176,7 @@ impl ResultsDisplayer for NormalDisplayer {
         if dir_info.matches.is_empty() {
             display_empty_directory_message(&mut self.console, dir_info);
         } else {
-            display_file_results(&mut self.console, &self.cmd, &self.config, dir_info);
+            display_file_results(&mut self.console, &self.cmd, &self.config, dir_info, self.icons_active);
             display_directory_summary(&mut self.console, dir_info);
 
             // Only show volume footer if we're not doing recursive listing
@@ -337,6 +338,7 @@ fn display_file_results(
     cmd: &CommandLine,
     config: &Config,
     dir_info: &DirectoryInfo,
+    icons_active: bool,
 ) {
     let max_size_width = get_string_length_of_max_file_size(dir_info.largest_file_size);
     let in_sync_root = cloud_status::is_under_sync_root(dir_info.dir_path.as_os_str());
@@ -349,7 +351,8 @@ fn display_file_results(
     };
 
     for (idx, file_info) in dir_info.matches.iter().enumerate() {
-        let text_attr = config.get_text_attr_for_file(file_info.file_attributes, &file_info.file_name);
+        let style = config.get_display_style_for_file (file_info);
+        let text_attr = style.text_attr;
 
         // Date and time
         let time_value = get_time_field_for_display(file_info, cmd.time_field);
@@ -374,6 +377,19 @@ fn display_file_results(
         // Owner column (if --owner)
         if let (true, Some(owner_str)) = (cmd.show_owner, owners.get(idx)) {
             display_file_owner(console, config, owner_str, max_owner_len);
+        }
+
+        // Icon glyph (when icons are active and not suppressed)
+        if icons_active {
+            if let Some(icon) = style.icon_code_point {
+                if !style.icon_suppressed {
+                    console.printf (text_attr, &format!("{} ", icon));
+                } else {
+                    console.printf (text_attr, "  ");
+                }
+            } else {
+                console.printf (text_attr, "  ");
+            }
         }
 
         // Filename
@@ -952,9 +968,11 @@ fn format_with_commas(n: u64) -> String {
 ///
 /// Port of: CResultsDisplayerWide
 pub struct WideDisplayer {
-    console: Console,
-    cmd:     Arc<CommandLine>,
-    config:  Arc<Config>,
+    console:      Console,
+    cmd:          Arc<CommandLine>,
+    config:       Arc<Config>,
+    #[allow(dead_code)] // Used in Phase 8 (T058-T063)
+    icons_active: bool,
 }
 
 
@@ -979,8 +997,8 @@ impl WideDisplayer {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
-        WideDisplayer { console, cmd, config }
+    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>, icons_active: bool) -> Self {
+        WideDisplayer { console, cmd, config, icons_active }
     }
 
 
@@ -1181,9 +1199,11 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
 ///
 /// Port of: CResultsDisplayerBare
 pub struct BareDisplayer {
-    console: Console,
-    cmd:     Arc<CommandLine>,
-    config:  Arc<Config>,
+    console:      Console,
+    cmd:          Arc<CommandLine>,
+    config:       Arc<Config>,
+    #[allow(dead_code)] // Used in Phase 7 (T053-T057)
+    icons_active: bool,
 }
 
 
@@ -1208,8 +1228,8 @@ impl BareDisplayer {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
-        BareDisplayer { console, cmd, config }
+    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>, icons_active: bool) -> Self {
+        BareDisplayer { console, cmd, config, icons_active }
     }
 
 
@@ -1358,13 +1378,13 @@ impl Displayer {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
+    pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>, icons_active: bool) -> Self {
         if cmd.bare_listing {
-            Displayer::Bare(BareDisplayer::new(console, cmd, config))
+            Displayer::Bare(BareDisplayer::new(console, cmd, config, icons_active))
         } else if cmd.wide_listing {
-            Displayer::Wide(WideDisplayer::new(console, cmd, config))
+            Displayer::Wide(WideDisplayer::new(console, cmd, config, icons_active))
         } else {
-            Displayer::Normal(NormalDisplayer::new(console, cmd, config))
+            Displayer::Normal(NormalDisplayer::new(console, cmd, config, icons_active))
         }
     }
 

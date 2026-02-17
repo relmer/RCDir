@@ -10,7 +10,11 @@ use std::path::Path;
 
 use crate::color::*;
 use crate::environment_provider::{DefaultEnvironmentProvider, EnvironmentProvider};
-use crate::file_info::FILE_ATTRIBUTE_MAP;
+use crate::file_attribute_map::ATTRIBUTE_PRECEDENCE;
+use crate::file_info::{
+    FILE_ATTRIBUTE_MAP, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+    IO_REPARSE_TAG_SYMLINK, IO_REPARSE_TAG_MOUNT_POINT,
+};
 use crate::icon_mapping::{
     self,
     NF_CUSTOM_FOLDER, NF_FA_EXTERNAL_LINK, NF_FA_FILE, NF_COD_FILE_SYMLINK_DIR,
@@ -561,6 +565,180 @@ impl Config {
             attr |= default_attr & BC_MASK;
         }
         attr
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  get_display_style_for_file
+    //
+    //  Unified precedence resolver returning color + icon for a file entry.
+    //  Levels are called lowest-priority first so that higher-priority
+    //  levels overwrite.
+    //
+    //    Directories:  fallback dir icon  < well-known dir < attributes
+    //    Files:        fallback file icon < extension      < attributes
+    //
+    //  Port of: CConfig::GetDisplayStyleForFile
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn get_display_style_for_file(&self, file_info: &crate::file_info::FileInfo) -> FileDisplayStyle {
+        let default_attr = self.attributes[Attribute::Default as usize];
+        let mut style = FileDisplayStyle {
+            text_attr:       default_attr,
+            icon_code_point: None,
+            icon_suppressed: false,
+        };
+
+        if file_info.file_attributes & FILE_ATTRIBUTE_DIRECTORY != 0 {
+            self.resolve_directory_style (file_info, &mut style);
+        } else {
+            self.resolve_file_fallback_icon (file_info, &mut style);
+            self.resolve_extension_style (file_info, &mut style);
+        }
+
+        self.resolve_file_attribute_style (file_info, &mut style);
+
+        // Inherit default background if none set
+        if style.text_attr & BC_MASK == 0 {
+            style.text_attr |= default_attr & BC_MASK;
+        }
+
+        style.text_attr = ensure_visible_color_attr (style.text_attr, default_attr);
+
+        style
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  resolve_directory_style
+    //
+    //  Set color and icon for a directory entry.  Checks well-known dir
+    //  name first, then falls back to reparse point type or default dir
+    //  icon.
+    //
+    //  Port of: CConfig::ResolveDirectoryStyle
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn resolve_directory_style(&self, file_info: &crate::file_info::FileInfo, style: &mut FileDisplayStyle) {
+        let name = file_info.file_name.to_string_lossy().to_ascii_lowercase();
+
+        style.text_attr = self.attributes[Attribute::Directory as usize];
+
+        // Check well-known directory names
+        if let Some(&icon) = self.well_known_dir_icons.get(&name) {
+            style.icon_code_point = if icon == '\0' { None } else { Some (icon) };
+            style.icon_suppressed = icon == '\0';
+            return;
+        }
+
+        // Reparse points get special icons
+        if file_info.file_attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            match file_info.reparse_tag {
+                IO_REPARSE_TAG_SYMLINK     => style.icon_code_point = Some (self.icon_symlink),
+                IO_REPARSE_TAG_MOUNT_POINT => style.icon_code_point = Some (self.icon_junction),
+                _                          => style.icon_code_point = Some (self.icon_directory_default),
+            }
+        } else {
+            style.icon_code_point = Some (self.icon_directory_default);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  resolve_extension_style
+    //
+    //  Set color and icon from extension lookup tables.
+    //
+    //  Port of: CConfig::ResolveExtensionStyle
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn resolve_extension_style(&self, file_info: &crate::file_info::FileInfo, style: &mut FileDisplayStyle) {
+        let path = Path::new(&file_info.file_name);
+        let ext_str = match path.extension() {
+            Some(ext) => format!(".{}", ext.to_string_lossy()).to_ascii_lowercase(),
+            None => return,
+        };
+
+        if let Some(&color) = self.extension_colors.get(&ext_str) {
+            style.text_attr = color;
+        }
+
+        if let Some(&icon) = self.extension_icons.get(&ext_str) {
+            style.icon_code_point = if icon == '\0' { None } else { Some (icon) };
+            style.icon_suppressed = icon == '\0';
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  resolve_file_attribute_style
+    //
+    //  Walk attribute precedence in reverse (lowest priority first) so the
+    //  highest-priority attribute overwrites last.
+    //
+    //  Port of: CConfig::ResolveFileAttributeStyle
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn resolve_file_attribute_style(&self, file_info: &crate::file_info::FileInfo, style: &mut FileDisplayStyle) {
+        for &(flag, _) in ATTRIBUTE_PRECEDENCE.iter().rev() {
+            if file_info.file_attributes & flag == 0 {
+                continue;
+            }
+
+            if let Some(attr_style) = self.file_attr_colors.get(&flag) {
+                style.text_attr = attr_style.attr;
+            }
+
+            if let Some(&icon) = self.file_attr_icons.get(&flag) {
+                style.icon_code_point = if icon == '\0' { None } else { Some (icon) };
+                style.icon_suppressed = icon == '\0';
+            }
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  resolve_file_fallback_icon
+    //
+    //  Set the fallback icon for non-directory files (symlink or default
+    //  file icon).
+    //
+    //  Port of: CConfig::ResolveFileFallbackIcon
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn resolve_file_fallback_icon(&self, file_info: &crate::file_info::FileInfo, style: &mut FileDisplayStyle) {
+        if file_info.file_attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+            && file_info.reparse_tag == IO_REPARSE_TAG_SYMLINK
+        {
+            style.icon_code_point = Some (self.icon_symlink);
+        } else {
+            style.icon_code_point = Some (self.icon_file_default);
+        }
     }
 
 
@@ -1436,6 +1614,39 @@ impl std::fmt::Debug for Config {
             .field("file_attr_count", &self.file_attr_colors.len())
             .finish()
     }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  ensure_visible_color_attr
+//
+//  Adjust a color attribute so foreground is visible against the background.
+//  If foreground matches background, use a contrasting background.
+//
+//  Port of: CConfig::EnsureVisibleColorAttr
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn ensure_visible_color_attr(color_attr: u16, default_attr: u16) -> u16 {
+    let fore = color_attr & FC_MASK;
+    let mut back = color_attr & BC_MASK;
+    let default_back = default_attr & BC_MASK;
+
+    if back == 0 {
+        back = default_back;
+    }
+
+    // If fore matches back, use contrasting background
+    if (fore << 4) == back {
+        let contrast_back = if back & 0x80 != 0 { BC_BLACK } else { BC_LIGHT_GREY };
+        return fore | contrast_back;
+    }
+
+    fore | back
 }
 
 

@@ -68,6 +68,9 @@ pub fn run() -> Result<(), AppError> {
     let mut cmd = cmd;
     cmd.apply_config_defaults(&cfg);
 
+    // Resolve icon activation (CLI → env var → auto-detect)
+    let icons_active = resolve_icons (&cmd, &cfg);
+
     // Wrap config in Arc for shared ownership with Console
     let cfg = Arc::new(cfg);
 
@@ -139,6 +142,7 @@ pub fn run() -> Result<(), AppError> {
             console,
             Arc::clone(&cmd),
             Arc::clone(&cfg),
+            icons_active,
         );
 
         if cmd.multi_threaded && cmd.recurse {
@@ -317,4 +321,37 @@ fn recurse_into_subdirectories(
             break;
         }
     }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  resolve_icons
+//
+//  Determine whether icons should be active.  Priority cascade:
+//    1. CLI flag (/Icons or /Icons-)  — always wins
+//    2. RCDIR env var (Icons / Icons-) — second priority
+//    3. Auto-detect via NerdFontDetector — third priority
+//
+//  Port of: CreateDisplayer() icon activation in TCDirCore/TCDir.cpp
+//
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn resolve_icons(cmd: &command_line::CommandLine, cfg: &config::Config) -> bool {
+    // CLI flag always wins
+    if let Some(cli_icons) = cmd.icons {
+        return cli_icons;
+    }
+
+    // RCDIR env var Icons/Icons- switch
+    if let Some(env_icons) = cfg.icons {
+        return env_icons;
+    }
+
+    // Auto-detect (Phase 4 will wire in DefaultFontProber / console handle;
+    // for now default to false = icons off when not explicitly requested)
+    false
 }

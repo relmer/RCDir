@@ -66,15 +66,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T025 [US1] Implement `get_display_style_for_file()` in src/config.rs — port `GetDisplayStyleForFile()` from TCDirCore/Config.cpp (unified color+icon precedence walk: attributes → well-known dir → extension → type fallback)
-- [ ] T026 [US1] Implement `resolve_directory_style()` helper in src/config.rs — port `ResolveDirectoryStyle()` from TCDirCore/Config.cpp (well-known dir name lookup → reparse point check → default dir icon)
-- [ ] T027 [US1] Implement `resolve_extension_style()` helper in src/config.rs — port `ResolveExtensionStyle()` from TCDirCore/Config.cpp (extension lookup for both color + icon)
-- [ ] T028 [US1] Implement `resolve_file_attribute_style()` helper in src/config.rs — port `ResolveFileAttributeStyle()` from TCDirCore/Config.cpp (walk ATTRIBUTE_PRECEDENCE for color + icon)
-- [ ] T029 [US1] Implement `resolve_file_fallback_icon()` helper in src/config.rs — port `ResolveFileFallbackIcon()` from TCDirCore/Config.cpp (symlink/junction/default file icon)
-- [ ] T030 [US1] Implement `resolve_icons()` function in src/lib.rs — port icon activation resolution from `CreateDisplayer()` in TCDirCore/TCDir.cpp (CLI → env var → auto-detect priority cascade)
-- [ ] T031 [US1] Add `icons_active: bool` field to displayer structs in src/results_displayer.rs — port `m_fIconsActive` from TCDirCore/ResultsDisplayerNormal.cpp (pass through constructor)
-- [ ] T032 [US1] Add icon emission to `display_file_results()` in src/results_displayer.rs for Normal mode — port icon rendering from TCDirCore/ResultsDisplayerNormal.cpp (~line 90: if icons_active && icon != 0 && !suppressed → emit glyph + space; if suppressed → emit 2 spaces)
-- [ ] T033 [US1] Wire `resolve_icons()` into `run()` flow in src/lib.rs — port from TCDirCore/TCDir.cpp `CreateDisplayer()` (call after Config+CommandLine init, pass result to displayer creation)
+- [X] T025 [US1] Implement `get_display_style_for_file()` in src/config.rs — port `GetDisplayStyleForFile()` from TCDirCore/Config.cpp (unified color+icon precedence walk: attributes → well-known dir → extension → type fallback)
+- [X] T026 [US1] Implement `resolve_directory_style()` helper in src/config.rs — port `ResolveDirectoryStyle()` from TCDirCore/Config.cpp (well-known dir name lookup → reparse point check → default dir icon)
+- [X] T027 [US1] Implement `resolve_extension_style()` helper in src/config.rs — port `ResolveExtensionStyle()` from TCDirCore/Config.cpp (extension lookup for both color + icon)
+- [X] T028 [US1] Implement `resolve_file_attribute_style()` helper in src/config.rs — port `ResolveFileAttributeStyle()` from TCDirCore/Config.cpp (walk ATTRIBUTE_PRECEDENCE for color + icon)
+- [X] T029 [US1] Implement `resolve_file_fallback_icon()` helper in src/config.rs — port `ResolveFileFallbackIcon()` from TCDirCore/Config.cpp (symlink/junction/default file icon)
+- [X] T030 [US1] Implement `resolve_icons()` function in src/lib.rs — port icon activation resolution from `CreateDisplayer()` in TCDirCore/TCDir.cpp (CLI → env var → auto-detect priority cascade)
+- [X] T031 [US1] Add `icons_active: bool` field to displayer structs in src/results_displayer.rs — port `m_fIconsActive` from TCDirCore/ResultsDisplayerNormal.cpp (pass through constructor)
+- [X] T032 [US1] Add icon emission to `display_file_results()` in src/results_displayer.rs for Normal mode — port icon rendering from TCDirCore/ResultsDisplayerNormal.cpp (~line 90: if icons_active && icon != 0 && !suppressed → emit glyph + space; if suppressed → emit 2 spaces)
+- [X] T033 [US1] Wire `resolve_icons()` into `run()` flow in src/lib.rs — port from TCDirCore/TCDir.cpp `CreateDisplayer()` (call after Config+CommandLine init, pass result to displayer creation)
 
 **Checkpoint**: Icons appear in normal listings. Generic file/folder/symlink/junction icons display correctly. Extension-specific icons map to the correct glyph.
 

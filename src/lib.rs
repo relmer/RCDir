@@ -31,9 +31,9 @@ pub mod file_attribute_map;
 
 
 
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::os::windows::ffi::OsStringExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ehm::AppError;
@@ -52,181 +52,307 @@ use ehm::AppError;
 ////////////////////////////////////////////////////////////////////////////////
 
 pub fn run() -> Result<(), AppError> {
-    // Start performance timer immediately
     let mut timer = perf_timer::PerfTimer::new();
     timer.start();
 
-    // Parse command line
+    let (cmd, cfg, icons_active) = initialize()?;
+    let mut console = console::Console::initialize (Arc::clone (&cfg))?;
+
+    if process_info_switches (&mut console, &cmd, icons_active)? {
+        return Ok(());
+    }
+
+    let cmd = Arc::new (cmd);
+    let groups = build_mask_groups (&cmd);
+    let mut totals = listing_totals::ListingTotals::default();
+
+    for group in &groups {
+        console = process_directory_group (group, &cmd, &cfg, console, &mut totals, icons_active);
+    }
+
+    finalize (&mut console, &cmd, &mut timer)?;
+    Ok(())
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  initialize
+//
+//  Parse command line, initialize configuration, resolve icon activation.
+//  Returns the fully-configured CommandLine, Config (in Arc), and icons flag.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn initialize() -> Result<(command_line::CommandLine, Arc<config::Config>, bool), AppError> {
     let args: Vec<String> = std::env::args().collect();
-    let cmd = command_line::CommandLine::parse_from(args.iter().skip(1))?;
+    let cmd = command_line::CommandLine::parse_from (args.iter().skip (1))?;
 
-    // Initialize configuration
     let mut cfg = config::Config::new();
-    cfg.initialize(0x07); // default: LightGrey on Black
+    cfg.initialize (0x07); // default: LightGrey on Black
 
-    // Apply config defaults from RCDIR env var to command line
     let mut cmd = cmd;
-    cmd.apply_config_defaults(&cfg);
+    cmd.apply_config_defaults (&cfg);
 
-    // Resolve icon activation (CLI → env var → auto-detect)
     let icons_active = resolve_icons (&cmd, &cfg);
 
-    // Wrap config in Arc for shared ownership with Console
-    let cfg = Arc::new(cfg);
+    let cfg = Arc::new (cfg);
+    Ok ((cmd, cfg, icons_active))
+}
 
-    // Initialize console
-    let mut console = console::Console::initialize(Arc::clone(&cfg))?;
 
-    // Help early exits — show requested help and return
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  process_info_switches
+//
+//  Handle informational display switches: /?, /Env, /Config.
+//  Returns true if a switch was handled (caller should exit), false otherwise.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn process_info_switches(
+    console: &mut console::Console,
+    cmd: &command_line::CommandLine,
+    icons_active: bool,
+) -> Result<bool, AppError> {
     if cmd.show_help {
-        usage::display_usage(&mut console, cmd.switch_prefix, icons_active);
+        usage::display_usage (console, cmd.switch_prefix, icons_active);
         console.flush()?;
-        return Ok(());
+        return Ok (true);
     }
 
     if cmd.show_env_help {
-        usage::display_env_var_help(&mut console, cmd.switch_prefix);
+        usage::display_env_var_help (console, cmd.switch_prefix);
         console.flush()?;
-        return Ok(());
+        return Ok (true);
     }
 
     if cmd.show_config {
-        usage::display_current_configuration(&mut console, cmd.switch_prefix, icons_active);
+        usage::display_current_configuration (console, cmd.switch_prefix, icons_active);
         console.flush()?;
-        return Ok(());
+        return Ok (true);
     }
 
-    ////////////////////////////////////////////////////////////////////////////////
+    Ok (false)
+}
 
-    let cmd = Arc::new(cmd);
 
-    // Default mask: "*" if none specified
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  build_mask_groups
+//
+//  Build mask list (defaulting to "*") and group by target directory.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn build_mask_groups(cmd: &command_line::CommandLine) -> Vec<(PathBuf, Vec<OsString>)> {
     let masks = if cmd.masks.is_empty() {
-        vec![std::ffi::OsString::from("*")]
+        vec![OsString::from ("*")]
     } else {
         cmd.masks.clone()
     };
 
-    // Group masks by their target directories
-    let groups = mask_grouper::group_masks_by_directory(&masks);
+    mask_grouper::group_masks_by_directory (&masks)
+}
 
-    let mut totals = listing_totals::ListingTotals::default();
 
-    for group in &groups {
-        let (dir_path, file_specs) = group;
 
-        // Validate directory exists
-        if !dir_path.exists() || !dir_path.is_dir() {
-            console.color_printf(&format!(
-                "{{Error}}Error:   {{InformationHighlight}}{}{{Error}} does not exist\n",
-                dir_path.display(),
-            ));
-            continue;
-        }
 
-        console.puts(config::Attribute::Default, "");
 
-        let drive_info = match drive_info::DriveInfo::new(dir_path) {
-            Ok(di) => di,
-            Err(_) => {
-                console.color_printf(&format!(
-                    "{{Error}}Error:   Unable to get drive info for {{InformationHighlight}}{}\n",
-                    dir_path.display(),
-                ));
-                continue;
-            }
-        };
+////////////////////////////////////////////////////////////////////////////////
+//
+//  process_directory_group
+//
+//  Process a single (directory, file_specs) group: validate the path, get
+//  drive info, create a displayer, and dispatch to MT or ST processing.
+//  Returns the console recovered from the displayer.
+//
+////////////////////////////////////////////////////////////////////////////////
 
-        // Create the displayer for this listing (bare > wide > normal priority)
-        let mut displayer = results_displayer::Displayer::new(
-            console,
-            Arc::clone(&cmd),
-            Arc::clone(&cfg),
-            icons_active,
-        );
+fn process_directory_group(
+    group: &(PathBuf, Vec<OsString>),
+    cmd: &Arc<command_line::CommandLine>,
+    cfg: &Arc<config::Config>,
+    mut console: console::Console,
+    totals: &mut listing_totals::ListingTotals,
+    icons_active: bool,
+) -> console::Console {
+    let (dir_path, file_specs) = group;
 
-        if cmd.multi_threaded && cmd.recurse {
-            ////////////////////////////////////////////////////////////////////////////////
-            let mut mt_lister = multi_threaded_lister::MultiThreadedLister::new(
-                Arc::clone(&cmd),
-                Arc::clone(&cfg),
-            );
-
-            mt_lister.process(
-                &drive_info,
-                dir_path,
-                file_specs,
-                &mut displayer,
-                &mut totals,
-            );
-
-            // Build a summary DirectoryInfo for the recursive summary display
-            let spec_strings: Vec<String> = file_specs.iter()
-                .map(|s| s.to_string_lossy().to_string())
-                .collect();
-            let summary_di = directory_info::DirectoryInfo::new_multi(dir_path.clone(), spec_strings);
-
-            use results_displayer::ResultsDisplayer;
-            displayer.display_recursive_summary(&summary_di, &totals);
-
-            mt_lister.stop_workers();
-        } else {
-            ////////////////////////////////////////////////////////////////////////////////
-            for file_spec in file_specs {
-                let spec_str = file_spec.to_string_lossy().to_string();
-                let mut di = directory_info::DirectoryInfo::new(dir_path.clone(), spec_str);
-
-                // Enumerate matching files
-                directory_lister::collect_matching_files(
-                    dir_path,
-                    file_spec.as_os_str(),
-                    &mut di,
-                    &cmd,
-                    &mut totals,
-                    &cfg,
-                );
-
-                // Track directory count in totals
-                totals.directory_count += di.subdirectory_count;
-
-                // Sort results
-                file_comparator::sort_files(&mut di.matches, &cmd);
-
-                // Display results
-                use results_displayer::{ResultsDisplayer, DirectoryLevel};
-                displayer.display_results(&drive_info, &di, DirectoryLevel::Initial);
-
-                // Recurse into subdirectories if /S switch (single-threaded)
-                if cmd.recurse {
-                    recurse_into_subdirectories(
-                        &drive_info,
-                        dir_path,
-                        file_spec.as_os_str(),
-                        &cmd,
-                        &cfg,
-                        &mut totals,
-                        &mut displayer,
-                    );
-
-                    // Show recursive summary at the end of the initial directory
-                    displayer.display_recursive_summary(&di, &totals);
-                }
-            }
-        }
-
-        // Recover the console from the displayer
-        console = displayer.into_console();
+    // Validate directory exists
+    if !dir_path.exists() || !dir_path.is_dir() {
+        console.color_printf (&format! (
+            "{{Error}}Error:   {{InformationHighlight}}{}{{Error}} does not exist\n",
+            dir_path.display(),
+        ));
+        return console;
     }
 
+    console.puts (config::Attribute::Default, "");
+
+    let drive_info = match drive_info::DriveInfo::new (dir_path) {
+        Ok (di) => di,
+        Err(_) => {
+            console.color_printf (&format! (
+                "{{Error}}Error:   Unable to get drive info for {{InformationHighlight}}{}\n",
+                dir_path.display(),
+            ));
+            return console;
+        }
+    };
+
+    // Create the displayer for this listing (bare > wide > normal priority)
+    let mut displayer = results_displayer::Displayer::new (
+        console,
+        Arc::clone (cmd),
+        Arc::clone (cfg),
+        icons_active,
+    );
+
+    if cmd.multi_threaded && cmd.recurse {
+        process_multi_threaded (&drive_info, dir_path, file_specs, cmd, cfg, &mut displayer, totals);
+    } else {
+        process_single_threaded (&drive_info, dir_path, file_specs, cmd, cfg, &mut displayer, totals);
+    }
+
+    displayer.into_console()
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  process_multi_threaded
+//
+//  Multi-threaded recursive listing: spawn workers, process, display summary.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn process_multi_threaded(
+    drive_info: &drive_info::DriveInfo,
+    dir_path: &Path,
+    file_specs: &[OsString],
+    cmd: &Arc<command_line::CommandLine>,
+    cfg: &Arc<config::Config>,
+    displayer: &mut results_displayer::Displayer,
+    totals: &mut listing_totals::ListingTotals,
+) {
+    let mut mt_lister = multi_threaded_lister::MultiThreadedLister::new (
+        Arc::clone (cmd),
+        Arc::clone (cfg),
+    );
+
+    mt_lister.process (drive_info, dir_path, file_specs, displayer, totals);
+
+    // Build a summary DirectoryInfo for the recursive summary display
+    let spec_strings: Vec<String> = file_specs.iter()
+        .map (|s| s.to_string_lossy().to_string())
+        .collect();
+    let summary_di = directory_info::DirectoryInfo::new_multi (dir_path.to_path_buf(), spec_strings);
+
+    use results_displayer::ResultsDisplayer;
+    displayer.display_recursive_summary (&summary_di, totals);
+
+    mt_lister.stop_workers();
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  process_single_threaded
+//
+//  Single-threaded listing: enumerate, sort, display each file spec, with
+//  optional recursion into subdirectories.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn process_single_threaded(
+    drive_info: &drive_info::DriveInfo,
+    dir_path: &Path,
+    file_specs: &[OsString],
+    cmd: &Arc<command_line::CommandLine>,
+    cfg: &Arc<config::Config>,
+    displayer: &mut results_displayer::Displayer,
+    totals: &mut listing_totals::ListingTotals,
+) {
+    use results_displayer::{ResultsDisplayer, DirectoryLevel};
+
+    for file_spec in file_specs {
+        let spec_str = file_spec.to_string_lossy().to_string();
+        let mut di = directory_info::DirectoryInfo::new (dir_path.to_path_buf(), spec_str);
+
+        directory_lister::collect_matching_files (
+            dir_path,
+            file_spec.as_os_str(),
+            &mut di,
+            cmd,
+            totals,
+            cfg,
+        );
+
+        totals.directory_count += di.subdirectory_count;
+
+        file_comparator::sort_files (&mut di.matches, cmd);
+
+        displayer.display_results (drive_info, &di, DirectoryLevel::Initial);
+
+        if cmd.recurse {
+            recurse_into_subdirectories (
+                drive_info,
+                dir_path,
+                file_spec.as_os_str(),
+                cmd,
+                cfg,
+                totals,
+                displayer,
+            );
+
+            displayer.display_recursive_summary (&di, totals);
+        }
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  finalize
+//
+//  Display any RCDIR env var parsing errors, flush output, and optionally
+//  show performance timing.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn finalize(
+    console: &mut console::Console,
+    cmd: &command_line::CommandLine,
+    timer: &mut perf_timer::PerfTimer,
+) -> Result<(), AppError> {
     // Display any RCDIR env var parsing errors at end of output
     // Port of: TCDir.cpp → DisplayEnvVarIssues at end of wmain()
-    usage::display_env_var_issues(&mut console, cmd.switch_prefix, true);
+    usage::display_env_var_issues (console, cmd.switch_prefix, true);
     console.flush()?;
 
     // Performance timer output — spec A.11: "RCDir time elapsed:  X.XX msec\n"
     if cmd.perf_timer {
         timer.stop();
-        console.printf_attr(config::Attribute::Default, &format!("RCDir time elapsed:  {:.2} msec\n", timer.elapsed_ms()));
+        console.printf_attr (config::Attribute::Default, &format! ("RCDir time elapsed:  {:.2} msec\n", timer.elapsed_ms()));
         console.flush()?;
     }
 

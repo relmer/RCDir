@@ -169,38 +169,54 @@ impl CommandLine {
             match first_char {
                 '-' | '/' => {
                     cmd.switch_prefix = first_char;
-
-                    let switch_arg;
-                    let mut is_double_dash = false;
-
-                    // Check for '--' prefix
-                    if first_char == '-' && arg.len() > 1 && arg.as_bytes()[1] == b'-' {
-                        switch_arg = &arg[2..];
-                        is_double_dash = true;
-                    } else {
-                        switch_arg = &arg[1..];
-                    }
-
-                    // Detect long switch: 3+ chars without ':' or '-' at position 1
-                    let looks_like_long = switch_arg.len() >= 3
-                        && switch_arg.as_bytes().get(1) != Some(&b':')
-                        && switch_arg.as_bytes().get(1) != Some(&b'-');
-
-                    // Reject single-dash long switches (e.g., -env → error)
-                    if looks_like_long && !is_double_dash && first_char == '-' {
-                        return Err(AppError::InvalidArg(String::new()));
-                    }
-
-                    cmd.handle_switch(switch_arg)?;
+                    cmd.parse_switch (arg, first_char)?;
                 }
                 _ => {
                     // Positional argument (file mask)
-                    cmd.masks.push(OsString::from(arg));
+                    cmd.masks.push (OsString::from (arg));
                 }
             }
         }
 
         Ok(cmd)
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_switch
+    //
+    //  Strip the switch prefix (-, --, /) from a raw argument, validate
+    //  single-dash long switch rejection, and dispatch to handle_switch.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn parse_switch(&mut self, arg: &str, prefix: char) -> Result<(), AppError> {
+        let switch_arg;
+        let mut is_double_dash = false;
+
+        // Check for '--' prefix
+        if prefix == '-' && arg.len() > 1 && arg.as_bytes()[1] == b'-' {
+            switch_arg = &arg[2..];
+            is_double_dash = true;
+        } else {
+            switch_arg = &arg[1..];
+        }
+
+        // Detect long switch: 3+ chars without ':' or '-' at position 1
+        let looks_like_long = switch_arg.len() >= 3
+            && switch_arg.as_bytes().get (1) != Some (&b':')
+            && switch_arg.as_bytes().get (1) != Some (&b'-');
+
+        // Reject single-dash long switches (e.g., -env → error)
+        if looks_like_long && !is_double_dash && prefix == '-' {
+            return Err (AppError::InvalidArg (String::new()));
+        }
+
+        self.handle_switch (switch_arg)
     }
 
 
@@ -284,37 +300,35 @@ impl CommandLine {
     //
     //  handle_long_switch
     //
-    //  Handle long switches: env, config, owner, streams, debug.
+    //  Handle long switches: env, config, owner, streams, icons, debug.
+    //  Table-driven dispatch with case-insensitive matching.
     //
     //  Port of: CCommandLine::HandleLongSwitch
     //
     ////////////////////////////////////////////////////////////////////////////
 
     fn handle_long_switch(&mut self, switch_arg: &str) -> Result<(), AppError> {
-        if switch_arg.eq_ignore_ascii_case("env") {
-            self.show_env_help = true;
-            Ok(())
-        } else if switch_arg.eq_ignore_ascii_case("config") {
-            self.show_config = true;
-            Ok(())
-        } else if switch_arg.eq_ignore_ascii_case("owner") {
-            self.show_owner = true;
-            Ok(())
-        } else if switch_arg.eq_ignore_ascii_case("streams") {
-            self.show_streams = true;
-            Ok(())
-        } else if switch_arg.eq_ignore_ascii_case ("icons") {
-            self.icons = Some (true);
-            Ok(())
-        } else if switch_arg.eq_ignore_ascii_case ("icons-") {
-            self.icons = Some (false);
-            Ok(())
-        } else if cfg!(debug_assertions) && switch_arg.eq_ignore_ascii_case("debug") {
-            self.debug = true;
-            Ok(())
-        } else {
-            Err(AppError::InvalidArg(String::new()))
+        type Setter = fn(&mut CommandLine);
+
+        let switches: &[(&str, Setter)] = &[
+            ("env",     |cmd| cmd.show_env_help = true),
+            ("config",  |cmd| cmd.show_config   = true),
+            ("owner",   |cmd| cmd.show_owner    = true),
+            ("streams", |cmd| cmd.show_streams  = true),
+            ("icons",   |cmd| cmd.icons = Some (true)),
+            ("icons-",  |cmd| cmd.icons = Some (false)),
+            #[cfg(debug_assertions)]
+            ("debug",   |cmd| cmd.debug = true),
+        ];
+
+        for &(name, setter) in switches {
+            if switch_arg.eq_ignore_ascii_case (name) {
+                setter (self);
+                return Ok(());
+            }
         }
+
+        Err (AppError::InvalidArg (String::new()))
     }
 
 

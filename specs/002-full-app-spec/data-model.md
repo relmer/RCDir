@@ -1,6 +1,6 @@
 # Phase 1: Data Model — RCDir (C++ to Rust Port)
 
-**Date**: 2026-02-08 | **Branch**: `master`
+**Date**: 2026-02-08 | **Branch**: `002-full-app-spec`
 
 ---
 

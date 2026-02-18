@@ -1,6 +1,6 @@
 # Tasks: RCDir Full Application (C++ to Rust Port)
 
-**Input**: Design documents from `/specs/002-full-app-spec/` and `/specs/master/`
+**Input**: Design documents from `/specs/002-full-app-spec/`
 **Prerequisites**: plan.md ✓, spec.md ✓, research.md ✓, data-model.md ✓, contracts/cli-contract.md ✓, quickstart.md ✓
 
 **Tests**: Each module task includes writing `#[cfg(test)]` unit tests within the same source file. Tests are part of the task, not separate tasks. Output parity integration tests are in Phase 19.

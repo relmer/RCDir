@@ -1,7 +1,7 @@
 # Implementation Plan: RCDir Full Application (C++ to Rust Port)
 
-**Branch**: `002-full-app-spec` | **Date**: 2026-02-08 | **Spec**: [spec.md](../002-full-app-spec/spec.md)
-**Input**: Feature specification from `/specs/002-full-app-spec/spec.md`
+**Branch**: `002-full-app-spec` | **Date**: 2026-02-08 | **Spec**: [spec.md](spec.md)
+**Input**: Feature specification from `spec.md`
 
 ## Summary
 
@@ -44,14 +44,15 @@ No violations. All principles align with the port strategy.
 ```text
 specs/002-full-app-spec/
 ├── spec.md              # Feature specification
-├── checklists/
-│   └── requirements.md  # Requirements checklist
-specs/master/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output
 ├── quickstart.md        # Phase 1 output
-└── contracts/           # Phase 1 output (CLI contract)
+├── tasks.md             # Implementation tasks
+├── checklists/
+│   └── requirements.md  # Requirements checklist
+└── contracts/
+    └── cli-contract.md  # Phase 1 output (CLI contract)
 ```
 
 ### Source Code (repository root)

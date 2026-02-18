@@ -7,6 +7,7 @@ use crate::cloud_status::CloudStatus;
 use crate::color::*;
 use crate::config::{Attribute, AttributeSource, RCDIR_ENV_VAR_NAME};
 use crate::console::Console;
+use crate::icon_mapping::{NF_MD_CLOUD_OUTLINE, NF_MD_CLOUD_CHECK, NF_MD_PIN};
 
 
 
@@ -208,11 +209,15 @@ fn is_env_var_set(name: &str) -> bool {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn display_usage(console: &mut Console, prefix: char) {
+pub fn display_usage(console: &mut Console, prefix: char, icons_active: bool) {
     let short = if prefix == '-' { "-" } else { "/" };
     let long  = if prefix == '-' { "--" } else { "/" };
     let m_dis = if prefix == '-' { " -M-" } else { " /M-" };
     let lpad  = if prefix == '-' { "" } else { " " };
+
+    let sym_cloud  = if icons_active { NF_MD_CLOUD_OUTLINE } else { CIRCLE_HOLLOW };
+    let sym_local  = if icons_active { NF_MD_CLOUD_CHECK }   else { CIRCLE_HALF_FILLED };
+    let sym_pinned = if icons_active { NF_MD_PIN }           else { CIRCLE_FILLED };
 
     // "Technicolor" with rainbow per-character cycling
     console.puts(Attribute::Default, "");
@@ -274,9 +279,9 @@ Copyright {copy} 2004-{year} by Robert Elmer
                {{InformationHighlight}}-{{Information}}  Prefix meaning not
 
   Cloud status symbols shown between file size and name:
-               {{CloudStatusCloudOnly}}{CIRCLE_HOLLOW}{{Information}}  Cloud-only (not locally available)
-               {{CloudStatusLocallyAvailable}}{CIRCLE_HALF_FILLED}{{Information}}  Locally available (can be freed)
-               {{CloudStatusAlwaysLocallyAvailable}}{CIRCLE_FILLED}{{Information}}  Always locally available (pinned)
+               {{CloudStatusCloudOnly}}{sym_cloud}{{Information}}  Cloud-only (not locally available)
+               {{CloudStatusLocallyAvailable}}{sym_local}{{Information}}  Locally available (can be freed)
+               {{CloudStatusAlwaysLocallyAvailable}}{sym_pinned}{{Information}}  Always locally available (pinned)
 
   {{InformationHighlight}}{short}O{{Information}}          List by files in sorted order.
   sortorder    {{InformationHighlight}}N{{Information}}  By name (alphabetic)       {{InformationHighlight}}S{{Information}}  By size (smallest first)

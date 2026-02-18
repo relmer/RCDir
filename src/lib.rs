@@ -79,7 +79,7 @@ pub fn run() -> Result<(), AppError> {
 
     // Help early exits — show requested help and return
     if cmd.show_help {
-        usage::display_usage(&mut console, cmd.switch_prefix);
+        usage::display_usage(&mut console, cmd.switch_prefix, icons_active);
         console.flush()?;
         return Ok(());
     }

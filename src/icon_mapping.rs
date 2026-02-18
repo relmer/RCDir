@@ -11,7 +11,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-pub const NF_CUSTOM_ASM:              char = '\u{E6AB}';
+pub const NF_CUSTOM_ASM:             char = '\u{E6AB}';
 pub const NF_CUSTOM_ELIXIR:          char = '\u{E62D}';
 pub const NF_CUSTOM_ELM:             char = '\u{E62C}';
 pub const NF_CUSTOM_FOLDER:          char = '\u{E5FF}';

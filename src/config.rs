@@ -1146,10 +1146,11 @@ impl Config {
     //  Formats:
     //    ""           → suppressed (icon_suppressed = true, returns None)
     //    "X"          → single BMP codepoint (literal glyph)
-    //    "XY"         → surrogate pair → supplementary codepoint
     //    "U+XXXX"     → hex code point notation (4–6 hex digits)
     //
-    //  Port of: ParseIconValue in TCDirCore/Config.cpp
+    //  Note: Rust's char type cannot represent UTF-16 surrogates, so a
+    //  two-character string is always routed to U+XXXX parsing (which
+    //  will reject it if it lacks the "U+" prefix).
     //
     ////////////////////////////////////////////////////////////////////////////
 
@@ -1165,7 +1166,6 @@ impl Config {
 
         match chars.len() {
             1 => Self::parse_single_glyph (&chars, trimmed, entry, errors),
-            2 => Self::parse_surrogate_pair (&chars, trimmed, entry, errors),
             _ => Self::parse_uplus_notation (trimmed, entry, errors),
         }
     }
@@ -1204,34 +1204,7 @@ impl Config {
 
 
 
-    ////////////////////////////////////////////////////////////////////////////
-    //
-    //  parse_surrogate_pair
-    //
-    //  Try to decode two chars as a UTF-16 surrogate pair into a single
-    //  supplementary code point.
-    //
-    ////////////////////////////////////////////////////////////////////////////
 
-    fn parse_surrogate_pair(chars: &[char], trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
-        let hi = chars[0] as u32;
-        let lo = chars[1] as u32;
-
-        if (0xD800..=0xDBFF).contains (&hi) && (0xDC00..=0xDFFF).contains (&lo) {
-            let cp = 0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00);
-            if let Some (c) = char::from_u32 (cp) {
-                return Some ((c, false));
-            }
-        }
-
-        errors.push (ErrorInfo {
-            message:             "Invalid icon: expected single glyph or U+XXXX".into(),
-            entry:               entry.into(),
-            invalid_text:        trimmed.into(),
-            invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-        });
-        None
-    }
 
 
 

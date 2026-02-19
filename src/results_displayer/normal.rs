@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use crate::cloud_status::{self, CloudStatus};
+use crate::cloud_status;
 use crate::command_line::{CommandLine, TimeField};
 use crate::config::{Attribute, Config};
 use crate::console::Console;

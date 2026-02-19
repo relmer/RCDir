@@ -2,7 +2,7 @@
 //
 // Port of: CResultsDisplayerWithHeaderAndFooter (header/footer/summary methods)
 
-use crate::cloud_status::{self, CloudStatus};
+use crate::cloud_status::CloudStatus;
 use crate::config::{Attribute, Config};
 use crate::console::Console;
 use crate::directory_info::DirectoryInfo;

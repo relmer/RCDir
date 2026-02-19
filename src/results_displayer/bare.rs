@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use crate::command_line::CommandLine;
-use crate::config::{Attribute, Config};
+use crate::config::Config;
 use crate::console::Console;
 use crate::directory_info::DirectoryInfo;
 use crate::drive_info::DriveInfo;

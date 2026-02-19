@@ -18,6 +18,14 @@ use super::{
 
 
 
+/// Parsed icon result: (code_point, is_suppressed).
+/// Factored into a named type to keep composite return types readable.
+type IconParseResult = (char, bool);
+
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  impl Config — env var parsing methods
@@ -79,7 +87,7 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn parse_icon_value(icon_spec: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
+    fn parse_icon_value(icon_spec: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<IconParseResult> {
         let trimmed = icon_spec.trim();
 
         // Empty → suppressed
@@ -108,7 +116,7 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn parse_single_glyph(chars: &[char], trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
+    fn parse_single_glyph(chars: &[char], trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<IconParseResult> {
         let c  = chars[0];
         let cp = c as u32;
 
@@ -144,9 +152,9 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn parse_uplus_notation(trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
+    fn parse_uplus_notation(trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<IconParseResult> {
 
-        fn try_parse(trimmed: &str) -> Result<(char, bool), &'static str> {
+        fn try_parse(trimmed: &str) -> Result<IconParseResult, &'static str> {
             if !trimmed.starts_with ("U+") && !trimmed.starts_with ("u+") {
                 return Err ("Invalid icon: expected single glyph or U+XXXX");
             }
@@ -253,7 +261,7 @@ impl Config {
     ////////////////////////////////////////////////////////////////////////////
 
     fn parse_color_and_icon(&mut self, entry: &str, value: &str)
-        -> Option<(Option<u16>, Option<(char, bool)>)>
+        -> Option<(Option<u16>, Option<IconParseResult>)>
     {
         let (color_view, icon_view, has_comma) = if let Some (comma_pos) = value.find (',') {
             let color_part = value[..comma_pos].trim();
@@ -272,7 +280,7 @@ impl Config {
             None
         };
 
-        let mut icon_result: Option<(char, bool)> = None;
+        let mut icon_result: Option<IconParseResult> = None;
         if has_comma {
             let icon_spec = icon_view.unwrap_or ("");
             icon_result = Self::parse_icon_value (icon_spec, entry, &mut self.last_parse_result.errors);
@@ -296,7 +304,7 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn apply_key_override(&mut self, key: &str, color_attr: Option<u16>, icon_result: Option<(char, bool)>, entry: &str) {
+    fn apply_key_override(&mut self, key: &str, color_attr: Option<u16>, icon_result: Option<IconParseResult>, entry: &str) {
         type ColorHandler = fn(&mut Config, &str, u16, &str);
         type IconHandler  = fn(&mut Config, &str, char, bool, &str);
 

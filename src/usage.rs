@@ -879,13 +879,58 @@ fn display_well_known_dir_configuration(console: &mut Console, _icons_active: bo
 //  display_width
 //
 //  Returns the display width (in terminal columns) of a string.
-//  Uses char count rather than byte length so that multi-byte Unicode
-//  symbols like ○ ◐ ● (each 3 bytes, 1 column) are measured correctly.
+//  Accounts for double-width characters: CJK ideographs and Nerd Font
+//  PUA glyphs (which occupy 2 terminal columns).
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 fn display_width(s: &str) -> usize {
-    s.chars().count()
+    s.chars().map (char_display_width).sum()
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  char_display_width
+//
+//  Returns the display width (1 or 2 columns) of a single character.
+//  Handles CJK double-width ranges and Nerd Font PUA glyphs.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn char_display_width(c: char) -> usize {
+    let cp = c as u32;
+    match cp {
+        // Control characters — zero width
+        0x0000..=0x001F | 0x007F..=0x009F => 0,
+
+        // CJK double-width blocks
+        0x1100..=0x115F     // Hangul Jamo
+        | 0x2E80..=0x303E   // CJK Radicals, Kangxi Radicals, CJK Symbols
+        | 0x3041..=0x33BF   // Hiragana, Katakana, CJK Compatibility
+        | 0x3400..=0x4DBF   // CJK Unified Ideographs Extension A
+        | 0x4E00..=0x9FFF   // CJK Unified Ideographs
+        | 0xA000..=0xA4CF   // Yi Syllables, Yi Radicals
+        | 0xAC00..=0xD7AF   // Hangul Syllables
+        | 0xF900..=0xFAFF   // CJK Compatibility Ideographs
+        | 0xFE30..=0xFE6F   // CJK Compatibility Forms
+        | 0xFF01..=0xFF60   // Fullwidth Forms
+        | 0xFFE0..=0xFFE6   // Fullwidth Currency/Signs
+        | 0x20000..=0x2FFFF // CJK Extension B–F
+        | 0x30000..=0x3FFFF // CJK Extension G+
+        => 2,
+
+        // Nerd Font Private Use Area glyphs (2 columns in NF-capable terminals)
+        0xE000..=0xF8FF     // BMP PUA (Seti, Dev, FA, Weather, Oct, Powerline, MD, COD)
+        | 0xF0000..=0xFFFFF // Supplementary PUA-A
+        => 2,
+
+        // Everything else is 1 column
+        _ => 1,
+    }
 }
 
 
@@ -1263,5 +1308,111 @@ fn display_env_var_decoded_settings(console: &mut Console) {
                     &format! ("      dir:{} (suppressed)\n", name));
             }
         }
+    }
+}
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_width_ascii
+    //
+    //  Verify display width of plain ASCII strings.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_width_ascii() {
+        assert_eq!(display_width ("hello"), 5);
+        assert_eq!(display_width (""), 0);
+        assert_eq!(display_width ("a"), 1);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_width_nerd_font_glyph
+    //
+    //  Verify Nerd Font PUA glyphs occupy 2 columns.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_width_nerd_font_glyph() {
+        // NF_CUSTOM_FOLDER = U+E5FF (BMP PUA range)
+        let nf_folder = '\u{E5FF}';
+        assert_eq!(char_display_width (nf_folder), 2);
+
+        // A string with "icon file.rs" → icon (2) + space (1) + 7 = 10
+        let s = format! ("{} file.rs", nf_folder);
+        assert_eq!(display_width (&s), 10);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_width_cjk
+    //
+    //  Verify CJK ideographs occupy 2 columns.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_width_cjk() {
+        // U+4E2D = '中' (CJK Unified Ideograph)
+        assert_eq!(char_display_width ('\u{4E2D}'), 2);
+        // "中文" = 4 columns
+        assert_eq!(display_width ("中文"), 4);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_width_circle_symbols
+    //
+    //  Verify circle symbols (U+25CB, U+25D0, U+25CF) remain 1 column.
+    //  These are Geometric Shapes, not CJK or PUA.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_width_circle_symbols() {
+        assert_eq!(char_display_width ('○'), 1); // U+25CB
+        assert_eq!(char_display_width ('◐'), 1); // U+25D0
+        assert_eq!(char_display_width ('●'), 1); // U+25CF
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_width_control_chars
+    //
+    //  Verify control characters have zero width.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_width_control_chars() {
+        assert_eq!(char_display_width ('\0'), 0);
+        assert_eq!(char_display_width ('\t'), 0);
+        assert_eq!(char_display_width ('\n'), 0);
     }
 }

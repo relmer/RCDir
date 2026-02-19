@@ -1164,90 +1164,120 @@ impl Config {
         let chars: Vec<char> = trimmed.chars().collect();
 
         match chars.len() {
-            1 => {
-                let c = chars[0];
-                let cp = c as u32;
-                // Reject lone surrogates (can't happen in Rust's char, but be safe)
-                if (0xD800..=0xDFFF).contains (&cp) {
-                    errors.push (ErrorInfo {
-                        message:             "Invalid icon: lone surrogate".into(),
-                        entry:               entry.into(),
-                        invalid_text:        trimmed.into(),
-                        invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-                    });
-                    return None;
-                }
-                Some ((c, false))
+            1 => Self::parse_single_glyph (&chars, trimmed, entry, errors),
+            2 => Self::parse_surrogate_pair (&chars, trimmed, entry, errors),
+            _ => Self::parse_uplus_notation (trimmed, entry, errors),
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_single_glyph
+    //
+    //  Parse a single BMP character as an icon glyph.  Rejects lone
+    //  surrogates (can't happen with Rust's char, but be safe).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn parse_single_glyph(chars: &[char], trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
+        let c  = chars[0];
+        let cp = c as u32;
+
+        if (0xD800..=0xDFFF).contains (&cp) {
+            errors.push (ErrorInfo {
+                message:             "Invalid icon: lone surrogate".into(),
+                entry:               entry.into(),
+                invalid_text:        trimmed.into(),
+                invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+            });
+            return None;
+        }
+
+        Some ((c, false))
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_surrogate_pair
+    //
+    //  Try to decode two chars as a UTF-16 surrogate pair into a single
+    //  supplementary code point.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn parse_surrogate_pair(chars: &[char], trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
+        let hi = chars[0] as u32;
+        let lo = chars[1] as u32;
+
+        if (0xD800..=0xDBFF).contains (&hi) && (0xDC00..=0xDFFF).contains (&lo) {
+            let cp = 0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00);
+            if let Some (c) = char::from_u32 (cp) {
+                return Some ((c, false));
+            }
+        }
+
+        errors.push (ErrorInfo {
+            message:             "Invalid icon: expected single glyph or U+XXXX".into(),
+            entry:               entry.into(),
+            invalid_text:        trimmed.into(),
+            invalid_text_offset: entry.find (trimmed).unwrap_or (0),
+        });
+        None
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_uplus_notation
+    //
+    //  Parse a "U+XXXX" hex code point notation (4–6 hex digits) into an
+    //  icon character.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn parse_uplus_notation(trimmed: &str, entry: &str, errors: &mut Vec<ErrorInfo>) -> Option<(char, bool)> {
+
+        fn try_parse(trimmed: &str) -> Result<(char, bool), &'static str> {
+            if !trimmed.starts_with ("U+") && !trimmed.starts_with ("u+") {
+                return Err ("Invalid icon: expected single glyph or U+XXXX");
             }
 
-            2 => {
-                // Could be a surrogate pair encoded as two UTF-16 units
-                let hi = chars[0] as u32;
-                let lo = chars[1] as u32;
-                if (0xD800..=0xDBFF).contains (&hi) && (0xDC00..=0xDFFF).contains (&lo) {
-                    let cp = 0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00);
-                    if let Some (c) = char::from_u32 (cp) {
-                        return Some ((c, false));
-                    }
-                }
-                // Not a valid surrogate pair — treat as error
+            let hex_str = &trimmed[2..];
+            if hex_str.len() < 4 || hex_str.len() > 6 {
+                return Err ("Invalid icon: U+ requires 4-6 hex digits");
+            }
+
+            let cp = u32::from_str_radix (hex_str, 16)
+                .ok()
+                .filter (|&cp| (1..=0x10FFFF).contains (&cp) && !(0xD800..=0xDFFF).contains (&cp))
+                .ok_or ("Invalid icon: code point out of range (U+0001..U+10FFFF)")?;
+
+            char::from_u32 (cp)
+                .map (|c| (c, false))
+                .ok_or ("Invalid icon: code point is not a valid Unicode character")
+        }
+
+        match try_parse (trimmed) {
+            Ok (result) => Some (result),
+            Err (message) => {
                 errors.push (ErrorInfo {
-                    message:             "Invalid icon: expected single glyph or U+XXXX".into(),
+                    message:             message.into(),
                     entry:               entry.into(),
                     invalid_text:        trimmed.into(),
                     invalid_text_offset: entry.find (trimmed).unwrap_or (0),
                 });
                 None
-            }
-
-            _ => {
-                // Must be U+XXXX notation (6+ chars)
-                if !trimmed.starts_with ("U+") && !trimmed.starts_with ("u+") {
-                    errors.push (ErrorInfo {
-                        message:             "Invalid icon: expected single glyph or U+XXXX".into(),
-                        entry:               entry.into(),
-                        invalid_text:        trimmed.into(),
-                        invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-                    });
-                    return None;
-                }
-
-                let hex_str = &trimmed[2..];
-                if hex_str.len() < 4 || hex_str.len() > 6 {
-                    errors.push (ErrorInfo {
-                        message:             "Invalid icon: U+ requires 4-6 hex digits".into(),
-                        entry:               entry.into(),
-                        invalid_text:        trimmed.into(),
-                        invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-                    });
-                    return None;
-                }
-
-                match u32::from_str_radix (hex_str, 16) {
-                    Ok (cp) if (1..=0x10FFFF).contains (&cp) && !(0xD800..=0xDFFF).contains (&cp) => {
-                        match char::from_u32 (cp) {
-                            Some (c) => Some ((c, false)),
-                            None => {
-                                errors.push (ErrorInfo {
-                                    message:             "Invalid icon: code point is not a valid Unicode character".into(),
-                                    entry:               entry.into(),
-                                    invalid_text:        trimmed.into(),
-                                    invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-                                });
-                                None
-                            }
-                        }
-                    }
-                    _ => {
-                        errors.push (ErrorInfo {
-                            message:             "Invalid icon: code point out of range (U+0001..U+10FFFF)".into(),
-                            entry:               entry.into(),
-                            invalid_text:        trimmed.into(),
-                            invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-                        });
-                        None
-                    }
-                }
             }
         }
     }
@@ -1270,7 +1300,7 @@ impl Config {
         // Check for switch prefixes (/, -, --) — not allowed in env var
         if entry.starts_with('/') || entry.starts_with('-') {
             let prefix_len = if entry.starts_with("--") { 2 } else { 1 };
-            self.last_parse_result.errors.push(ErrorInfo {
+            self.last_parse_result.errors.push (ErrorInfo {
                 message:             "Switch prefixes (/, -, --) are not allowed in env var".into(),
                 entry:               entry.into(),
                 invalid_text:        entry[..prefix_len].into(),
@@ -1280,16 +1310,16 @@ impl Config {
         }
 
         // Check if it's a switch name
-        if is_switch_name(entry) {
-            self.process_switch_override(entry);
+        if is_switch_name (entry) {
+            self.process_switch_override (entry);
             return;
         }
 
         // Parse key=value
-        let (key, value) = match parse_key_and_value(entry) {
-            Some(kv) => kv,
+        let (key, value) = match parse_key_and_value (entry) {
+            Some (kv) => kv,
             None => {
-                self.last_parse_result.errors.push(ErrorInfo {
+                self.last_parse_result.errors.push (ErrorInfo {
                     message:             "Invalid entry format (expected key = value)".into(),
                     entry:               entry.into(),
                     invalid_text:        entry.into(),
@@ -1299,77 +1329,101 @@ impl Config {
             }
         };
 
-        // Split value on first comma: "color,icon"
+        // Parse color and icon from value
+        let (color_attr, icon_result) = match self.parse_color_and_icon (entry, value) {
+            Some (pair) => pair,
+            None => return,
+        };
+
+        // Dispatch to the right apply function
+        self.apply_key_override (key, color_attr, icon_result, entry);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_and_icon
+    //
+    //  Split a value string on the first comma into "color,icon", parse
+    //  each part, and return the results.  Returns None only when the
+    //  color portion fails (icon failures are non-fatal — the color
+    //  portion is still applied).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn parse_color_and_icon(&mut self, entry: &str, value: &str)
+        -> Option<(Option<u16>, Option<(char, bool)>)>
+    {
         let (color_view, icon_view, has_comma) = if let Some (comma_pos) = value.find (',') {
             let color_part = value[..comma_pos].trim();
-            let icon_part  = &value[comma_pos + 1..]; // ParseIconValue trims internally
+            let icon_part  = &value[comma_pos + 1..];
             (color_part, Some (icon_part), true)
         } else {
             (value, None, false)
         };
 
-        // Parse color part (if non-empty)
         let color_attr = if !color_view.is_empty() {
             match self.parse_color_value (entry, color_view) {
                 Some (c) => Some (c),
-                None => return, // Error already recorded
+                None => return None,
             }
         } else {
             None
         };
 
-        // Parse icon part (only if comma was present)
         let mut icon_result: Option<(char, bool)> = None;
         if has_comma {
             let icon_spec = icon_view.unwrap_or ("");
             icon_result = Self::parse_icon_value (icon_spec, entry, &mut self.last_parse_result.errors);
-            // If parse_icon_value returned None, error was already recorded.
-            // Continue with color portion only (don't bail out entirely).
         }
 
-        // Apply based on key type
-        if key.starts_with('.') {
-            // Extension color+icon override
-            if let Some (attr) = color_attr {
-                self.process_file_extension_override (key, attr);
+        Some ((color_attr, icon_result))
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_key_override
+    //
+    //  Dispatch a parsed color+icon override to the correct apply function
+    //  based on the key prefix (.ext, dir:name, attr:x, or single char).
+    //
+    //  Port of: second half of CConfig::ProcessColorOverrideEntry
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn apply_key_override(&mut self, key: &str, color_attr: Option<u16>, icon_result: Option<(char, bool)>, entry: &str) {
+        type ColorHandler = fn(&mut Config, &str, u16, &str);
+        type IconHandler  = fn(&mut Config, &str, char, bool, &str);
+
+        let (color_handler, icon_handler): (Option<ColorHandler>, Option<IconHandler>) = match classify_key (key) {
+            KeyType::Extension      => (Some (Config::process_file_extension_override),    Some (Config::apply_extension_icon_override)),
+            KeyType::WellKnownDir   => (None,                                              Some (Config::apply_well_known_dir_icon_override)),
+            KeyType::FileAttribute  => (Some (Config::process_file_attribute_override),    Some (Config::apply_file_attribute_icon_override)),
+            KeyType::DisplayAttr    => (Some (Config::process_display_attribute_override), None),
+            KeyType::Invalid => {
+                self.last_parse_result.errors.push (ErrorInfo {
+                    message:             "Invalid key (expected single character, .extension, dir:name, or attr:x)".into(),
+                    entry:               entry.into(),
+                    invalid_text:        key.into(),
+                    invalid_text_offset: entry.find (key).unwrap_or (0),
+                });
+                return;
             }
-            if let Some ((cp, suppressed)) = icon_result {
-                self.apply_extension_icon_override (key, cp, suppressed);
-            }
-        } else if key.len() > 4 && key[..4].eq_ignore_ascii_case ("dir:") {
-            // Well-known directory icon/color override
-            let dir_name = &key[4..];
-            if let Some (attr) = color_attr {
-                // dir: prefix doesn't support color in the current design,
-                // but we store it for forward compatibility
-                let _ = attr;
-            }
-            if let Some ((cp, suppressed)) = icon_result {
-                self.apply_well_known_dir_icon_override (dir_name, cp, suppressed);
-            }
-        } else if key.len() == 6
-            && key[..5].eq_ignore_ascii_case("attr:")
-        {
-            // File attribute color+icon override
-            if let Some (attr) = color_attr {
-                self.process_file_attribute_override (key, attr, entry);
-            }
-            if let Some ((cp, suppressed)) = icon_result {
-                let attr_char = key.as_bytes()[5].to_ascii_uppercase() as char;
-                self.apply_file_attribute_icon_override (attr_char, cp, suppressed, entry);
-            }
-        } else if key.len() == 1 {
-            // Display attribute override (color only, no icon support)
-            if let Some (attr) = color_attr {
-                self.process_display_attribute_override (key.chars().next().unwrap(), attr, entry);
-            }
-        } else {
-            self.last_parse_result.errors.push(ErrorInfo {
-                message:             "Invalid key (expected single character, .extension, dir:name, or attr:x)".into(),
-                entry:               entry.into(),
-                invalid_text:        key.into(),
-                invalid_text_offset: entry.find(key).unwrap_or(0),
-            });
+        };
+
+        if let (Some (handler), Some (attr)) = (color_handler, color_attr) {
+            handler (self, key, attr, entry);
+        }
+
+        if let (Some (handler), Some ((cp, suppressed))) = (icon_handler, icon_result) {
+            handler (self, key, cp, suppressed, entry);
         }
     }
 
@@ -1388,66 +1442,42 @@ impl Config {
     ////////////////////////////////////////////////////////////////////////////
 
     fn parse_color_value(&mut self, entry: &str, value: &str) -> Option<u16> {
-        let lower = value.to_ascii_lowercase();
-        let on_pos = lower.find(" on ");
 
-        let (fore_str, back_str) = if let Some(pos) = on_pos {
-            (value[..pos].trim(), Some(value[pos + 4..].trim()))
-        } else {
-            (value.trim(), None)
-        };
+        fn try_parse(value: &str) -> Result<u16, (&'static str, &str)> {
+            let lower = value.to_ascii_lowercase();
+            let (fore_str, back_str) = match lower.find (" on ") {
+                Some (pos) => (value[..pos].trim(), Some (value[pos + 4..].trim())),
+                None       => (value.trim(), None),
+            };
 
-        let fore = match parse_color_name(fore_str, false) {
-            Ok(v) => v,
-            Err(_) => {
-                let equal_pos = entry.find('=').unwrap_or(0);
-                let fore_offset = equal_pos + 1 + entry[equal_pos + 1..].find(|c: char| !c.is_whitespace()).unwrap_or(0);
-                self.last_parse_result.errors.push(ErrorInfo {
-                    message:             "Invalid foreground color".into(),
-                    entry:               entry.into(),
-                    invalid_text:        fore_str.into(),
-                    invalid_text_offset: fore_offset,
-                });
-                return None;
+            let fore = parse_color_name (fore_str, false)
+                .map_err (|_| ("Invalid foreground color", fore_str))?;
+
+            let back = match back_str {
+                Some (bs) if !bs.is_empty() => parse_color_name (bs, true)
+                    .map_err (|_| ("Invalid background color", bs))?,
+                _ => 0,
+            };
+
+            if back != 0 && fore == (back >> 4) {
+                return Err (("Foreground and background colors are the same", value));
             }
-        };
 
-        let back = if let Some(bs) = back_str {
-            if !bs.is_empty() {
-                match parse_color_name (bs, true) {
-                    Ok(v) => v,
-                    Err(_) => {
-                        let equal_pos = entry.find ('=').unwrap_or (0);
-                        let on_in_entry = lower.find (" on ").unwrap_or (0);
-                        let back_offset = equal_pos + 1 + on_in_entry + 4;
-                        self.last_parse_result.errors.push (ErrorInfo {
-                            message:             "Invalid background color".into(),
-                            entry:               entry.into(),
-                            invalid_text:        bs.into(),
-                            invalid_text_offset: back_offset,
-                        });
-                        return None;
-                    }
-                }
-            } else {
-                0
-            }
-        } else {
-            0
-        };
-
-        // Reject entries where foreground == background (unreadable)
-        if back != 0 && fore == (back >> 4) {
-            self.last_parse_result.errors.push (ErrorInfo {
-                message:             "Foreground and background colors are the same".into(),
-                entry:               entry.into(),
-                invalid_text:        value.into(),
-                invalid_text_offset: entry.find ('=').map_or (0, |p| p + 1),
-            });
-            return None;
+            Ok (fore | back)
         }
 
-        Some(fore | back)
+        match try_parse (value) {
+            Ok (attr) => Some (attr),
+            Err ((message, bad_text)) => {
+                self.last_parse_result.errors.push (ErrorInfo {
+                    message:             message.into(),
+                    entry:               entry.into(),
+                    invalid_text:        bad_text.into(),
+                    invalid_text_offset: entry.find (bad_text).unwrap_or (0),
+                });
+                None
+            }
+        }
     }
 
 
@@ -1458,64 +1488,28 @@ impl Config {
     //
     //  process_switch_override
     //
-    //  Process a switch override from env var (e.g., "W", "M-", "Owner",
-    //  "Streams").
+    //  Look up entry in the SWITCH_MAPPINGS table (case-insensitive).
+    //  On match, set the corresponding Option<bool> field.
+    //  On miss, record a parse error.
     //
-    //  Port of: CConfig::ProcessSwitchOverride + ProcessLongSwitchOverride
+    //  Port of: CConfig::ProcessSwitchOverride
     //
     ////////////////////////////////////////////////////////////////////////////
 
     fn process_switch_override(&mut self, entry: &str) {
-        // Try long switches first
-        if entry.len() >= 5 {
-            if entry.eq_ignore_ascii_case("owner") {
-                self.show_owner = Some(true);
-                return;
-            }
-            if entry.eq_ignore_ascii_case("streams") {
-                self.show_streams = Some(true);
-                return;
-            }
-            if entry.eq_ignore_ascii_case ("icons") {
-                self.icons = Some (true);
-                return;
-            }
-            if entry.eq_ignore_ascii_case ("icons-") {
-                self.icons = Some (false);
+        for &(name, value, accessor) in SWITCH_MAPPINGS {
+            if entry.eq_ignore_ascii_case (name) {
+                *accessor (self) = Some (value);
                 return;
             }
         }
 
-        // Short switches: single char, optional trailing '-'
-        let (ch, value) = match entry.len() {
-            1 => (entry.chars().next().unwrap(), true),
-            2 if entry.as_bytes()[1] == b'-' => (entry.chars().next().unwrap(), false),
-            _ => {
-                self.last_parse_result.errors.push(ErrorInfo {
-                    message:             "Invalid switch (expected W, S, P, M, B, Owner, or Streams)".into(),
-                    entry:               entry.into(),
-                    invalid_text:        entry.into(),
-                    invalid_text_offset: 0,
-                });
-                return;
-            }
-        };
-
-        match ch.to_ascii_lowercase() {
-            's' => { self.recurse        = Some(value); }
-            'w' => { self.wide_listing   = Some(value); }
-            'b' => { self.bare_listing   = Some(value); }
-            'p' => { self.perf_timer     = Some(value); }
-            'm' => { self.multi_threaded = Some(value); }
-            _ => {
-                self.last_parse_result.errors.push(ErrorInfo {
-                    message:             "Invalid switch (expected W, S, P, M, B, Owner, or Streams)".into(),
-                    entry:               entry.into(),
-                    invalid_text:        entry[..1].into(),
-                    invalid_text_offset: 0,
-                });
-            }
-        }
+        self.last_parse_result.errors.push (ErrorInfo {
+            message:             "Invalid switch (expected W, S, P, M, B, Owner, or Streams)".into(),
+            entry:               entry.into(),
+            invalid_text:        entry.into(),
+            invalid_text_offset: 0,
+        });
     }
 
 
@@ -1530,10 +1524,10 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn process_file_extension_override(&mut self, key: &str, color_attr: u16) {
+    fn process_file_extension_override(&mut self, key: &str, color_attr: u16, _entry: &str) {
         let lower_key = key.to_ascii_lowercase();
-        self.extension_colors.insert(lower_key.clone(), color_attr);
-        self.extension_sources.insert(lower_key, AttributeSource::Environment);
+        self.extension_colors.insert (lower_key.clone(), color_attr);
+        self.extension_sources.insert (lower_key, AttributeSource::Environment);
     }
 
 
@@ -1548,7 +1542,8 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn process_display_attribute_override(&mut self, ch: char, color_attr: u16, entry: &str) {
+    fn process_display_attribute_override(&mut self, key: &str, color_attr: u16, entry: &str) {
+        let ch = key.chars().next().unwrap();
         let ch_upper = ch.to_ascii_uppercase();
 
         // Find matching attribute by env key
@@ -1629,7 +1624,7 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn apply_extension_icon_override(&mut self, key: &str, icon_cp: char, suppressed: bool) {
+    fn apply_extension_icon_override(&mut self, key: &str, icon_cp: char, suppressed: bool, _entry: &str) {
         let lower_key = key.to_ascii_lowercase();
 
         // First-write-wins: if already set by environment, report duplicate
@@ -1663,7 +1658,8 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn apply_well_known_dir_icon_override(&mut self, dir_name: &str, icon_cp: char, suppressed: bool) {
+    fn apply_well_known_dir_icon_override(&mut self, key: &str, icon_cp: char, suppressed: bool, _entry: &str) {
+        let dir_name = &key[4..];
         let lower_key = dir_name.to_ascii_lowercase();
 
         if let Some (&AttributeSource::Environment) = self.well_known_dir_icon_sources.get (&lower_key) {
@@ -1695,7 +1691,8 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn apply_file_attribute_icon_override(&mut self, attr_char: char, icon_cp: char, suppressed: bool, _entry: &str) {
+    fn apply_file_attribute_icon_override(&mut self, key: &str, icon_cp: char, suppressed: bool, _entry: &str) {
+        let attr_char = key.as_bytes()[5] as char;
         let attr_upper = attr_char.to_ascii_uppercase();
         let glyph = if suppressed { '\0' } else { icon_cp };
 
@@ -1715,34 +1712,94 @@ impl Config {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  KeyType
+//
+//  Classification of an override key from the RCDIR env var.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+enum KeyType {
+    Extension,
+    WellKnownDir,
+    FileAttribute,
+    DisplayAttr,
+    Invalid,
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  classify_key
+//
+//  Classify an override key by its prefix/shape.  Pure function with no
+//  side effects — just pattern recognition.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn classify_key(key: &str) -> KeyType {
+    match key.as_bytes() {
+        [b'.', ..]                                                         => KeyType::Extension,
+        [_, _, _, _, _, ..] if key[..4].eq_ignore_ascii_case ("dir:")      => KeyType::WellKnownDir,
+        [_, _, _, _, _, _] if key[..5].eq_ignore_ascii_case ("attr:")      => KeyType::FileAttribute,
+        [_]                                                                => KeyType::DisplayAttr,
+        _                                                                  => KeyType::Invalid,
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  SWITCH_MAPPINGS
+//
+//  Table-driven switch dispatch.  Each entry maps a name
+//  (case-insensitive) to a boolean value and a field accessor.
+//
+//  Port of: CConfig::s_switchMappings[]
+//
+////////////////////////////////////////////////////////////////////////////////
+
+type SwitchAccessor = fn(&mut Config) -> &mut Option<bool>;
+
+const SWITCH_MAPPINGS: &[(&str, bool, SwitchAccessor)] = &[
+    ("s",       true,  |c| &mut c.recurse),
+    ("s-",      false, |c| &mut c.recurse),
+    ("w",       true,  |c| &mut c.wide_listing),
+    ("w-",      false, |c| &mut c.wide_listing),
+    ("b",       true,  |c| &mut c.bare_listing),
+    ("b-",      false, |c| &mut c.bare_listing),
+    ("p",       true,  |c| &mut c.perf_timer),
+    ("p-",      false, |c| &mut c.perf_timer),
+    ("m",       true,  |c| &mut c.multi_threaded),
+    ("m-",      false, |c| &mut c.multi_threaded),
+    ("owner",   true,  |c| &mut c.show_owner),
+    ("streams", true,  |c| &mut c.show_streams),
+    ("icons",   true,  |c| &mut c.icons),
+    ("icons-",  false, |c| &mut c.icons),
+];
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  is_switch_name
 //
-//  Check if an entry is a valid switch name (no prefix).
-//  Valid: W, S, P, M, B, M-, Owner, Streams (case-insensitive)
+//  Check if entry matches any name in the SWITCH_MAPPINGS table
+//  (case-insensitive).
 //
 //  Port of: CConfig::IsSwitchName
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 fn is_switch_name(entry: &str) -> bool {
-    // Single-letter switches (optionally with '-' suffix)
-    if entry.len() == 1 || (entry.len() == 2 && entry.as_bytes()[1] == b'-') {
-        let ch = entry.as_bytes()[0].to_ascii_lowercase();
-        return ch == b'w' || ch == b's' || ch == b'p' || ch == b'm' || ch == b'b';
-    }
-
-    // Long switch names
-    if entry.len() == 5 && entry.eq_ignore_ascii_case("owner") {
-        return true;
-    }
-    if entry.len() == 7 && entry.eq_ignore_ascii_case("streams") {
-        return true;
-    }
-    if entry.eq_ignore_ascii_case ("icons") || entry.eq_ignore_ascii_case ("icons-") {
-        return true;
-    }
-
-    false
+    SWITCH_MAPPINGS.iter().any (|&(name, _, _)| entry.eq_ignore_ascii_case (name))
 }
 
 

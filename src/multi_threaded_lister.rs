@@ -612,3 +612,267 @@ fn is_dots(filename: &[u16]) -> bool {
     }
     false
 }
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_single_dot
+    //
+    //  Verify "." is detected as a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn is_dots_single_dot() {
+        let name = [b'.' as u16, 0, 0, 0];
+        assert!(is_dots(&name));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_double_dot
+    //
+    //  Verify ".." is detected as a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn is_dots_double_dot() {
+        let name = [b'.' as u16, b'.' as u16, 0, 0];
+        assert!(is_dots(&name));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_regular_file
+    //
+    //  Verify a regular file name is not a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn is_dots_regular_file() {
+        let name: Vec<u16> = "hello.txt\0".encode_utf16().collect();
+        assert!(!is_dots(&name));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dots_dot_prefix
+    //
+    //  Verify ".gitignore" is not detected as a dot entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn is_dots_dot_prefix() {
+        let name: Vec<u16> = ".gitignore\0".encode_utf16().collect();
+        assert!(!is_dots(&name));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  accumulate_totals_adds
+    //
+    //  Verify accumulate_totals correctly sums counts and byte totals.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn accumulate_totals_adds() {
+        let mut di = DirectoryInfo::new (PathBuf::from ("C:\\test"), "*".into());
+        di.file_count         = 5;
+        di.subdirectory_count = 2;
+        di.bytes_used         = 1024;
+        di.stream_count       = 1;
+        di.stream_bytes_used  = 256;
+
+        let mut totals = ListingTotals::default();
+        accumulate_totals (&di, &mut totals);
+
+        assert_eq!(totals.file_count,      5);
+        assert_eq!(totals.directory_count,  2);
+        assert_eq!(totals.file_bytes,       1024);
+        assert_eq!(totals.stream_count,     1);
+        assert_eq!(totals.stream_bytes,     256);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  accumulate_totals_multiple
+    //
+    //  Verify accumulate_totals accumulates across multiple directory infos.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn accumulate_totals_multiple() {
+        let mut totals = ListingTotals::default();
+
+        let mut di1 = DirectoryInfo::new (PathBuf::from ("C:\\a"), "*".into());
+        di1.file_count = 3;
+        di1.bytes_used = 500;
+        accumulate_totals (&di1, &mut totals);
+
+        let mut di2 = DirectoryInfo::new (PathBuf::from ("C:\\b"), "*".into());
+        di2.file_count = 7;
+        di2.bytes_used = 1500;
+        accumulate_totals (&di2, &mut totals);
+
+        assert_eq!(totals.file_count, 10);
+        assert_eq!(totals.file_bytes, 2000);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  wait_for_done_node
+    //
+    //  Verify wait_for_node_completion returns immediately for Done nodes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn wait_for_done_node() {
+        let mut di = DirectoryInfo::new (PathBuf::from ("C:\\test"), "*".into());
+        di.status = DirectoryStatus::Done;
+
+        let node: WorkItem = Arc::new ((Mutex::new (di), Condvar::new()));
+        let stop = AtomicBool::new (false);
+
+        let (status, error) = wait_for_node_completion (&node, &stop);
+        assert_eq!(status, DirectoryStatus::Done);
+        assert!(error.is_none());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  wait_for_error_node
+    //
+    //  Verify wait_for_node_completion returns error info for Error nodes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn wait_for_error_node() {
+        let mut di = DirectoryInfo::new (PathBuf::from ("C:\\bad"), "*".into());
+        di.status = DirectoryStatus::Error;
+        di.error  = Some ("access denied".into());
+
+        let node: WorkItem = Arc::new ((Mutex::new (di), Condvar::new()));
+        let stop = AtomicBool::new (false);
+
+        let (status, error) = wait_for_node_completion (&node, &stop);
+        assert_eq!(status, DirectoryStatus::Error);
+        assert_eq!(error.unwrap(), "access denied");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  wait_for_node_with_thread_completion
+    //
+    //  Verify wait_for_node_completion blocks until a worker signals Done.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn wait_for_node_with_thread_completion() {
+        let di = DirectoryInfo::new (PathBuf::from ("C:\\test"), "*".into());
+        let node: WorkItem = Arc::new ((Mutex::new (di), Condvar::new()));
+        let stop = Arc::new (AtomicBool::new (false));
+
+        // Spawn a thread that completes the node after a short delay
+        let node_clone = Arc::clone (&node);
+        let worker = thread::spawn (move || {
+            thread::sleep (std::time::Duration::from_millis (50));
+            {
+                let mut di = node_clone.0.lock().unwrap();
+                di.status = DirectoryStatus::Done;
+                di.file_count = 42;
+            }
+            node_clone.1.notify_one();
+        });
+
+        let (status, _error) = wait_for_node_completion (&node, &stop);
+        assert_eq!(status, DirectoryStatus::Done);
+
+        // Verify the data is there
+        let di = node.0.lock().unwrap();
+        assert_eq!(di.file_count, 42);
+
+        worker.join().unwrap();
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  wait_for_node_stop_requested
+    //
+    //  Verify wait_for_node_completion returns early when stop is signaled.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn wait_for_node_stop_requested() {
+        let di = DirectoryInfo::new (PathBuf::from ("C:\\test"), "*".into());
+        let node: WorkItem = Arc::new ((Mutex::new (di), Condvar::new()));
+        let stop = Arc::new (AtomicBool::new (false));
+
+        // Spawn a thread that signals stop after a delay (instead of completing the node)
+        let stop_clone = Arc::clone (&stop);
+        let node_clone = Arc::clone (&node);
+        let signaler = thread::spawn (move || {
+            thread::sleep (std::time::Duration::from_millis (50));
+            stop_clone.store (true, Ordering::Release);
+            node_clone.1.notify_one();
+        });
+
+        let (status, _error) = wait_for_node_completion (&node, &stop);
+        // Node is still Waiting because nobody completed it — stop was signaled
+        assert_eq!(status, DirectoryStatus::Waiting);
+
+        signaler.join().unwrap();
+    }
+}

@@ -368,7 +368,7 @@ impl CommandLine {
             }
         }
 
-        // Read sort key (only first char matters; rest silently ignored)
+        // Read sort key
         let key = chars.next().unwrap().to_ascii_lowercase();
         let order = match key {
             'n' => SortOrder::Name,
@@ -377,6 +377,11 @@ impl CommandLine {
             'd' => SortOrder::Date,
             _   => return Err(AppError::InvalidArg(String::new())),
         };
+
+        // Trailing characters are an error (e.g. /o:d- is invalid; use /o:-d)
+        if chars.next().is_some() {
+            return Err(AppError::InvalidArg(String::new()));
+        }
 
         self.sort_order = order;
         self.sort_preference[0] = order;
@@ -701,6 +706,25 @@ mod tests {
     fn parse_sort_empty_errors() {
         assert!(CommandLine::parse_from(["/o"]).is_err());
         assert!(CommandLine::parse_from(["/o:"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_sort_trailing_chars_error
+    //
+    //  Verify trailing characters after the sort key produce an error.
+    //  e.g. /o:d- is invalid — use /o:-d for descending date.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_sort_trailing_chars_error() {
+        assert!(CommandLine::parse_from(["/o:d-"]).is_err());
+        assert!(CommandLine::parse_from(["/o:nx"]).is_err());
     }
 
 

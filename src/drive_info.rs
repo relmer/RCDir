@@ -227,24 +227,32 @@ impl DriveInfo {
     //
     //  initialize_unc_info
     //
-    //  Initialize UNC/mapped drive info.  If this is a remote drive, try
-    //  WNetGetConnectionW to get the remote name.
+    //  Initialize UNC/mapped drive info.
+    //  - True UNC paths (\\server\share): remote_name = unc_path
+    //  - Mapped drives (Z: → \\server\share): WNetGetConnectionW resolves
     //
     //  Port of: CDriveInfo::InitializeUncInfo
     //
     ////////////////////////////////////////////////////////////////////////////
 
     fn initialize_unc_info(&mut self) {
-        if !self.is_unc_path || self.volume_type != DRIVE_REMOTE {
+        // True UNC paths already carry the remote path
+        if self.is_unc_path {
+            self.remote_name = self.unc_path.to_string_lossy().to_string();
+            return;
+        }
+
+        // Only mapped drives (local letter + DRIVE_REMOTE) need resolution
+        if self.volume_type != DRIVE_REMOTE {
             return;
         }
 
         // Get the root name (drive letter part) for WNetGetConnection
         let root_str = self.root_path.to_string_lossy();
         let local_name = if root_str.len() >= 2 && root_str.as_bytes()[1] == b':' {
-            format!("{}:", root_str.as_bytes()[0] as char)
+            format! ("{}:", root_str.as_bytes()[0] as char)
         } else {
-            return; // UNC paths like \\server\share don't have a mapped drive letter
+            return;
         };
 
         if let Ok(local_wide) = U16CString::from_str(&local_name) {

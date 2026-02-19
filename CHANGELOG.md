@@ -2,6 +2,14 @@
 
 All notable changes to RCDir are documented in this file.
 
+## [5.0.1129] - 2026-02-19
+Minor fixes.
+
+### Fixed
+- `/O:d-` (and similar trailing characters after the sort key) now correctly produces an error instead of being silently ignored
+- Mapped network drives could resolve UNC path information incorrectly
+- Cloud status help section now shows Nerd Font glyphs when a Nerd Font is active
+
 ## [5.0] - 2026-02-17
 Added Nerd Fonts icon support for file extensions and well-known directories.  Port of initial TCDir implementation of this feature.
 

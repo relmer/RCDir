@@ -380,4 +380,102 @@ mod tests {
         assert_eq!(files[1].file_name, "medium.txt");
         assert_eq!(files[2].file_name, "small.txt");
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  permutation_empty
+    //
+    //  Verify apply_permutation handles an empty slice.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn permutation_empty() {
+        let mut data: Vec<i32> = vec![];
+        apply_permutation (&mut data, vec![]);
+        assert!(data.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  permutation_single
+    //
+    //  Verify apply_permutation handles a single-element slice.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn permutation_single() {
+        let mut data = vec![42];
+        apply_permutation (&mut data, vec![0]);
+        assert_eq!(data, [42]);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  permutation_identity
+    //
+    //  Verify apply_permutation is a no-op for an identity permutation.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn permutation_identity() {
+        let mut data = vec![10, 20, 30, 40];
+        apply_permutation (&mut data, vec![0, 1, 2, 3]);
+        assert_eq!(data, [10, 20, 30, 40]);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  permutation_reverse
+    //
+    //  Verify apply_permutation reverses elements with a reverse permutation.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn permutation_reverse() {
+        let mut data = vec![10, 20, 30, 40];
+        // perm[i] = original index that goes to position i
+        // Position 0 gets element from index 3, position 1 from 2, etc.
+        apply_permutation (&mut data, vec![3, 2, 1, 0]);
+        assert_eq!(data, [40, 30, 20, 10]);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  permutation_cycle
+    //
+    //  Verify apply_permutation handles a non-trivial cycle: (0→1→2→0).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn permutation_cycle() {
+        let mut data = vec!['a', 'b', 'c', 'd'];
+        // Rotate first 3: position 0 gets from 1, 1 from 2, 2 from 0, 3 stays
+        apply_permutation (&mut data, vec![1, 2, 0, 3]);
+        assert_eq!(data, ['b', 'c', 'a', 'd']);
+    }
 }

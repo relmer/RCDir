@@ -17,7 +17,51 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  wait-for-ci:
+    runs-on: windows-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Wait for CI workflow to succeed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $sha = "${{ github.sha }}"
+          $maxAttempts = 30
+          $delaySeconds = 30
+
+          Write-Host "Waiting for CI workflow to pass on commit $sha ..."
+
+          for ($i = 1; $i -le $maxAttempts; $i++) {
+            $runs = gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?head_sha=$sha&per_page=5" | ConvertFrom-Json
+
+            $ciRun = $runs.workflow_runs | Where-Object { $_.head_sha -eq $sha } | Select-Object -First 1
+
+            if ($ciRun) {
+              Write-Host "Attempt $i/$maxAttempts — CI run #$($ciRun.run_number): status=$($ciRun.status) conclusion=$($ciRun.conclusion)"
+
+              if ($ciRun.status -eq "completed") {
+                if ($ciRun.conclusion -eq "success") {
+                  Write-Host "CI passed."
+                  exit 0
+                } else {
+                  Write-Error "CI failed with conclusion: $($ciRun.conclusion). Aborting release."
+                  exit 1
+                }
+              }
+            } else {
+              Write-Host "Attempt $i/$maxAttempts — CI run not found yet for $sha"
+            }
+
+            Start-Sleep -Seconds $delaySeconds
+          }
+
+          Write-Error "Timed out waiting for CI after $($maxAttempts * $delaySeconds) seconds."
+          exit 1
+
   build-and-release:
+    needs: [wait-for-ci]
+    if: always() && (needs.wait-for-ci.result == 'success' || needs.wait-for-ci.result == 'skipped')
     runs-on: windows-latest
 
     steps:

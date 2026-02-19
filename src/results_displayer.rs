@@ -916,12 +916,17 @@ pub fn format_number_with_separators(n: u64) -> String {
     let mut out_buf = [0u16; 40]; // Enough for any u64 with separators
 
     // NUMBERFMTW with 0 decimal digits
+    // Use proper UTF-16 arrays — the Win32 API expects PWSTR (wide string
+    // pointers), not C-string pointers reinterpreted as u16.
+    let decimal_sep:  [u16; 2] = [b'.' as u16, 0];
+    let thousand_sep: [u16; 2] = [b',' as u16, 0];
+
     let fmt = windows::Win32::Globalization::NUMBERFMTW {
         NumDigits:     0,
         LeadingZero:   0,
         Grouping:      3,
-        lpDecimalSep:  windows::core::PWSTR(c".".as_ptr() as *mut u16),
-        lpThousandSep: windows::core::PWSTR(c",".as_ptr() as *mut u16),
+        lpDecimalSep:  windows::core::PWSTR(decimal_sep.as_ptr() as *mut u16),
+        lpThousandSep: windows::core::PWSTR(thousand_sep.as_ptr() as *mut u16),
         NegativeOrder: 1,
     };
 

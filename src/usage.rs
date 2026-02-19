@@ -3,7 +3,7 @@
 // Port of: Usage.h, Usage.cpp
 // Implements T031-T035 (US-15: Help Display)
 
-use crate::cloud_status::CloudStatus;
+use crate::cloud_status::{CloudStatus, CIRCLE_HOLLOW, CIRCLE_HALF_FILLED, CIRCLE_FILLED};
 use crate::color::*;
 use crate::config::{Attribute, AttributeSource, RCDIR_ENV_VAR_NAME};
 use crate::console::Console;
@@ -49,9 +49,6 @@ fn architecture() -> &'static str {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub const CIRCLE_HOLLOW:      char = '\u{25CB}';  // ○ Cloud-only
-pub const CIRCLE_HALF_FILLED: char = '\u{25D0}';  // ◐ Locally available
-pub const CIRCLE_FILLED:      char = '\u{25CF}';  // ● Always locally available
 pub const LINE_HORIZONTAL:    char = '\u{2500}';  // ─ Horizontal line
 pub const COPYRIGHT:          char = '\u{00A9}';  // ©
 pub const OVERLINE:           char = '\u{203E}';  // ‾

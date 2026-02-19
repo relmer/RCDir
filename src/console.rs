@@ -259,6 +259,82 @@ impl Console {
 
     ////////////////////////////////////////////////////////////////////////////
     //
+    //  writef
+    //
+    //  Write pre-formatted arguments directly into the output buffer with
+    //  a specific color attribute.  Avoids the intermediate String
+    //  allocation that `printf(attr, &format!(...))` would require.
+    //
+    //  IMPORTANT: The caller guarantees the formatted text contains NO
+    //  embedded newlines.  Use `writef_line` for text that needs a
+    //  trailing newline with proper color-reset semantics.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn writef(&mut self, attr: u16, args: std::fmt::Arguments<'_>) {
+        self.set_color (attr);
+        std::fmt::Write::write_fmt (&mut self.buffer, args).unwrap();
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  writef_attr
+    //
+    //  Write pre-formatted arguments directly into the output buffer with
+    //  a named attribute.  Same zero-allocation semantics as `writef`.
+    //
+    //  IMPORTANT: The caller guarantees the formatted text contains NO
+    //  embedded newlines.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn writef_attr(&mut self, attr_idx: Attribute, args: std::fmt::Arguments<'_>) {
+        let attr = self.config.attributes[attr_idx as usize];
+        self.set_color (attr);
+        std::fmt::Write::write_fmt (&mut self.buffer, args).unwrap();
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  writef_line
+    //
+    //  Write pre-formatted arguments into the output buffer followed by a
+    //  newline.  Resets to default color before the newline to prevent
+    //  color bleeding (matching `process_multiline_string` semantics).
+    //
+    //  IMPORTANT: The caller guarantees the formatted text contains NO
+    //  embedded newlines.  The trailing newline is handled here.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn writef_line(&mut self, attr: u16, args: std::fmt::Arguments<'_>) {
+        self.set_color (attr);
+        std::fmt::Write::write_fmt (&mut self.buffer, args).unwrap();
+
+        let default_attr = self.config.attributes[Attribute::Default as usize];
+        self.set_color (default_attr);
+        self.buffer.push ('\n');
+
+        // Restore attr after the newline to match process_multiline_string
+        // semantics (ensures color-elision state is identical for the next
+        // printf/writef call).
+        self.set_color (attr);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
     //  color_printf
     //
     //  Write text with embedded {MarkerName} color markers.  Markers

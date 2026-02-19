@@ -383,7 +383,7 @@ fn display_file_results(
         if icons_active {
             if let Some(icon) = style.icon_code_point {
                 if !style.icon_suppressed {
-                    console.printf (text_attr, &format!("{} ", icon));
+                    console.writef (text_attr, format_args! ("{} ", icon));
                 } else {
                     console.printf (text_attr, "  ");
                 }
@@ -394,7 +394,7 @@ fn display_file_results(
 
         // Filename
         let name_str = file_info.file_name.to_string_lossy();
-        console.printf(text_attr, &format!("{}\n", name_str));
+        console.writef_line (text_attr, format_args! ("{}", name_str));
 
         // Streams (if --streams and this is a file, not a directory)
         if cmd.show_streams && !file_info.streams.is_empty() {
@@ -552,12 +552,12 @@ fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize
 
     if !fi.is_directory() {
         let formatted = format_number_with_separators(fi.file_size);
-        console.printf_attr(Attribute::Size, &format!(" {:>width$} ", formatted, width = col_width));
+        console.writef_attr (Attribute::Size, format_args! (" {:>width$} ", formatted, width = col_width));
     } else {
         // Center <DIR> within the column
         let left_pad = (col_width - dir_label.len()) / 2;
         let right_pad = col_width - dir_label.len() - left_pad;
-        console.printf_attr(Attribute::Directory, &format!(
+        console.writef_attr (Attribute::Directory, format_args! (
             " {:>left$}{}{:>right$} ",
             "", dir_label, "",
             left = left_pad,
@@ -591,14 +591,14 @@ fn display_cloud_status_symbol(console: &mut Console, config: &Config, status: C
     if icons_active {
         // NF glyph path — port of: if (m_fIconsActive) branch
         if let Some (icon) = config.get_cloud_status_icon (status) {
-            console.printf (color, &format!("{} ", icon));
+            console.writef (color, format_args! ("{} ", icon));
         } else {
             console.printf (config.attributes[Attribute::Default as usize], "  ");
         }
     } else {
         // Unicode circle path — original behavior
         let symbol = status.symbol();
-        console.printf (color, &format!("{} ", symbol));
+        console.writef (color, format_args! ("{} ", symbol));
     }
 }
 
@@ -626,7 +626,7 @@ fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &Fi
     };
 
     let info_color = config.attributes[Attribute::Information as usize];
-    console.printf(info_color, &format!("[{:08X}:{:02X}] ", file_info.file_attributes, cf_state.0 as u8));
+    console.writef (info_color, format_args! ("[{:08X}:{:02X}] ", file_info.file_attributes, cf_state.0 as u8));
 }
 
 
@@ -645,7 +645,7 @@ fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &Fi
 fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_width: usize) {
     let color = config.attributes[Attribute::Owner as usize];
     let padding = if max_width > owner.len() { max_width - owner.len() } else { 0 };
-    console.printf(color, &format!("{}{:width$} ", owner, "", width = padding));
+    console.writef (color, format_args! ("{}{:width$} ", owner, "", width = padding));
 }
 
 
@@ -681,10 +681,10 @@ fn display_file_streams(
 
         // 30 chars indentation (date/time 21 + attributes 9)
         // Then size field with padding, 2 spaces cloud placeholder, owner padding, then filename:stream
-        console.printf(default_color, &format!("{:30}", ""));
-        console.printf(size_color, &format!(" {:>width$} ", formatted_size, width = size_field_width));
-        console.printf(default_color, &format!("  {:width$}", "", width = owner_padding));
-        console.printf(stream_color, &format!("{}{}\n", file_name, si.name));
+        console.writef (default_color, format_args! ("{:30}", ""));
+        console.writef (size_color, format_args! (" {:>width$} ", formatted_size, width = size_field_width));
+        console.writef (default_color, format_args! ("  {:width$}", "", width = owner_padding));
+        console.writef_line (stream_color, format_args! ("{}{}", file_name, si.name));
     }
 }
 
@@ -1205,7 +1205,7 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
             if icons_active {
                 if let Some(icon) = style.icon_code_point {
                     if !style.icon_suppressed {
-                        console.printf (text_attr, &format!("{} ", icon));
+                        console.writef (text_attr, format_args! ("{} ", icon));
                     } else {
                         console.printf (text_attr, "  ");
                     }
@@ -1217,18 +1217,17 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
 
             // Format filename: [dirname] for dirs (classic mode only), plain name for files
             let name = fi.file_name.to_string_lossy();
-            let display_name = if fi.is_directory() && !icons_active {
-                format!("[{}]", name)
+            if fi.is_directory() && !icons_active {
+                console.writef (text_attr, format_args! ("[{}]", name));
+                cch_name += name.len() + 2;
             } else {
-                name.to_string()
-            };
-            cch_name += display_name.len();
-
-            console.printf(text_attr, &display_name);
+                console.printf (text_attr, &name);
+                cch_name += name.len();
+            }
 
             // Pad to column width
             if column_width > cch_name {
-                console.printf_attr(Attribute::Default, &format!(
+                console.writef_attr (Attribute::Default, format_args! (
                     "{:width$}", "", width = column_width - cch_name,
                 ));
             }
@@ -1345,7 +1344,7 @@ impl ResultsDisplayer for BareDisplayer {
             if self.icons_active {
                 if let Some(icon) = style.icon_code_point {
                     if !style.icon_suppressed {
-                        self.console.printf (text_attr, &format!("{} ", icon));
+                        self.console.writef (text_attr, format_args! ("{} ", icon));
                     } else {
                         self.console.printf (text_attr, "  ");
                     }
@@ -1399,7 +1398,7 @@ impl ResultsDisplayer for BareDisplayer {
 ////////////////////////////////////////////////////////////////////////////////
 
 fn console_printf_line(console: &mut Console, attr: u16, text: &str) {
-    console.printf(attr, &format!("{}\n", text));
+    console.writef_line (attr, format_args! ("{}", text));
 }
 
 

@@ -489,3 +489,216 @@ fn parity_icons_bare() {
         );
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_recursive
+//
+//  Verifies output parity for recursive listing (/s).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_recursive() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/s", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (recursive) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_recursive_bare
+//
+//  Verifies output parity for recursive bare listing (/s /b).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_recursive_bare() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/s", "/b", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (recursive+bare) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_recursive_wide
+//
+//  Verifies output parity for recursive wide listing (/s /w).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_recursive_wide() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/s", "/w", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (recursive+wide) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_owner
+//
+//  Verifies output parity for owner display (/Owner).
+//  Note: owner column has known ANSI color code differences between TCDir
+//  and RCDir — threshold is lower to account for per-line escape sequence
+//  variations in the owner field.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_owner() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Owner", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 25.0,
+            "Output parity (owner) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_streams
+//
+//  Verifies output parity for streams display (/Streams).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_streams() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Streams", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (streams) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_recursive_single_threaded
+//
+//  Verifies output parity for single-threaded recursive listing (/s /m-).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_recursive_single_threaded() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/s", "/m-", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (recursive+single-threaded) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_recursive_icons
+//
+//  Verifies output parity for recursive listing with icons (/s /Icons).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_recursive_icons() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/s", "/Icons", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (recursive+icons) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}

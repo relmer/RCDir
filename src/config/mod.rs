@@ -259,29 +259,6 @@ impl ValidationResult {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  OverrideValue
-//
-//  Intermediate result of parsing a "color,icon" value from the env var.
-//
-//  Port of: SOverrideValue in TCDirCore/Config.h
-//
-////////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug, Clone, Default)]
-pub struct OverrideValue {
-    pub color_attr:   u16,
-    pub icon_cp:      char,
-    pub suppressed:   bool,
-    pub has_color:    bool,
-    pub has_icon:     bool,
-}
-
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
 //  FileDisplayStyle
 //
 //  Resolved color + icon for a single file entry.

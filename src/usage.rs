@@ -894,7 +894,8 @@ fn display_width(s: &str) -> usize {
 //  char_display_width
 //
 //  Returns the display width (1 or 2 columns) of a single character.
-//  Handles CJK double-width ranges and Nerd Font PUA glyphs.
+//  Handles CJK double-width ranges.  Nerd Font PUA glyphs are treated
+//  as single-width because most terminals render them in one column.
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -920,12 +921,8 @@ fn char_display_width(c: char) -> usize {
         | 0x30000..=0x3FFFF // CJK Extension G+
         => 2,
 
-        // Nerd Font Private Use Area glyphs (2 columns in NF-capable terminals)
-        0xE000..=0xF8FF     // BMP PUA (Seti, Dev, FA, Weather, Oct, Powerline, MD, COD)
-        | 0xF0000..=0xFFFFF // Supplementary PUA-A
-        => 2,
-
-        // Everything else is 1 column
+        // Everything else is 1 column (including Nerd Font PUA glyphs,
+        // which most terminals render as single-width)
         _ => 1,
     }
 }
@@ -1339,7 +1336,8 @@ mod tests {
     //
     //  display_width_nerd_font_glyph
     //
-    //  Verify Nerd Font PUA glyphs occupy 2 columns.
+    //  Verify Nerd Font PUA glyphs are treated as 1 column (most
+    //  terminals render them single-width).
     //
     ////////////////////////////////////////////////////////////////////////////
 
@@ -1347,11 +1345,11 @@ mod tests {
     fn display_width_nerd_font_glyph() {
         // NF_CUSTOM_FOLDER = U+E5FF (BMP PUA range)
         let nf_folder = '\u{E5FF}';
-        assert_eq!(char_display_width (nf_folder), 2);
+        assert_eq!(char_display_width (nf_folder), 1);
 
-        // A string with "icon file.rs" → icon (2) + space (1) + 7 = 10
+        // A string with "icon file.rs" → icon (1) + space (1) + 7 = 9
         let s = format! ("{} file.rs", nf_folder);
-        assert_eq!(display_width (&s), 10);
+        assert_eq!(display_width (&s), 9);
     }
 
 

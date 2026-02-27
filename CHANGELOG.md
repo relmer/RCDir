@@ -2,6 +2,21 @@
 
 All notable changes to RCDir are documented in this file.
 
+## [Unreleased]
+
+## [5.0.1131] - 2026-02-27
+
+### Added
+- Application icon and VERSIONINFO resource block for Windows file properties
+- WinGet package manifest (`relmer.RCDir`) and automated publish step
+
+### Changed
+- Statically link the C runtime (eliminates vcruntime140.dll dependency)
+
+### Fixed
+- WinGet workflow: install wingetcreate before publish step
+- WinGet workflow: use `env` context for PAT secret in step conditions
+
 ## [5.0.1129] - 2026-02-19
 Minor fixes.
 

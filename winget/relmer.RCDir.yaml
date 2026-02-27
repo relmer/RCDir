@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.10.0.schema.json
 
 PackageIdentifier: relmer.RCDir
-PackageVersion: 5.0.1130
+PackageVersion: 5.0.1131
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.10.0

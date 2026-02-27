@@ -149,6 +149,41 @@ fn emit_env_vars(version: &Version, timestamp: &str, year: &str) {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  embed_windows_resources
+//
+//  Embeds the application icon into the Windows executable.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[cfg(windows)]
+fn embed_windows_resources(version: &Version, year: &str) {
+    let version_string = format!("{}.{}.{}.0", version.major, version.minor, version.build);
+
+
+
+    let mut res = winres::WindowsResource::new();
+    res.set_icon("Assets\\RCDir.ico");
+    res.set("CompanyName", "relmer");
+    res.set("FileDescription", "Rusticolor Directory");
+    res.set("FileVersion", &version_string);
+    res.set("InternalName", "RCDir");
+    res.set("LegalCopyright", &format!("Copyright (C) {year} relmer"));
+    res.set("OriginalFilename", "RCDir.exe");
+    res.set("ProductName", "RCDir");
+    res.set("ProductVersion", &version_string);
+    res.compile().expect("Failed to compile Windows resources");
+}
+
+#[cfg(not(windows))]
+fn embed_windows_resources(_version: &Version, _year: &str) {
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  main
 //
 //  Entry point: reads version from Version.toml and emits env vars.
@@ -165,6 +200,9 @@ fn main() {
 
 
     println!("cargo:rerun-if-changed=Version.toml");
+    println!("cargo:rerun-if-changed=Assets/RCDir.ico");
+
+    embed_windows_resources(&version, &year);
 
     emit_env_vars(&version, &timestamp, &year);
 }

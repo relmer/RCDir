@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RCDir Icon Preview</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Segoe UI, Arial, sans-serif;
+      background: #11161f;
+      color: #e8edf7;
+    }
+    h1 { margin: 0 0 16px 0; font-size: 22px; }
+    .card {
+      max-width: 320px;
+      background: #1a2130;
+      border: 1px solid #2d374d;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .label {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .icon-wrap {
+      background: #0f1420;
+      border: 1px solid #2c364b;
+      border-radius: 10px;
+      padding: 12px;
+      display: grid;
+      place-items: center;
+    }
+    img { width: 220px; height: 220px; }
+  </style>
+</head>
+<body>
+  <h1>RCDir Icon Mockup</h1>
+  <section class="card">
+    <p class="label">Standard generated icon</p>
+    <div class="icon-wrap">
+      <img src="./rcdir-final.png" alt="RCDir standard icon" />
+    </div>
+  </section>
+
+  <section class="card" style="margin-top: 16px;">
+    <p class="label">Micro-optimized (16-24px bias)</p>
+    <div class="icon-wrap">
+      <img src="./rcdir-micro.png" alt="RCDir micro icon" />
+    </div>
+  </section>
+</body>
+</html>

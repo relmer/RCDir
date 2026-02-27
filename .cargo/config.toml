@@ -3,6 +3,16 @@
 # Aliases provide shorthand for common architecture-specific builds.
 # All aliases use explicit --target to ensure binaries land in
 # target/<triple>/ rather than the ambiguous target/debug|release/.
+#
+# Static CRT linking ensures the binary is fully self-contained
+# (no vcruntime140.dll dependency), which is required for portable
+# distribution via WinGet.
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
 
 [alias]
 # Debug builds

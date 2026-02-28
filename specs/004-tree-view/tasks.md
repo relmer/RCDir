@@ -206,8 +206,8 @@
 
 - [X] T061 Run `cargo test` — all unit + integration tests pass
 - [X] T062 Run `cargo clippy -- -D warnings` — no warnings
-- [ ] T063 Run `scripts/CompareOutput.ps1` against multiple directories with various tree arguments — verify byte-for-byte match between `rcdir` and `tcdir`
-- [ ] T064 Run quickstart.md verification commands (quick verification section + error cases)
+- [X] T063 Run `scripts/CompareOutput.ps1` against multiple directories with various tree arguments — verify byte-for-byte match between `rcdir` and `tcdir`
+- [X] T064 Run quickstart.md verification commands (quick verification section + error cases)
 
 ---
 

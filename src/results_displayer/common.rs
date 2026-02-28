@@ -142,16 +142,16 @@ pub(super) fn display_cloud_status_symbol(console: &mut Console, config: &Config
     let color = config.attributes[attr as usize];
 
     if icons_active {
-        // NF glyph path — port of: if (m_fIconsActive) branch
+        // NF glyph path — leading space + 2-col icon + trailing space (4 visual cols)
         if let Some (icon) = config.get_cloud_status_icon (status) {
-            console.writef (color, format_args! ("{} ", icon));
+            console.writef (color, format_args! (" {} ", icon));
         } else {
-            console.printf (config.attributes[Attribute::Default as usize], "  ");
+            console.printf (config.attributes[Attribute::Default as usize], "    ");
         }
     } else {
-        // Unicode circle path — original behavior
+        // Unicode circle path — leading space + symbol + trailing space (3 chars)
         let symbol = status.symbol();
-        console.writef (color, format_args! ("{} ", symbol));
+        console.writef (color, format_args! (" {} ", symbol));
     }
 }
 

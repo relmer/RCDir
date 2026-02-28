@@ -254,7 +254,7 @@ fn display_file_results(
         // Streams (if --streams and this is a file, not a directory)
         if cmd.show_streams && !file_info.streams.is_empty() {
             let owner_width = if cmd.show_owner { max_owner_len } else { 0 };
-            display_file_streams(console, config, file_info, max_size_width, owner_width);
+            display_file_streams(console, config, file_info, max_size_width, owner_width, icons_active);
         }
     }
 }
@@ -407,13 +407,14 @@ fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize
 
     if !fi.is_directory() {
         let formatted = format_number_with_separators(fi.file_size);
-        console.writef_attr (Attribute::Size, format_args! (" {:>width$} ", formatted, width = col_width));
+        console.writef_attr (Attribute::Size, format_args! ("  {:>width$}", formatted, width = col_width));
     } else {
-        // Center <DIR> within the column
+        // Center <DIR> within the column — same total width as file sizes
+        // (2 leading spaces + col_width chars, no trailing space)
         let left_pad = (col_width - dir_label.len()) / 2;
         let right_pad = col_width - dir_label.len() - left_pad;
         console.writef_attr (Attribute::Directory, format_args! (
-            " {:>left$}{}{:>right$} ",
+            "  {:>left$}{}{:>right$}",
             "", dir_label, "",
             left = left_pad,
             right = right_pad,
@@ -486,6 +487,7 @@ fn display_file_streams(
     file_info: &FileInfo,
     max_size_width: usize,
     owner_width: usize,
+    icons_active: bool,
 ) {
     let size_field_width = max_size_width.max(5);
     let file_name = file_info.file_name.to_string_lossy();
@@ -495,14 +497,19 @@ fn display_file_streams(
 
     let default_color = config.attributes[Attribute::Default as usize];
 
+    // Cloud status gap: leading space + symbol/icon + trailing space
+    //   Non-icon mode: 3 chars (space + symbol + space)
+    //   Icon mode:     4 visual cols (space + 2-col icon + space)
+    let cloud_status_gap = if icons_active { "    " } else { "   " };
+
     for si in &file_info.streams {
         let formatted_size = format_number_with_separators(si.size as u64);
 
         // 30 chars indentation (date/time 21 + attributes 9)
-        // Then size field with padding, 2 spaces cloud placeholder, owner padding, then filename:stream
+        // Then size field with padding, cloud placeholder, owner padding, then filename:stream
         console.writef (default_color, format_args! ("{:30}", ""));
-        console.writef (size_color, format_args! (" {:>width$} ", formatted_size, width = size_field_width));
-        console.writef (default_color, format_args! ("  {:width$}", "", width = owner_padding));
+        console.writef (size_color, format_args! ("  {:>width$}", formatted_size, width = size_field_width));
+        console.writef (default_color, format_args! ("{}  {:width$}", cloud_status_gap, "", width = owner_padding));
         console.writef_line (stream_color, format_args! ("{}{}", file_name, si.name));
     }
 }

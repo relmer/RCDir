@@ -199,6 +199,122 @@ fn is_env_var_set(name: &str) -> bool {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  measure_visible_width
+//
+//  Returns the visible character count of a string that contains color
+//  markers in the form {MarkerName}.  Characters inside braces are skipped.
+//  Port of: MeasureVisibleWidth (Usage.cpp)
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn measure_visible_width(text: &str) -> usize {
+    let mut cch    = 0usize;
+    let mut in_tag = false;
+
+
+
+    for ch in text.chars() {
+        if ch == '{' {
+            in_tag = true;
+            continue;
+        }
+
+        if ch == '}' {
+            in_tag = false;
+            continue;
+        }
+
+        if !in_tag {
+            cch += 1;
+        }
+    }
+
+    cch
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_synopsis
+//
+//  Prints the RCDIR synopsis line with dynamic word-wrapping.
+//  Options that would exceed the console width wrap to a new line,
+//  indented to align under [drive:] from the first line.
+//  Port of: CUsage::DisplaySynopsis
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn display_synopsis(console: &mut Console, prefix: char) {
+    let short = if prefix == '-' { "-" } else { "/" };
+    let long  = if prefix == '-' { "--" } else { "/" };
+
+    // "RCDIR " = 6 visible chars.  Continuation lines indent to column 6
+    // to align under [drive:].
+    const INDENT: usize = 6;
+
+    // Build the list of option tokens.  Each is a color-marked string
+    // with a trailing space separator.
+    let mut tokens: Vec<String> = vec![
+        format!("[{{InformationHighlight}}drive:{{Information}}]\
+                 [{{InformationHighlight}}path{{Information}}]\
+                 [{{InformationHighlight}}filename{{Information}}] "),
+        format!("[{{InformationHighlight}}{short}A{{Information}}\
+                 [[:]{{InformationHighlight}}attributes{{Information}}]] "),
+        format!("[{{InformationHighlight}}{short}O{{Information}}\
+                 [[:]{{InformationHighlight}}sortorder{{Information}}]] "),
+        format!("[{{InformationHighlight}}{short}T{{Information}}\
+                 [[:]{{InformationHighlight}}timefield{{Information}}]] "),
+        format!("[{{InformationHighlight}}{short}S{{Information}}] "),
+        format!("[{{InformationHighlight}}{short}W{{Information}}] "),
+        format!("[{{InformationHighlight}}{short}B{{Information}}] "),
+        format!("[{{InformationHighlight}}{short}P{{Information}}] "),
+        format!("[{{InformationHighlight}}{short}M{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Env{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Config{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Owner{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Streams{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Icons{{Information}}]"),
+    ];
+
+    #[cfg(debug_assertions)]
+    tokens.push (format!(" [{{InformationHighlight}}{long}Debug{{Information}}]"));
+
+    let console_width = console.width() as usize;
+    let mut col       = INDENT;
+    let indent_str    = " ".repeat (INDENT);
+
+
+
+    // Start with "RCDIR "
+    let mut line = String::from ("{InformationHighlight}RCDIR{Information} ");
+
+    // Append each token, inserting line breaks when necessary
+    for token in &tokens {
+        let visible_width = measure_visible_width (token);
+
+        if col + visible_width > console_width && col > INDENT {
+            // Wrap to next line, indented under [drive:]
+            line.push ('\n');
+            line.push_str (&indent_str);
+            col = INDENT;
+        }
+
+        line.push_str (token);
+        col += visible_width;
+    }
+
+    console.color_puts (&line);
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  display_usage
 //
 //  Display the main usage/help screen.
@@ -223,25 +339,7 @@ pub fn display_usage(console: &mut Console, prefix: char, icons_active: bool) {
     // Header: product name continuation, version, copyright
     console.color_printf(&format!("\
 {{Information}} Directory version {ver} {arch} ({ts})
-Copyright {copy} 2004-{year} by Robert Elmer
-
-{{InformationHighlight}}RCDIR{{Information}} \
-         [{{InformationHighlight}}drive:{{Information}}]\
-         [{{InformationHighlight}}path{{Information}}]\
-         [{{InformationHighlight}}filename{{Information}}] \
-         [{{InformationHighlight}}{short}A{{Information}}[[:]{{InformationHighlight}}attributes{{Information}}]] \
-         [{{InformationHighlight}}{short}O{{Information}}[[:]{{InformationHighlight}}sortorder{{Information}}]] \
-         [{{InformationHighlight}}{short}T{{Information}}[[:]{{InformationHighlight}}timefield{{Information}}]] \
-         [{{InformationHighlight}}{short}S{{Information}}] \
-         [{{InformationHighlight}}{short}W{{Information}}] \
-         [{{InformationHighlight}}{short}B{{Information}}] \
-         [{{InformationHighlight}}{short}P{{Information}}] \
-         [{{InformationHighlight}}{short}M{{Information}}] \
-         [{{InformationHighlight}}{long}Env{{Information}}] \
-         [{{InformationHighlight}}{long}Config{{Information}}] \
-         [{{InformationHighlight}}{long}Owner{{Information}}] \
-         [{{InformationHighlight}}{long}Streams{{Information}}] \
-         [{{InformationHighlight}}{long}Icons{{Information}}]",
+Copyright {copy} 2004-{year} by Robert Elmer",
         ver  = VERSION_STRING,
         arch = architecture(),
         ts   = BUILD_TIMESTAMP,
@@ -249,10 +347,8 @@ Copyright {copy} 2004-{year} by Robert Elmer
         year = VERSION_YEAR,
     ));
 
-    #[cfg(debug_assertions)]
-    console.color_printf(&format!(
-        "{{Information}} [{{InformationHighlight}}{long}Debug{{Information}}]"
-    ));
+    // Print the synopsis line with dynamic word-wrapping
+    display_synopsis (console, prefix);
 
     // Body: switch descriptions, attribute codes, cloud symbols, sort/time fields
     // Multiline string literal — source indentation = output indentation (WYSIWYG).
@@ -262,48 +358,48 @@ Copyright {copy} 2004-{year} by Robert Elmer
 
 
   [drive:][path][filename]
-              Specifies drive, directory, and/or files to list.
+                    Specifies drive, directory, and/or files to list.
 
-  {{InformationHighlight}}{short}A{{Information}}          Displays files with specified attributes.
-  attributes   {{InformationHighlight}}D{{Information}}  Directories                {{InformationHighlight}}R{{Information}}  Read-only files
-               {{InformationHighlight}}H{{Information}}  Hidden files               {{InformationHighlight}}A{{Information}}  Files ready for archiving
-               {{InformationHighlight}}S{{Information}}  System files               {{InformationHighlight}}T{{Information}}  Temporary files
-               {{InformationHighlight}}E{{Information}}  Encrypted files            {{InformationHighlight}}C{{Information}}  Compressed files
-               {{InformationHighlight}}P{{Information}}  Reparse points             {{InformationHighlight}}0{{Information}}  Sparse files
-               {{InformationHighlight}}X{{Information}}  Not content indexed        {{InformationHighlight}}I{{Information}}  Integrity stream (ReFS)
-               {{InformationHighlight}}B{{Information}}  No scrub data (ReFS)       {{InformationHighlight}}O{{Information}}  Cloud-only (not local)
-               {{InformationHighlight}}L{{Information}}  Locally available          {{InformationHighlight}}V{{Information}}  Always locally available
-               {{InformationHighlight}}-{{Information}}  Prefix meaning not
+  {{InformationHighlight}}{short}A{{Information}}                Displays files with specified attributes.
+  attributes          {{InformationHighlight}}D{{Information}}  Directories                {{InformationHighlight}}R{{Information}}  Read-only files
+                      {{InformationHighlight}}H{{Information}}  Hidden files               {{InformationHighlight}}A{{Information}}  Files ready for archiving
+                      {{InformationHighlight}}S{{Information}}  System files               {{InformationHighlight}}T{{Information}}  Temporary files
+                      {{InformationHighlight}}E{{Information}}  Encrypted files            {{InformationHighlight}}C{{Information}}  Compressed files
+                      {{InformationHighlight}}P{{Information}}  Reparse points             {{InformationHighlight}}0{{Information}}  Sparse files
+                      {{InformationHighlight}}X{{Information}}  Not content indexed        {{InformationHighlight}}I{{Information}}  Integrity stream (ReFS)
+                      {{InformationHighlight}}B{{Information}}  No scrub data (ReFS)       {{InformationHighlight}}O{{Information}}  Cloud-only (not local)
+                      {{InformationHighlight}}L{{Information}}  Locally available          {{InformationHighlight}}V{{Information}}  Always locally available
+                      {{InformationHighlight}}-{{Information}}  Prefix meaning not
 
   Cloud status symbols shown between file size and name:
-               {{CloudStatusCloudOnly}}{sym_cloud}{{Information}}  Cloud-only (not locally available)
-               {{CloudStatusLocallyAvailable}}{sym_local}{{Information}}  Locally available (can be freed)
-               {{CloudStatusAlwaysLocallyAvailable}}{sym_pinned}{{Information}}  Always locally available (pinned)
+                      {{CloudStatusCloudOnly}}{sym_cloud}{{Information}}  Cloud-only (not locally available)
+                      {{CloudStatusLocallyAvailable}}{sym_local}{{Information}}  Locally available (can be freed)
+                      {{CloudStatusAlwaysLocallyAvailable}}{sym_pinned}{{Information}}  Always locally available (pinned)
 
-  {{InformationHighlight}}{short}O{{Information}}          List by files in sorted order.
-  sortorder    {{InformationHighlight}}N{{Information}}  By name (alphabetic)       {{InformationHighlight}}S{{Information}}  By size (smallest first)
-               {{InformationHighlight}}E{{Information}}  By extension (alphabetic)  {{InformationHighlight}}D{{Information}}  By date/time (oldest first)
-               {{InformationHighlight}}-{{Information}}  Prefix to reverse order
+  {{InformationHighlight}}{short}O{{Information}}                List by files in sorted order.
+  sortorder           {{InformationHighlight}}N{{Information}}  By name (alphabetic)       {{InformationHighlight}}S{{Information}}  By size (smallest first)
+                      {{InformationHighlight}}E{{Information}}  By extension (alphabetic)  {{InformationHighlight}}D{{Information}}  By date/time (oldest first)
+                      {{InformationHighlight}}-{{Information}}  Prefix to reverse order
 
-  {{InformationHighlight}}{short}T{{Information}}          Selects the time field for display and sorting.
-  timefield    {{InformationHighlight}}C{{Information}}  Creation time              {{InformationHighlight}}A{{Information}}  Last access time
-               {{InformationHighlight}}W{{Information}}  Last write time (default)
+  {{InformationHighlight}}{short}T{{Information}}                Selects the time field for display and sorting.
+  timefield           {{InformationHighlight}}C{{Information}}  Creation time              {{InformationHighlight}}A{{Information}}  Last access time
+                      {{InformationHighlight}}W{{Information}}  Last write time (default)
 
-  {{InformationHighlight}}{short}S{{Information}}          Displays files in specified directory and all subdirectories.
-  {{InformationHighlight}}{short}W{{Information}}          Displays results in a wide listing format.
-  {{InformationHighlight}}{short}B{{Information}}          Displays bare file names only (no headers, footers, or details).
-  {{InformationHighlight}}{short}P{{Information}}          Displays performance timing information.
-  {{InformationHighlight}}{short}M{{Information}}          Enables multi-threaded enumeration (default). Use{{InformationHighlight}}{m_dis}{{Information}} to disable.
-  {{InformationHighlight}}{long}Env{{Information}}       {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.
-  {{InformationHighlight}}{long}Config{{Information}}    {lpad}Displays current color configuration for all items and extensions.
-  {{InformationHighlight}}{long}Owner{{Information}}     {lpad}Displays file owner (DOMAIN\\User) for each file.
-  {{InformationHighlight}}{long}Streams{{Information}}   {lpad}Displays alternate data streams (NTFS only).
-  {{InformationHighlight}}{long}Icons{{Information}}     {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable."
+  {{InformationHighlight}}{short}S{{Information}}                Displays files in specified directory and all subdirectories.
+  {{InformationHighlight}}{short}W{{Information}}                Displays results in a wide listing format.
+  {{InformationHighlight}}{short}B{{Information}}                Displays bare file names only (no headers, footers, or details).
+  {{InformationHighlight}}{short}P{{Information}}                Displays performance timing information.
+  {{InformationHighlight}}{short}M{{Information}}                Enables multi-threaded enumeration (default). Use{{InformationHighlight}}{m_dis}{{Information}} to disable.
+  {{InformationHighlight}}{long}Env{{Information}}             {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.
+  {{InformationHighlight}}{long}Config{{Information}}          {lpad}Displays current color configuration for all items and extensions.
+  {{InformationHighlight}}{long}Owner{{Information}}           {lpad}Displays file owner (DOMAIN\\User) for each file.
+  {{InformationHighlight}}{long}Streams{{Information}}         {lpad}Displays alternate data streams (NTFS only).
+  {{InformationHighlight}}{long}Icons{{Information}}           {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable."
     ));
 
     #[cfg(debug_assertions)]
     console.color_puts(&format!(
-        "\n  {{InformationHighlight}}{long}Debug{{Information}}     {lpad}Displays raw file attributes in hex for diagnosing edge cases."
+        "\n  {{InformationHighlight}}{long}Debug{{Information}}           {lpad}Displays raw file attributes in hex for diagnosing edge cases."
     ));
 }
 

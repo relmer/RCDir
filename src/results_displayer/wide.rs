@@ -199,9 +199,11 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
     // When icons are active, account for icon + space (+2) in column width
     let mut adjusted_max = if icons_active { max_name_len + 2 } else { max_name_len };
 
-    // When in sync root, cloud status symbol + space adds +2
+    // When in sync root, cloud status adds visual width:
+    //   Non-icon mode: 3 chars (space + symbol + space)
+    //   Icon mode:     4 visual cols (space + 2-col icon + space)
     if in_sync_root {
-        adjusted_max += 2;
+        adjusted_max += if icons_active { 4 } else { 3 };
     }
 
     // Calculate column count and widths — Port of: GetColumnInfo
@@ -247,7 +249,7 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
             if in_sync_root {
                 let cloud = cloud_status::get_cloud_status (fi.file_attributes, true);
                 display_cloud_status_symbol (console, config, cloud, icons_active);
-                cch_name += 2;
+                cch_name += if icons_active { 4 } else { 3 };
             }
 
             // Icon glyph before filename (when icons are active)

@@ -211,12 +211,73 @@ impl CommandLine {
             && switch_arg.as_bytes().get (1) != Some (&b':')
             && switch_arg.as_bytes().get (1) != Some (&b'-');
 
-        // Reject single-dash long switches (e.g., -env → error)
+        // Reject single-dash long switches (e.g., -env) — must use --env
         if looks_like_long && !is_double_dash && prefix == '-' {
-            return Err (AppError::InvalidArg (String::new()));
+            return Err (Self::reject_single_dash_long_switch (switch_arg));
         }
 
         self.handle_switch (switch_arg)
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  reject_single_dash_long_switch
+    //
+    //  Build a descriptive error for a mis-prefixed long switch.
+    //  If the switch name matches a known long switch, includes a
+    //  "Did you mean --<name>?" hint.
+    //  Port of: CCommandLine::RejectSingleDashLongSwitch
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn reject_single_dash_long_switch(switch_arg: &str) -> AppError {
+        // Extract just the switch name (before any '=' separator)
+        let switch_name = match switch_arg.find ('=') {
+            Some (pos) => &switch_arg[..pos],
+            None       => switch_arg,
+        };
+
+        // Strip trailing '-' (negation suffix) for lookup
+        let lookup = switch_name.strip_suffix ('-').unwrap_or (switch_name);
+
+        if Self::is_recognized_long_switch (lookup) {
+            AppError::InvalidArg (format! ("Unknown switch: -{switch_name}.  Did you mean --{switch_name}?"))
+        } else {
+            AppError::InvalidArg (format! ("Unknown switch: -{switch_name}."))
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_recognized_long_switch
+    //
+    //  Returns true if the given name (case-insensitive, without prefix
+    //  or '=') matches any known long switch.
+    //  Port of: CCommandLine::IsRecognizedLongSwitch
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn is_recognized_long_switch(name: &str) -> bool {
+        const RECOGNIZED: &[&str] = &[
+            "env",
+            "config",
+            "owner",
+            "streams",
+            "debug",
+            "icons",
+        ];
+
+
+
+        RECOGNIZED.iter().any (|&s| s.eq_ignore_ascii_case (name))
     }
 
 
@@ -905,8 +966,17 @@ mod tests {
 
     #[test]
     fn parse_long_switch_single_dash_error() {
-        // -env (single dash + long) should be an error
-        assert!(CommandLine::parse_from(["-env"]).is_err());
+        // -env (single dash + long) should produce descriptive error
+        let err = CommandLine::parse_from(["-env"]).unwrap_err();
+        assert_eq!(err.to_string(), "Unknown switch: -env.  Did you mean --env?");
+
+        // Unrecognized long switch with single dash
+        let err = CommandLine::parse_from(["-notaswitch"]).unwrap_err();
+        assert_eq!(err.to_string(), "Unknown switch: -notaswitch.");
+
+        // Single-dash with '=' separator — strips = for lookup
+        let err = CommandLine::parse_from(["-icons=true"]).unwrap_err();
+        assert!(err.to_string().contains("Did you mean"));
     }
 
 

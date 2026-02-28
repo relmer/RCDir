@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::ffi::OsString;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::path::Path;
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 
@@ -44,11 +44,12 @@ type WorkItem = Arc<(Mutex<DirectoryInfo>, Condvar)>;
 ///
 /// Port of: CMultiThreadedLister
 pub struct MultiThreadedLister {
-    cmd:        Arc<CommandLine>,
-    _config:    Arc<Config>,
-    work_queue: Arc<WorkQueue<WorkItem>>,
-    stop:       Arc<AtomicBool>,
-    workers:    Vec<JoinHandle<()>>,
+    cmd:                    Arc<CommandLine>,
+    _config:                Arc<Config>,
+    work_queue:             Arc<WorkQueue<WorkItem>>,
+    stop:                   Arc<AtomicBool>,
+    tree_pruning_active:    Arc<AtomicBool>,
+    workers:                Vec<JoinHandle<()>>,
 }
 
 
@@ -73,8 +74,9 @@ impl MultiThreadedLister {
     ////////////////////////////////////////////////////////////////////////////
 
     pub fn new(cmd: Arc<CommandLine>, config: Arc<Config>) -> Self {
-        let work_queue = Arc::new(WorkQueue::new());
-        let stop = Arc::new(AtomicBool::new(false));
+        let work_queue          = Arc::new (WorkQueue::new());
+        let stop                = Arc::new (AtomicBool::new (false));
+        let tree_pruning_active = Arc::new (AtomicBool::new (false));
 
         let num_threads = thread::available_parallelism()
             .map(|n| n.get())
@@ -84,17 +86,18 @@ impl MultiThreadedLister {
         let mut workers = Vec::with_capacity(num_threads);
 
         for _ in 0..num_threads {
-            let wq = Arc::clone(&work_queue);
-            let st = Arc::clone(&stop);
-            let c  = Arc::clone(&cmd);
-            let cf = Arc::clone(&config);
+            let wq  = Arc::clone (&work_queue);
+            let st  = Arc::clone (&stop);
+            let tpa = Arc::clone (&tree_pruning_active);
+            let c   = Arc::clone (&cmd);
+            let cf  = Arc::clone (&config);
 
             workers.push(thread::spawn(move || {
-                worker_thread_func(&wq, &st, &c, &cf);
+                worker_thread_func (&wq, &st, &tpa, &c, &cf);
             }));
         }
 
-        MultiThreadedLister { cmd, _config: config, work_queue, stop, workers }
+        MultiThreadedLister { cmd, _config: config, work_queue, stop, tree_pruning_active, workers }
     }
 
 
@@ -122,13 +125,18 @@ impl MultiThreadedLister {
         let spec_strings: Vec<String> = file_specs.iter()
             .map(|s| s.to_string_lossy().to_string())
             .collect();
+
+        let is_tree = self.cmd.tree.unwrap_or (false);
+        let all_star = spec_strings.iter().all (|s| s == "*");
+        self.tree_pruning_active.store (is_tree && !all_star, Ordering::Release);
+
         let root = DirectoryInfo::new_multi(dir_path.to_path_buf(), spec_strings);
         let root_node: WorkItem = Arc::new((Mutex::new(root), Condvar::new()));
 
         self.work_queue.push(Arc::clone(&root_node));
 
         // Consume the tree on the main thread (streaming output)
-        if self.cmd.tree.unwrap_or (false) {
+        if is_tree {
             if let Displayer::Tree (tree_displayer) = displayer {
                 let mut tree_state = TreeConnectorState::new (self.cmd.tree_indent);
 
@@ -361,6 +369,8 @@ impl MultiThreadedLister {
             (child_map, entries)
         };
 
+        let pruning = self.pruning_active();
+
         for (i, entry) in entries.iter().enumerate() {
             if self.stop_requested() {
                 return;
@@ -368,8 +378,24 @@ impl MultiThreadedLister {
 
             let is_dir = (entry.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 
+            // Tree pruning: if this directory has no descendant matches, skip it
+            if pruning && is_dir {
+                let lower_name = entry.file_name.to_string_lossy().to_lowercase();
+                if let Some (child_node) = child_map.get (&lower_name) {
+                    let visible = wait_for_tree_visibility (child_node, &self.stop);
+                    if !visible {
+                        // Pruned — decrement subdirectory count so totals are correct
+                        let mut di = node.0.lock().unwrap();
+                        if di.subdirectory_count > 0 {
+                            di.subdirectory_count -= 1;
+                        }
+                        continue;
+                    }
+                }
+            }
+
             // Determine if this is the last visible entry (look-ahead)
-            let is_last = self.is_last_visible_entry (&entries, i);
+            let is_last = self.is_last_visible_entry (&entries, i, &child_map);
 
             tree_displayer.display_single_entry (entry, tree_state, is_last, i);
 
@@ -472,9 +498,39 @@ impl MultiThreadedLister {
         &self,
         entries: &[FileInfo],
         current_idx: usize,
+        child_map: &HashMap<String, WorkItem>,
     ) -> bool {
-        // Without tree pruning, simply check if there are more entries
-        current_idx + 1 >= entries.len()
+        let pruning = self.pruning_active();
+
+        // Look ahead from the current position
+        for next_entry in &entries[(current_idx + 1)..] {
+            let next_is_dir = (next_entry.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+            if !next_is_dir {
+                // A file entry is always visible
+                return false;
+            }
+
+            // Directory entry: if pruning is not active, it's always visible
+            if !pruning {
+                return false;
+            }
+
+            // Pruning active: check if this directory will be visible
+            let lower_name = next_entry.file_name.to_string_lossy().to_lowercase();
+            if let Some (child_node) = child_map.get (&lower_name) {
+                if wait_for_tree_visibility (child_node, &self.stop) {
+                    return false;
+                }
+                // Not visible — keep scanning
+            } else {
+                // No matching child node; directory is still visible
+                return false;
+            }
+        }
+
+        // No more visible entries found
+        true
     }
 
 
@@ -491,6 +547,22 @@ impl MultiThreadedLister {
 
     fn stop_requested(&self) -> bool {
         self.stop.load(Ordering::Acquire)
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pruning_active
+    //
+    //  Check if tree pruning is active.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn pruning_active(&self) -> bool {
+        self.tree_pruning_active.load (Ordering::Acquire)
     }
 }
 
@@ -529,6 +601,7 @@ impl Drop for MultiThreadedLister {
 fn worker_thread_func(
     work_queue: &WorkQueue<WorkItem>,
     stop: &AtomicBool,
+    tree_pruning_active: &AtomicBool,
     cmd: &CommandLine,
     _config: &Config,
 ) {
@@ -538,7 +611,7 @@ fn worker_thread_func(
             None => break, // Queue is done
         };
 
-        enumerate_directory_node(&item, work_queue, stop, cmd);
+        enumerate_directory_node (&item, work_queue, stop, tree_pruning_active, cmd);
     }
 }
 
@@ -560,6 +633,7 @@ fn enumerate_directory_node(
     node: &WorkItem,
     work_queue: &WorkQueue<WorkItem>,
     stop: &AtomicBool,
+    tree_pruning_active: &AtomicBool,
     cmd: &CommandLine,
 ) {
     // Set InProgress
@@ -568,9 +642,11 @@ fn enumerate_directory_node(
         di.status = DirectoryStatus::InProgress;
     }
 
-    let result = perform_enumeration(node, work_queue, stop, cmd);
+    let result = perform_enumeration (node, work_queue, stop, tree_pruning_active, cmd);
 
-    // Set Done or Error
+    let pruning = tree_pruning_active.load (Ordering::Acquire);
+
+    // Set Done or Error, and propagate match info for tree pruning
     {
         let mut di = node.0.lock().unwrap();
         match result {
@@ -579,6 +655,27 @@ fn enumerate_directory_node(
                 di.status = DirectoryStatus::Error;
                 di.error = Some(msg);
             }
+        }
+
+        // If pruning is active and this node has matching files,
+        // propagate the match flag up the ancestor chain.
+        if pruning && di.file_count > 0
+            && let Some (ref parent_weak) = di.parent
+        {
+            propagate_descendant_match (parent_weak);
+        }
+    }
+
+    // If pruning is active, check if this is a leaf (no children) and
+    // signal subtree complete upward.
+    if pruning {
+        let is_leaf = {
+            let di = node.0.lock().unwrap();
+            di.children.is_empty()
+        };
+
+        if is_leaf {
+            signal_subtree_complete (node);
         }
     }
 
@@ -604,12 +701,13 @@ fn perform_enumeration(
     node: &WorkItem,
     work_queue: &WorkQueue<WorkItem>,
     stop: &AtomicBool,
+    tree_pruning_active: &AtomicBool,
     cmd: &CommandLine,
 ) -> Result<(), String> {
-    enumerate_matching_files(node, stop, cmd)?;
+    enumerate_matching_files (node, stop, cmd)?;
 
     if cmd.recurse || cmd.tree.unwrap_or (false) {
-        enumerate_subdirectories(node, work_queue, stop, cmd)?;
+        enumerate_subdirectories (node, work_queue, stop, tree_pruning_active, cmd)?;
     }
 
     Ok(())
@@ -707,6 +805,7 @@ fn enumerate_subdirectories(
     node: &WorkItem,
     work_queue: &WorkQueue<WorkItem>,
     stop: &AtomicBool,
+    tree_pruning_active: &AtomicBool,
     cmd: &CommandLine,
 ) -> Result<(), String> {
     let (dir_path, file_specs) = {
@@ -755,8 +854,14 @@ fn enumerate_subdirectories(
             let name = OsString::from_wide(&wfd.cFileName[..name_len]);
             let subdir_path = dir_path.join(&name);
 
-            let child_di = DirectoryInfo::new_multi(subdir_path, file_specs.clone());
-            let child_node: WorkItem = Arc::new((Mutex::new(child_di), Condvar::new()));
+            let mut child_di = DirectoryInfo::new_multi (subdir_path, file_specs.clone());
+
+            // Set parent weak reference for tree pruning propagation
+            if tree_pruning_active.load (Ordering::Acquire) {
+                child_di.parent = Some (Arc::downgrade (node));
+            }
+
+            let child_node: WorkItem = Arc::new ((Mutex::new (child_di), Condvar::new()));
 
             // Add child to parent's children list
             {
@@ -909,6 +1014,149 @@ fn is_dots(filename: &[u16]) -> bool {
         }
     }
     false
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  propagate_descendant_match
+//
+//  Walk up the parent chain, setting descendant_match_found on each
+//  ancestor.  Short-circuits if an ancestor already has the flag set
+//  (meaning all further ancestors were already notified).
+//
+//  Port of: CMultiThreadedLister::PropagateDescendantMatch
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn propagate_descendant_match (parent_weak: &Weak<(Mutex<DirectoryInfo>, Condvar)>) {
+    let mut current = parent_weak.upgrade();
+
+    while let Some (ancestor) = current {
+        let already_set = {
+            let mut di = ancestor.0.lock().unwrap();
+            let was_set = di.descendant_match_found;
+            di.descendant_match_found = true;
+            was_set
+        };
+
+        // Notify any consumer waiting on this node
+        ancestor.1.notify_all();
+
+        // Short-circuit: if already set, all further ancestors were too
+        if already_set {
+            break;
+        }
+
+        // Move up to grandparent
+        let next_parent = {
+            let di = ancestor.0.lock().unwrap();
+            match di.parent {
+                Some (ref w) => w.upgrade(),
+                None         => None,
+            }
+        };
+        current = next_parent;
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  signal_subtree_complete
+//
+//  Mark this node's subtree as complete and propagate upward.  A parent's
+//  subtree is complete when ALL of its children are subtree_complete.
+//
+//  Port of: CMultiThreadedLister::TrySignalParentSubtreeComplete
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn signal_subtree_complete (node: &WorkItem) {
+    // Mark this node as subtree_complete
+    {
+        let mut di = node.0.lock().unwrap();
+        di.subtree_complete = true;
+    }
+    node.1.notify_all();
+
+    // Walk upward: check if the parent's subtree is now fully complete
+    let parent_ref = {
+        let di = node.0.lock().unwrap();
+        di.parent.as_ref().and_then (|w| w.upgrade())
+    };
+
+    if let Some (parent_node) = parent_ref {
+        let all_children_complete = {
+            let parent_di = parent_node.0.lock().unwrap();
+
+            // Parent must itself be Done for its subtree to be complete
+            if parent_di.status != DirectoryStatus::Done {
+                return;
+            }
+
+            parent_di.children.iter().all (|child| {
+                let child_di = child.0.lock().unwrap();
+                child_di.subtree_complete
+            })
+        };
+
+        if all_children_complete {
+            signal_subtree_complete (&parent_node);
+        }
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  wait_for_tree_visibility
+//
+//  Block until we know whether a child directory should be displayed:
+//  - If descendant_match_found becomes true → display it (return true)
+//  - If subtree_complete becomes true without matches → prune (return false)
+//
+//  Port of: CMultiThreadedLister::WaitForTreeVisibility
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn wait_for_tree_visibility (child_node: &WorkItem, stop: &AtomicBool) -> bool {
+    // Quick-path: check without condvar wait
+    {
+        let di = child_node.0.lock().unwrap();
+        if di.descendant_match_found {
+            return true;
+        }
+        if di.subtree_complete {
+            return false;
+        }
+    }
+
+    // Slow-path: wait for a signal
+    let (ref mutex, ref condvar) = **child_node;
+    let mut di = mutex.lock().unwrap();
+
+    loop {
+        if di.descendant_match_found {
+            return true;
+        }
+        if di.subtree_complete {
+            return false;
+        }
+        if stop.load (Ordering::Acquire) {
+            return false;
+        }
+        di = condvar.wait (di).unwrap();
+    }
 }
 
 

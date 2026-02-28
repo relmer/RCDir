@@ -176,22 +176,22 @@
 
 ### Reparse Point / Cycle Guard (R7)
 
-- [ ] T048 Add `FILE_ATTRIBUTE_REPARSE_POINT` check before recursing into child directories in the worker thread function in `src/multi_threaded_lister.rs` — if reparse point, list directory but do not expand children; show `[→ target]` indicator (R7). This protects both `--Tree` and `-S` modes.
+- [X] T048 Add `FILE_ATTRIBUTE_REPARSE_POINT` check before recursing into child directories in the worker thread function in `src/multi_threaded_lister.rs` — if reparse point, list directory but do not expand children; show `[→ target]` indicator (R7). This protects both `--Tree` and `-S` modes.
 
 ### Thread-Safe Empty Subdirectory Pruning (R14, entities 5–6)
 
-- [ ] T049 Add `parent: Option<Weak<...>>`, `descendant_match_found: AtomicBool`, `subtree_complete: AtomicBool` fields to `DirectoryInfo` in `src/directory_info.rs`
-- [ ] T050 Add `tree_pruning_active: bool` field to `MultiThreadedLister` in `src/multi_threaded_lister.rs`
-- [ ] T051 Implement `propagate_descendant_match()` — walk up parent chain setting `descendant_match_found` and notifying `Condvar` in `src/multi_threaded_lister.rs`
-- [ ] T052 Implement `try_signal_parent_subtree_complete()` — check all children complete, set parent complete, recurse to grandparent in `src/multi_threaded_lister.rs`
-- [ ] T053 Wire producer-side: after enumeration, call `propagate_descendant_match` (if file_count > 0) and `try_signal_parent_subtree_complete` (if leaf) in `src/multi_threaded_lister.rs`
-- [ ] T054 Wire parent back-reference: set `parent` `Weak` ref during child `DirectoryInfo` creation when `tree_pruning_active` in `src/multi_threaded_lister.rs`
-- [ ] T055 Implement `wait_for_tree_visibility()` — block on `Condvar` until `descendant_match_found` or `subtree_complete` in `src/multi_threaded_lister.rs`
-- [ ] T056 Integrate pruning look-ahead in `display_tree_entries()` — call `wait_for_tree_visibility()` for directory entries, skip invisible dirs, adjust `is_last` in `src/multi_threaded_lister.rs`
+- [X] T049 Add `parent: Option<Weak<...>>`, `descendant_match_found: AtomicBool`, `subtree_complete: AtomicBool` fields to `DirectoryInfo` in `src/directory_info.rs`
+- [X] T050 Add `tree_pruning_active: bool` field to `MultiThreadedLister` in `src/multi_threaded_lister.rs`
+- [X] T051 Implement `propagate_descendant_match()` — walk up parent chain setting `descendant_match_found` and notifying `Condvar` in `src/multi_threaded_lister.rs`
+- [X] T052 Implement `try_signal_parent_subtree_complete()` — check all children complete, set parent complete, recurse to grandparent in `src/multi_threaded_lister.rs`
+- [X] T053 Wire producer-side: after enumeration, call `propagate_descendant_match` (if file_count > 0) and `try_signal_parent_subtree_complete` (if leaf) in `src/multi_threaded_lister.rs`
+- [X] T054 Wire parent back-reference: set `parent` `Weak` ref during child `DirectoryInfo` creation when `tree_pruning_active` in `src/multi_threaded_lister.rs`
+- [X] T055 Implement `wait_for_tree_visibility()` — block on `Condvar` until `descendant_match_found` or `subtree_complete` in `src/multi_threaded_lister.rs`
+- [X] T056 Integrate pruning look-ahead in `display_tree_entries()` — call `wait_for_tree_visibility()` for directory entries, skip invisible dirs, adjust `is_last` in `src/multi_threaded_lister.rs`
 
 ### Usage Help Text
 
-- [ ] T057 [P] Document `--Tree`, `--Depth=N`, `--TreeIndent=N`, `--Size=Auto|Bytes` switches in help output in `src/usage.rs`
+- [X] T057 [P] Document `--Tree`, `--Depth=N`, `--TreeIndent=N`, `--Size=Auto|Bytes` switches in help output in `src/usage.rs`
 
 ### Output Parity Tests (R15)
 

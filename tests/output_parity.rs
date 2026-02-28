@@ -1065,3 +1065,115 @@ fn parity_tree_attr_filter() {
         );
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  normalize_help_line
+//
+//  Normalize a help output line for comparison by replacing known intentional
+//  differences: product name (Rusticolor/Technicolor → PRODUCT), executable
+//  name (RCDIR/TCDIR), env var name (RCDIR/TCDIR), and stripping version
+//  strings and build timestamps from the first header line.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn normalize_help_line(line: &str) -> String {
+    let plain = strip_ansi_for_check (line);
+    let trimmed = plain.trim();
+
+    // Skip lines containing version/timestamp info — these always differ
+    if trimmed.contains ("Directory version ") {
+        return String::from ("<VERSION_LINE>");
+    }
+
+    // Normalize product-specific names so both tools compare equal.
+    // Apply ANSI-aware replacement: the product names appear after
+    // ANSI color codes in the actual output, so we must work on the
+    // raw (with-ANSI) string.
+    let mut s = line.to_string();
+    s = s.replace ("Rusticolor", "PRODUCT");
+    s = s.replace ("Technicolor", "PRODUCT");
+    s = s.replace ("RCDIR", "TOOLNAME");
+    s = s.replace ("TCDIR", "TOOLNAME");
+    s
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_help_output
+//
+//  Run both tools with /? and compare output line-by-line after normalizing
+//  intentional differences (product name, version, timestamps, env var names).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn compare_help_output() -> (usize, usize, Vec<String>) {
+    let tcdir = match get_tcdir_exe() {
+        Some(p) => p,
+        None => return (0, 0, vec!["TCDir.exe not found — skipping help parity test".to_string()]),
+    };
+    let rcdir = get_rcdir_exe();
+
+    let tc_output = run_command (&tcdir, &["/?"]);
+    let rc_output = run_command (&rcdir, &["/?"]);
+
+    let tc_lines: Vec<String> = tc_output.lines().map (normalize_help_line).collect();
+    let rc_lines: Vec<String> = rc_output.lines().map (normalize_help_line).collect();
+
+    let max_lines = tc_lines.len().max (rc_lines.len());
+    let mut matching = 0;
+    let mut differences = Vec::new();
+
+    for i in 0..max_lines {
+        let tc_line = tc_lines.get (i).map (|s| s.as_str()).unwrap_or ("<missing>");
+        let rc_line = rc_lines.get (i).map (|s| s.as_str()).unwrap_or ("<missing>");
+
+        if tc_line == rc_line {
+            matching += 1;
+        } else if differences.len() < 20 {
+            differences.push (format! (
+                "Line {}: TC=[{}] RC=[{}]",
+                i + 1,
+                tc_line,
+                rc_line,
+            ));
+        }
+    }
+
+    (matching, max_lines, differences)
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_help_output
+//
+//  Verifies that RCDir /? and TCDir /? produce identical output after
+//  normalizing product-specific differences (name, version, timestamps).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_help_output() {
+    let (matching, total, diffs) = compare_help_output();
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        assert_eq!(
+            matching, total,
+            "Help output parity: {}/{} lines match. Diffs:\n{}",
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}

@@ -26,6 +26,7 @@ pub mod usage;
 pub mod icon_mapping;
 pub mod nerd_font_detector;
 pub mod file_attribute_map;
+pub mod tree_connector_state;
 
 
 
@@ -218,7 +219,7 @@ fn process_directory_group(
         icons_active,
     );
 
-    if cmd.multi_threaded && cmd.recurse {
+    if cmd.tree.unwrap_or (false) || (cmd.multi_threaded && cmd.recurse) {
         process_multi_threaded (&drive_info, dir_path, file_specs, cmd, cfg, &mut displayer, totals);
     } else {
         process_single_threaded (&drive_info, dir_path, file_specs, cmd, cfg, &mut displayer, totals);
@@ -306,7 +307,7 @@ fn process_single_threaded(
 
         totals.directory_count += di.subdirectory_count;
 
-        file_comparator::sort_files (&mut di.matches, cmd);
+        file_comparator::sort_files (&mut di.matches, cmd, false);
 
         displayer.display_results (drive_info, &di, DirectoryLevel::Initial);
 
@@ -424,7 +425,7 @@ fn recurse_into_subdirectories(
                 totals.directory_count += di.subdirectory_count;
 
                 // Sort results
-                file_comparator::sort_files(&mut di.matches, cmd);
+                file_comparator::sort_files(&mut di.matches, cmd, false);
 
                 // Display results (Subdirectory level — skips empty dirs)
                 displayer.display_results(drive_info, &di, DirectoryLevel::Subdirectory);

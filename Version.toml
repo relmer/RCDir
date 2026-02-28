@@ -1,5 +1,5 @@
 # RCDir version — build number auto-incremented by build.rs on every compile.
 # Major and minor are updated manually.
 major = 5
-minor = 0
-build = 1131
+minor = 1
+build = 1132

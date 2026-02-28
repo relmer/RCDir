@@ -705,3 +705,475 @@ fn parity_recursive_icons() {
         );
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_basic
+//
+//  Verifies output parity for basic tree view (/Tree).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_basic() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree basic) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_depth_limited
+//
+//  Verifies output parity for depth-limited tree view (/Tree /Depth=2).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_depth_limited() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/Depth=2", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree depth-limited) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_custom_indent
+//
+//  Verifies output parity for tree view with custom indent (/Tree /TreeIndent=6).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_custom_indent() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/TreeIndent=6", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree custom-indent) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_with_icons
+//
+//  Verifies output parity for tree view with icons (/Tree /Icons).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_with_icons() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/Icons", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree with-icons) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_with_streams
+//
+//  Verifies output parity for tree view with streams (/Tree /r).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_with_streams() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/r", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree with-streams) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_file_mask
+//
+//  Verifies output parity for tree view with a file mask (/Tree *.rs).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_file_mask() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree file-mask) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_size_auto
+//
+//  Verifies output parity for tree view with explicit /Size=Auto.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_size_auto() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/Size=Auto", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree size-auto) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_size_auto_non_tree
+//
+//  Verifies output parity for /Size=Auto without tree mode.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_size_auto_non_tree() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Size=Auto", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (size-auto non-tree) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_size_bytes_explicit
+//
+//  Verifies output parity for /Size=Bytes in tree mode.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_size_bytes_explicit() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/Size=Bytes", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (size-bytes explicit) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_sort_by_size
+//
+//  Verifies output parity for tree view sorted by size (/Tree /os).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_sort_by_size() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/os", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree sort-by-size) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_time_created
+//
+//  Verifies output parity for tree view sorted by creation time (/Tree /tc).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_time_created() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/tc", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree time-created) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_tree_attr_filter
+//
+//  Verifies output parity for tree view with attribute filter (/Tree /a:d).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_tree_attr_filter() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format! ("{}\\*", test_dir.display());
+    let (matching, total, diffs) = compare_output (&["/Tree", "/a:d", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (tree attr-filter) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  normalize_help_line
+//
+//  Normalize a help output line for comparison by replacing known intentional
+//  differences: product name (Rusticolor/Technicolor → PRODUCT), executable
+//  name (RCDIR/TCDIR), env var name (RCDIR/TCDIR), and stripping version
+//  strings and build timestamps from the first header line.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn normalize_help_line(line: &str) -> String {
+    let plain = strip_ansi_for_check (line);
+    let trimmed = plain.trim();
+
+    // Skip lines containing version/timestamp info — these always differ
+    if trimmed.contains ("Directory version ") {
+        return String::from ("<VERSION_LINE>");
+    }
+
+    // Normalize product-specific names so both tools compare equal.
+    // Apply ANSI-aware replacement: the product names appear after
+    // ANSI color codes in the actual output, so we must work on the
+    // raw (with-ANSI) string.
+    let mut s = line.to_string();
+    s = s.replace ("Rusticolor", "PRODUCT");
+    s = s.replace ("Technicolor", "PRODUCT");
+    s = s.replace ("RCDIR", "TOOLNAME");
+    s = s.replace ("TCDIR", "TOOLNAME");
+    s
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compare_help_output
+//
+//  Run both tools with /? and compare output line-by-line after normalizing
+//  intentional differences (product name, version, timestamps, env var names).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn compare_help_output() -> (usize, usize, Vec<String>) {
+    let tcdir = match get_tcdir_exe() {
+        Some(p) => p,
+        None => return (0, 0, vec!["TCDir.exe not found — skipping help parity test".to_string()]),
+    };
+    let rcdir = get_rcdir_exe();
+
+    let tc_output = run_command (&tcdir, &["/?"]);
+    let rc_output = run_command (&rcdir, &["/?"]);
+
+    let tc_lines: Vec<String> = tc_output.lines().map (normalize_help_line).collect();
+    let rc_lines: Vec<String> = rc_output.lines().map (normalize_help_line).collect();
+
+    let max_lines = tc_lines.len().max (rc_lines.len());
+    let mut matching = 0;
+    let mut differences = Vec::new();
+
+    for i in 0..max_lines {
+        let tc_line = tc_lines.get (i).map (|s| s.as_str()).unwrap_or ("<missing>");
+        let rc_line = rc_lines.get (i).map (|s| s.as_str()).unwrap_or ("<missing>");
+
+        if tc_line == rc_line {
+            matching += 1;
+        } else if differences.len() < 20 {
+            differences.push (format! (
+                "Line {}: TC=[{}] RC=[{}]",
+                i + 1,
+                tc_line,
+                rc_line,
+            ));
+        }
+    }
+
+    (matching, max_lines, differences)
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_help_output
+//
+//  Verifies that RCDir /? and TCDir /? produce identical output after
+//  normalizing product-specific differences (name, version, timestamps).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_help_output() {
+    let (matching, total, diffs) = compare_help_output();
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+        assert_eq!(
+            matching, total,
+            "Help output parity: {}/{} lines match. Diffs:\n{}",
+            matching,
+            total,
+            diffs.join ("\n"),
+        );
+    }
+}

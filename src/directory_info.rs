@@ -3,7 +3,7 @@
 // Port of: DirectoryInfo.h → CDirectoryInfo
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, Condvar};
+use std::sync::{Arc, Mutex, Condvar, Weak};
 
 use crate::file_info::FileInfo;
 
@@ -46,6 +46,11 @@ pub struct DirectoryInfo {
     pub status:              DirectoryStatus,
     pub error:               Option<String>,
     pub children:            Vec<Arc<(Mutex<DirectoryInfo>, Condvar)>>,
+
+    // Tree pruning support
+    pub parent:                   Option<Weak<(Mutex<DirectoryInfo>, Condvar)>>,
+    pub descendant_match_found:   bool,
+    pub subtree_complete:         bool,
 }
 
 
@@ -71,19 +76,22 @@ impl DirectoryInfo {
 
     pub fn new(dir_path: PathBuf, file_spec: String) -> Self {
         DirectoryInfo {
-            matches:            Vec::new(),
+            matches:                 Vec::new(),
             dir_path,
-            file_specs:         vec![file_spec],
-            largest_file_size:  0,
-            largest_file_name:  0,
-            file_count:         0,
-            subdirectory_count: 0,
-            stream_count:       0,
-            bytes_used:         0,
-            stream_bytes_used:  0,
-            status:             DirectoryStatus::Waiting,
-            error:              None,
-            children:           Vec::new(),
+            file_specs:              vec![file_spec],
+            largest_file_size:       0,
+            largest_file_name:       0,
+            file_count:              0,
+            subdirectory_count:      0,
+            stream_count:            0,
+            bytes_used:              0,
+            stream_bytes_used:       0,
+            status:                  DirectoryStatus::Waiting,
+            error:                   None,
+            children:                Vec::new(),
+            parent:                  None,
+            descendant_match_found:  false,
+            subtree_complete:        false,
         }
     }
 
@@ -101,19 +109,22 @@ impl DirectoryInfo {
 
     pub fn new_multi(dir_path: PathBuf, file_specs: Vec<String>) -> Self {
         DirectoryInfo {
-            matches:            Vec::new(),
+            matches:                 Vec::new(),
             dir_path,
             file_specs,
-            largest_file_size:  0,
-            largest_file_name:  0,
-            file_count:         0,
-            subdirectory_count: 0,
-            stream_count:       0,
-            bytes_used:         0,
-            stream_bytes_used:  0,
-            status:             DirectoryStatus::Waiting,
-            error:              None,
-            children:           Vec::new(),
+            largest_file_size:       0,
+            largest_file_name:       0,
+            file_count:              0,
+            subdirectory_count:      0,
+            stream_count:            0,
+            bytes_used:              0,
+            stream_bytes_used:       0,
+            status:                  DirectoryStatus::Waiting,
+            error:                   None,
+            children:                Vec::new(),
+            parent:                  None,
+            descendant_match_found:  false,
+            subtree_complete:        false,
         }
     }
 }

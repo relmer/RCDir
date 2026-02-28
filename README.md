@@ -3,9 +3,18 @@
 This is a Rust port of [TCDir](https://github.com/relmer/TCDir).
 
 RCDir ("Rust Colorized Directory") is a fast, colorized directory listing tool for Windows consoles.
-It's designed as a practical `dir`-style command with useful defaults (color by extension/attributes, sorting, recursion, wide output, and a multi-threaded enumerator).
+It's designed as a practical `dir`-style command with useful defaults (color by extension/attributes, Nerd Font file/folder icons, sorting, recursion, wide output, and a multi-threaded enumerator).
 
 ![RCDir basic listing](Assets/RCDir.png)
+
+## What's New
+
+| Version | Highlights |
+|---|---|
+| **5.1** | `--Tree` hierarchical directory view with depth control |
+| **5.0** | Nerd Font file/folder icons (~187 extensions, ~65 directories) |
+
+See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
 Hat tip to [Chris Kirmse](https://github.com/ckirmse) whose excellent [ZDir](https://github.com/ckirmse/ZDir) from the '90s was the original inspiration for TCDir/RCDir.
 
@@ -49,7 +58,7 @@ Show help:
 
 Basic syntax:
 
-- `RCDIR [drive:][path][filename] [-A[[:]attributes]] [-O[[:]sortorder]] [-S] [-W] [-B] [-P] [-M] [--Env] [--Config]`
+- `RCDIR [drive:][path][filename] [-A[[:]attributes]] [-O[[:]sortorder]] [-T[[:]timefield]] [-S] [-W] [-B] [-P] [-M] [--Env] [--Config] [--Owner] [--Streams] [--Icons] [--Tree] [--Depth=N] [--TreeIndent=N] [--Size=Auto|Bytes]`
 
 Common switches:
 
@@ -65,10 +74,15 @@ Common switches:
 - `-B`: bare listing format
 - `-P`: show performance timing information
 - `-M`: enable multi-threaded enumeration (default); use `-M-` to disable
-- `--Owner`: display file owner (DOMAIN\User format)
+- `--Tree`: hierarchical directory tree view; use `--Tree-` to disable
+- `--Depth=N`: limit tree depth to N levels (requires `--Tree`)
+- `--TreeIndent=N`: tree indent width per level, 1–8, default 4 (requires `--Tree`)
+- `--Size=Auto|Bytes`: `Auto` shows abbreviated sizes (e.g., `8.90 KB`); `Bytes` shows exact comma-separated sizes. Tree mode defaults to `Auto`, non-tree defaults to `Bytes`
+- `--Owner`: display file owner (DOMAIN\User format); not allowed with `--Tree`
 - `--Streams`: display NTFS alternate data streams
 - `--Env`: show `RCDIR` environment variable help/syntax/current value
 - `--Config`: show current color configuration
+- `--Icons`: enable Nerd Font file/folder icons; use `--Icons-` to disable
 
 ### Attribute filters (`/A:`)
 
@@ -94,6 +108,22 @@ When browsing cloud-synced folders (OneDrive, iCloud Drive, etc.), RCDir display
 - `○` (hollow) - cloud-only placeholder, not available offline
 - `◐` (half) - locally available, can be dehydrated
 - `●` (solid) - pinned, always available offline
+
+### Tree view (`--Tree`)
+
+Tree mode displays the directory hierarchy with Unicode box-drawing connectors (`├──`, `└──`, `│`). All metadata columns (date, time, attributes, size, cloud status) appear at every level. Directories and files are sorted together (interleaved) rather than grouped.
+
+- `rcdir --Tree` — show full tree from the current directory
+- `rcdir --Tree --Depth=2` — show only 2 levels deep
+- `rcdir --Tree --TreeIndent=2` — narrower indentation (default is 4)
+- `rcdir --Tree *.rs` — show only `.rs` files; empty subdirectories are pruned
+
+Tree mode uses abbreviated file sizes (`--Size=Auto`) by default for consistent column alignment across directories. Junction points and symlinks are listed but not expanded, preventing infinite cycles.
+
+Incompatible with `-W` (wide), `-B` (bare), `-S` (recurse), `--Owner`, and `--Size=Bytes`.
+
+- Tree listing: `rcdir.exe --Tree`
+![RCDir tree listing](Assets/RCDir%20Tree.png)
 
 Examples:
 - Recurse through subdirectories: `rcdir.exe -s`
@@ -124,6 +154,11 @@ Enable default switches by including the switch name:
 - `B` - enable bare listing by default
 - `Owner` - display file ownership by default
 - `Streams` - display NTFS alternate data streams by default
+- `Icons` - enable Nerd Font icons by default; `Icons-` to force off
+- `Tree` - enable tree view by default; `Tree-` to force off
+- `Depth=N` - set default tree depth limit
+- `TreeIndent=N` - set default tree indent width (1–8)
+- `Size=Auto` / `Size=Bytes` - set default size display format
 
 ### Color customization
 

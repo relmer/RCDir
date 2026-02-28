@@ -55,6 +55,17 @@ pub enum TimeField {
 
 
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeFormat {
+    Default,    // Not explicitly set; tree mode uses Auto, non-tree uses Bytes
+    Auto,       // Explorer-style abbreviated (1024-based, 3 sig digits, 7-char)
+    Bytes,      // Exact byte count with comma separators (existing behavior)
+}
+
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]
@@ -79,6 +90,10 @@ pub struct CommandLine {
     pub show_streams:     bool,
     pub icons:            Option<bool>,
     pub debug:            bool,
+    pub tree:             Option<bool>,
+    pub max_depth:        i32,
+    pub tree_indent:      i32,
+    pub size_format:      SizeFormat,
 }
 
 
@@ -122,6 +137,10 @@ impl Default for CommandLine {
             show_streams:    false,
             icons:           None,
             debug:           false,
+            tree:            None,
+            max_depth:       0,
+            tree_indent:     4,
+            size_format:     SizeFormat::Default,
         }
     }
 }
@@ -157,10 +176,13 @@ impl CommandLine {
         S: AsRef<str>,
     {
         let mut cmd = CommandLine::default();
+        let args: Vec<String> = args.into_iter().map (|s| s.as_ref().to_string()).collect();
+        let mut i = 0;
 
-        for arg_ref in args {
-            let arg = arg_ref.as_ref();
+        while i < args.len() {
+            let arg = &args[i];
             if arg.is_empty() {
+                i += 1;
                 continue;
             }
 
@@ -169,15 +191,18 @@ impl CommandLine {
             match first_char {
                 '-' | '/' => {
                     cmd.switch_prefix = first_char;
-                    cmd.parse_switch (arg, first_char)?;
+                    cmd.parse_switch (arg, first_char, &args, &mut i)?;
                 }
                 _ => {
                     // Positional argument (file mask)
-                    cmd.masks.push (OsString::from (arg));
+                    cmd.masks.push (OsString::from (arg.as_str()));
                 }
             }
+
+            i += 1;
         }
 
+        cmd.validate_switch_combinations()?;
         Ok(cmd)
     }
 
@@ -194,7 +219,7 @@ impl CommandLine {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn parse_switch(&mut self, arg: &str, prefix: char) -> Result<(), AppError> {
+    fn parse_switch(&mut self, arg: &str, prefix: char, args: &[String], idx: &mut usize) -> Result<(), AppError> {
         let switch_arg;
         let mut is_double_dash = false;
 
@@ -216,7 +241,7 @@ impl CommandLine {
             return Err (Self::reject_single_dash_long_switch (switch_arg));
         }
 
-        self.handle_switch (switch_arg)
+        self.handle_switch (switch_arg, args, idx)
     }
 
 
@@ -273,6 +298,10 @@ impl CommandLine {
             "streams",
             "debug",
             "icons",
+            "tree",
+            "depth",
+            "treeindent",
+            "size",
         ];
 
 
@@ -286,9 +315,96 @@ impl CommandLine {
 
     ////////////////////////////////////////////////////////////////////////////
     //
+    //  validate_switch_combinations
+    //
+    //  Post-parse validation of switch conflicts and dependencies.
+    //  Called at the end of parse_from, before config defaults are applied.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn validate_switch_combinations(&self) -> Result<(), AppError> {
+        let tree = self.tree.unwrap_or (false);
+
+        if tree {
+            if self.wide_listing {
+                return Err (AppError::InvalidArg (
+                    "--Tree cannot be combined with /W (wide listing)".into()
+                ));
+            }
+            if self.bare_listing {
+                return Err (AppError::InvalidArg (
+                    "--Tree cannot be combined with /B (bare listing)".into()
+                ));
+            }
+            if self.recurse {
+                return Err (AppError::InvalidArg (
+                    "--Tree cannot be combined with /S (recurse)".into()
+                ));
+            }
+            if self.show_owner {
+                return Err (AppError::InvalidArg (
+                    "--Tree cannot be combined with --Owner".into()
+                ));
+            }
+            if self.size_format == SizeFormat::Bytes {
+                return Err (AppError::InvalidArg (
+                    "--Tree cannot be combined with --Size=Bytes".into()
+                ));
+            }
+        }
+
+        if self.max_depth > 0 && !tree {
+            return Err (AppError::InvalidArg (
+                "--Depth requires --Tree".into()
+            ));
+        }
+
+        if self.tree_indent != 4 && !tree {
+            return Err (AppError::InvalidArg (
+                "--TreeIndent requires --Tree".into()
+            ));
+        }
+
+        Ok(())
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  resolved_size_format
+    //
+    //  Resolve SizeFormat::Default based on tree mode:
+    //  - Tree mode:     Default → Auto (abbreviated sizes)
+    //  - Non-tree mode: Default → Bytes (exact byte counts)
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn resolved_size_format(&self) -> SizeFormat {
+        match self.size_format {
+            SizeFormat::Default => {
+                if self.tree.unwrap_or (false) {
+                    SizeFormat::Auto
+                } else {
+                    SizeFormat::Bytes
+                }
+            }
+            other => other,
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
     //  apply_config_defaults
     //
     //  Apply switch defaults from Config (RCDIR environment variable).
+    //  CLI-set values take priority over config values.
     //
     //  Port of: CCommandLine::ApplyConfigDefaults
     //
@@ -302,9 +418,38 @@ impl CommandLine {
         if let Some(v) = config.multi_threaded { self.multi_threaded = v; }
         if let Some(v) = config.show_owner     { self.show_owner     = v; }
         if let Some(v) = config.show_streams   { self.show_streams   = v; }
+
         // Icons: conditional merge — only apply config default if CLI didn't specify
         if config.icons.is_some() && self.icons.is_none() {
             self.icons = config.icons;
+        }
+
+        // Tree: conditional merge — only apply config default if CLI didn't specify
+        if self.tree.is_none() {
+            self.tree = config.tree;
+        }
+
+        // Depth: only apply if CLI didn't set and tree is active
+        if self.max_depth == 0
+            && let Some (d) = config.max_depth
+            && self.tree.unwrap_or (false)
+        {
+            self.max_depth = d;
+        }
+
+        // TreeIndent: only apply if CLI didn't change from default and tree active
+        if self.tree_indent == 4
+            && let Some (ti) = config.tree_indent
+            && self.tree.unwrap_or (false)
+        {
+            self.tree_indent = ti;
+        }
+
+        // SizeFormat: only apply if CLI didn't set
+        if self.size_format == SizeFormat::Default
+            && let Some (sf) = config.size_format
+        {
+            self.size_format = sf;
         }
     }
 
@@ -322,13 +467,13 @@ impl CommandLine {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn handle_switch(&mut self, switch_arg: &str) -> Result<(), AppError> {
+    fn handle_switch(&mut self, switch_arg: &str, args: &[String], idx: &mut usize) -> Result<(), AppError> {
         // Check for long switch (3+ chars, no ':' or '-' at position 1)
         if switch_arg.len() >= 3
             && switch_arg.as_bytes().get(1) != Some(&b':')
             && switch_arg.as_bytes().get(1) != Some(&b'-')
         {
-            return self.handle_long_switch(switch_arg);
+            return self.handle_long_switch (switch_arg, args, idx);
         }
 
         // Single-character switch
@@ -368,28 +513,92 @@ impl CommandLine {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn handle_long_switch(&mut self, switch_arg: &str) -> Result<(), AppError> {
+    fn handle_long_switch(&mut self, switch_arg: &str, args: &[String], idx: &mut usize) -> Result<(), AppError> {
+        // Split on '=' to extract key and optional value
+        let (key, inline_value) = match switch_arg.find ('=') {
+            Some (pos) => (&switch_arg[..pos], Some (&switch_arg[pos + 1..])),
+            None       => (switch_arg, None),
+        };
+
+        // Boolean switches (no value expected)
         type Setter = fn(&mut CommandLine);
 
-        let switches: &[(&str, Setter)] = &[
+        let bool_switches: &[(&str, Setter)] = &[
             ("env",     |cmd| cmd.show_env_help = true),
             ("config",  |cmd| cmd.show_config   = true),
             ("owner",   |cmd| cmd.show_owner    = true),
             ("streams", |cmd| cmd.show_streams  = true),
             ("icons",   |cmd| cmd.icons = Some (true)),
             ("icons-",  |cmd| cmd.icons = Some (false)),
+            ("tree",    |cmd| cmd.tree = Some (true)),
+            ("tree-",   |cmd| cmd.tree = Some (false)),
             #[cfg(debug_assertions)]
             ("debug",   |cmd| cmd.debug = true),
         ];
 
-        for &(name, setter) in switches {
-            if switch_arg.eq_ignore_ascii_case (name) {
+        for &(name, setter) in bool_switches {
+            if key.eq_ignore_ascii_case (name) {
                 setter (self);
                 return Ok(());
             }
         }
 
-        Err (AppError::InvalidArg (String::new()))
+        // Parameterized switches — need a value (from '=' or next arg)
+        let value = match inline_value {
+            Some (v) => v.to_string(),
+            None     => {
+                let next_idx = *idx + 1;
+                if next_idx < args.len() {
+                    *idx = next_idx;
+                    args[next_idx].clone()
+                } else {
+                    return Err (AppError::InvalidArg (
+                        format! ("Switch --{} requires a value", key)
+                    ));
+                }
+            }
+        };
+
+        let key_lower = key.to_ascii_lowercase();
+        match key_lower.as_str() {
+            "depth" => {
+                let n: i32 = value.parse().map_err (|_| {
+                    AppError::InvalidArg (format! ("Invalid depth value: {}", value))
+                })?;
+                if n <= 0 {
+                    return Err (AppError::InvalidArg (
+                        format! ("--Depth must be a positive integer, got {}", n)
+                    ));
+                }
+                self.max_depth = n;
+                Ok(())
+            }
+            "treeindent" => {
+                let n: i32 = value.parse().map_err (|_| {
+                    AppError::InvalidArg (format! ("Invalid tree indent value: {}", value))
+                })?;
+                if !(1..=8).contains (&n) {
+                    return Err (AppError::InvalidArg (
+                        format! ("--TreeIndent must be between 1 and 8, got {}", n)
+                    ));
+                }
+                self.tree_indent = n;
+                Ok(())
+            }
+            "size" => {
+                if value.eq_ignore_ascii_case ("auto") {
+                    self.size_format = SizeFormat::Auto;
+                } else if value.eq_ignore_ascii_case ("bytes") {
+                    self.size_format = SizeFormat::Bytes;
+                } else {
+                    return Err (AppError::InvalidArg (
+                        format! ("Invalid --Size value '{}'. Use Auto or Bytes", value)
+                    ));
+                }
+                Ok(())
+            }
+            _ => Err (AppError::InvalidArg (String::new())),
+        }
     }
 
 
@@ -1182,5 +1391,678 @@ mod tests {
         assert_eq!(cmd.sort_preference[0], SortOrder::Size);
         // Rest of chain unchanged
         assert_eq!(cmd.sort_preference[1], SortOrder::Name);
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Tree switch parsing tests (T013)
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_switch_double_dash
+    //
+    //  Verify --Tree enables tree mode.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_switch_double_dash () {
+        let cmd = CommandLine::parse_from (["--Tree"]).unwrap();
+        assert_eq! (cmd.tree, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_switch_slash
+    //
+    //  Verify /Tree enables tree mode.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_switch_slash () {
+        let cmd = CommandLine::parse_from (["/Tree"]).unwrap();
+        assert_eq! (cmd.tree, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_disable_switch_double_dash
+    //
+    //  Verify --Tree- disables tree mode.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_disable_switch_double_dash () {
+        let cmd = CommandLine::parse_from (["--Tree-"]).unwrap();
+        assert_eq! (cmd.tree, Some (false));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_switch_case_insensitive
+    //
+    //  Verify tree switch is case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_switch_case_insensitive () {
+        let cmd = CommandLine::parse_from (["--tree"]).unwrap();
+        assert_eq! (cmd.tree, Some (true));
+
+        let cmd2 = CommandLine::parse_from (["--TREE"]).unwrap();
+        assert_eq! (cmd2.tree, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_switch_single_dash_fails
+    //
+    //  Verify -tree (single dash) produces error with hint.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_switch_single_dash_fails () {
+        let err = CommandLine::parse_from (["-tree"]).unwrap_err();
+        assert! (err.to_string().contains ("Did you mean"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_depth_single_dash_fails
+    //
+    //  Verify -depth=5 (single dash) produces error with hint.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_depth_single_dash_fails () {
+        let err = CommandLine::parse_from (["-depth=5"]).unwrap_err();
+        assert! (err.to_string().contains ("Did you mean"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_depth_with_equals
+    //
+    //  Verify --Depth=5 parses depth with = separator.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_depth_with_equals () {
+        let cmd = CommandLine::parse_from (["--Tree", "--Depth=5"]).unwrap();
+        assert_eq! (cmd.max_depth, 5);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_depth_with_space
+    //
+    //  Verify --Depth 5 parses depth with space separator.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_depth_with_space () {
+        let cmd = CommandLine::parse_from (["--Tree", "--Depth", "5"]).unwrap();
+        assert_eq! (cmd.max_depth, 5);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_indent_with_equals
+    //
+    //  Verify --TreeIndent=2 parses tree indent.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_indent_with_equals () {
+        let cmd = CommandLine::parse_from (["--Tree", "--TreeIndent=2"]).unwrap();
+        assert_eq! (cmd.tree_indent, 2);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_with_wide_fails
+    //
+    //  Verify --Tree with /W produces conflict error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_with_wide_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "/w"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_with_bare_fails
+    //
+    //  Verify --Tree with /B produces conflict error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_with_bare_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "/b"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_with_recurse_fails
+    //
+    //  Verify --Tree with /S produces conflict error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_with_recurse_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "/s"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_with_owner_fails
+    //
+    //  Verify --Tree with --Owner produces conflict error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_with_owner_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "--owner"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_depth_without_tree_fails
+    //
+    //  Verify --Depth without --Tree produces error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_depth_without_tree_fails () {
+        assert! (CommandLine::parse_from (["--Depth=5"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_indent_without_tree_fails
+    //
+    //  Verify --TreeIndent without --Tree produces error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_indent_without_tree_fails () {
+        assert! (CommandLine::parse_from (["--TreeIndent=2"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_indent_out_of_range_fails
+    //
+    //  Verify --TreeIndent=10 (>8) produces error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_indent_out_of_range_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "--TreeIndent=10"]).is_err());
+        assert! (CommandLine::parse_from (["--Tree", "--TreeIndent=0"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_depth_zero_fails
+    //
+    //  Verify --Depth=0 produces error (0 = unlimited is default, not user-set).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_depth_zero_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "--Depth=0"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_depth_negative_fails
+    //
+    //  Verify --Depth=-1 produces error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_depth_negative_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "--Depth=-1"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_with_owner_fails_even_with_icons
+    //
+    //  Verify --Tree + --Owner fails regardless of --Icons.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_with_owner_fails_even_with_icons () {
+        assert! (CommandLine::parse_from (["--Tree", "--owner", "--icons"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_tree_with_depth_and_indent_succeeds
+    //
+    //  Verify --Tree + --Depth + --TreeIndent all work together.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_tree_with_depth_and_indent_succeeds () {
+        let cmd = CommandLine::parse_from (["--Tree", "--Depth=3", "--TreeIndent=6"]).unwrap();
+        assert_eq! (cmd.tree, Some (true));
+        assert_eq! (cmd.max_depth, 3);
+        assert_eq! (cmd.tree_indent, 6);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_config_defaults_tree_transfers
+    //
+    //  Verify config tree=true transfers to CommandLine.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn apply_config_defaults_tree_transfers () {
+        let mut cmd = CommandLine::default();
+        let mut config = Config::new();
+        config.tree = Some (true);
+
+        cmd.apply_config_defaults (&config);
+
+        assert_eq! (cmd.tree, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_config_defaults_tree_with_depth_transfers
+    //
+    //  Verify config tree + depth both transfer.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn apply_config_defaults_tree_with_depth_transfers () {
+        let mut cmd = CommandLine::default();
+        let mut config = Config::new();
+        config.tree      = Some (true);
+        config.max_depth  = Some (5);
+
+        cmd.apply_config_defaults (&config);
+
+        assert_eq! (cmd.tree, Some (true));
+        assert_eq! (cmd.max_depth, 5);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_config_defaults_depth_without_tree_silently_ignored
+    //
+    //  Verify config depth without tree is silently ignored.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn apply_config_defaults_depth_without_tree_silently_ignored () {
+        let mut cmd = CommandLine::default();
+        let mut config = Config::new();
+        config.max_depth = Some (5);
+
+        cmd.apply_config_defaults (&config);
+
+        assert_eq! (cmd.max_depth, 0);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  cli_tree_disable_overrides_env_var_tree
+    //
+    //  Verify CLI --Tree- overrides env var Tree.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn cli_tree_disable_overrides_env_var_tree () {
+        let mut cmd = CommandLine::parse_from (["--Tree-"]).unwrap();
+        let mut config = Config::new();
+        config.tree = Some (true);
+
+        cmd.apply_config_defaults (&config);
+
+        assert_eq! (cmd.tree, Some (false));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  cli_depth_overrides_env_var_depth
+    //
+    //  Verify CLI --Depth overrides env var Depth.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn cli_depth_overrides_env_var_depth () {
+        let mut cmd = CommandLine::parse_from (["--Tree", "--Depth=3"]).unwrap();
+        let mut config = Config::new();
+        config.max_depth = Some (10);
+
+        cmd.apply_config_defaults (&config);
+
+        assert_eq! (cmd.max_depth, 3);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_default_resolves_to_bytes_without_tree
+    //
+    //  Verify SizeFormat::Default resolves to Bytes without tree mode.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_default_resolves_to_bytes_without_tree () {
+        let cmd = CommandLine::default();
+        assert_eq! (cmd.resolved_size_format(), SizeFormat::Bytes);
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Size switch parsing tests (T014)
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_bytes_without_tree
+    //
+    //  Verify --Size=Bytes works without tree mode.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_bytes_without_tree () {
+        let cmd = CommandLine::parse_from (["--Size=Bytes"]).unwrap();
+        assert_eq! (cmd.size_format, SizeFormat::Bytes);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_auto_without_tree
+    //
+    //  Verify --Size=Auto works without tree mode.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_auto_without_tree () {
+        let cmd = CommandLine::parse_from (["--Size=Auto"]).unwrap();
+        assert_eq! (cmd.size_format, SizeFormat::Auto);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_invalid_fails
+    //
+    //  Verify --Size=Invalid produces error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_invalid_fails () {
+        assert! (CommandLine::parse_from (["--Size=Invalid"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_case_insensitive
+    //
+    //  Verify --Size switch is case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_case_insensitive () {
+        let cmd = CommandLine::parse_from (["--Size=auto"]).unwrap();
+        assert_eq! (cmd.size_format, SizeFormat::Auto);
+
+        let cmd2 = CommandLine::parse_from (["--Size=BYTES"]).unwrap();
+        assert_eq! (cmd2.size_format, SizeFormat::Bytes);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_auto_with_tree
+    //
+    //  Verify --Tree + --Size=Auto succeeds.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_auto_with_tree () {
+        let cmd = CommandLine::parse_from (["--Tree", "--Size=Auto"]).unwrap();
+        assert_eq! (cmd.size_format, SizeFormat::Auto);
+        assert_eq! (cmd.tree, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_bytes_with_tree_fails
+    //
+    //  Verify --Tree + --Size=Bytes produces conflict error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_bytes_with_tree_fails () {
+        assert! (CommandLine::parse_from (["--Tree", "--Size=Bytes"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_size_default_resolves_to_auto_with_tree
+    //
+    //  Verify SizeFormat::Default resolves to Auto with tree mode.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_size_default_resolves_to_auto_with_tree () {
+        let cmd = CommandLine::parse_from (["--Tree"]).unwrap();
+        assert_eq! (cmd.resolved_size_format(), SizeFormat::Auto);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_config_defaults_size_auto_transfers
+    //
+    //  Verify config size_format=Auto transfers to CommandLine.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn apply_config_defaults_size_auto_transfers () {
+        let mut cmd = CommandLine::default();
+        let mut config = Config::new();
+        config.size_format = Some (SizeFormat::Auto);
+
+        cmd.apply_config_defaults (&config);
+
+        assert_eq! (cmd.size_format, SizeFormat::Auto);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  apply_config_defaults_size_bytes_not_overridden_by_cli
+    //
+    //  Verify CLI-set size_format is not overridden by config.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn apply_config_defaults_size_bytes_not_overridden_by_cli () {
+        let mut cmd = CommandLine::parse_from (["--Size=Bytes"]).unwrap();
+        let mut config = Config::new();
+        config.size_format = Some (SizeFormat::Auto);
+
+        cmd.apply_config_defaults (&config);
+
+        assert_eq! (cmd.size_format, SizeFormat::Bytes);
     }
 }

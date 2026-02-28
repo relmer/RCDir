@@ -6,6 +6,7 @@
 // variable and apply color, icon, and switch overrides.
 
 use crate::color::parse_color_name;
+use crate::command_line::SizeFormat;
 use crate::environment_provider::EnvironmentProvider;
 use crate::file_info::FILE_ATTRIBUTE_MAP;
 
@@ -221,6 +222,11 @@ impl Config {
             return;
         }
 
+        // Check if it's a parameterized switch (Depth=N, TreeIndent=N, Size=X)
+        if self.try_process_parameterized_switch (entry) {
+            return;
+        }
+
         // Parse key=value
         let (key, value) = match parse_key_and_value (entry) {
             Some (kv) => kv,
@@ -411,11 +417,87 @@ impl Config {
         }
 
         self.last_parse_result.errors.push (ErrorInfo {
-            message:             "Invalid switch (expected W, S, P, M, B, Owner, or Streams)".into(),
+            message:             "Invalid switch (expected W, S, P, M, B, Owner, Streams, Tree, or Icons)".into(),
             entry:               entry.into(),
             invalid_text:        entry.into(),
             invalid_text_offset: 0,
         });
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  try_process_parameterized_switch
+    //
+    //  Handle parameterized env var switches: Depth=N, TreeIndent=N,
+    //  Size=Auto|Bytes.  Returns true if handled, false if not a
+    //  parameterized switch (caller continues with color parsing).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn try_process_parameterized_switch (&mut self, entry: &str) -> bool {
+        let eq_pos = match entry.find ('=') {
+            Some (pos) => pos,
+            None       => return false,
+        };
+
+        let key   = entry[..eq_pos].trim();
+        let value = entry[eq_pos + 1..].trim();
+
+        let key_lower = key.to_ascii_lowercase();
+        match key_lower.as_str() {
+            "depth" => {
+                match value.parse::<i32>() {
+                    Ok (n) if n > 0 => {
+                        self.max_depth = Some (n);
+                    }
+                    _ => {
+                        self.last_parse_result.errors.push (ErrorInfo {
+                            message:             "Invalid Depth value (must be positive integer)".into(),
+                            entry:               entry.into(),
+                            invalid_text:        value.into(),
+                            invalid_text_offset: eq_pos + 1,
+                        });
+                    }
+                }
+                true
+            }
+            "treeindent" => {
+                match value.parse::<i32>() {
+                    Ok (n) if (1..=8).contains (&n) => {
+                        self.tree_indent = Some (n);
+                    }
+                    _ => {
+                        self.last_parse_result.errors.push (ErrorInfo {
+                            message:             "Invalid TreeIndent value (must be 1-8)".into(),
+                            entry:               entry.into(),
+                            invalid_text:        value.into(),
+                            invalid_text_offset: eq_pos + 1,
+                        });
+                    }
+                }
+                true
+            }
+            "size" => {
+                if value.eq_ignore_ascii_case ("auto") {
+                    self.size_format = Some (SizeFormat::Auto);
+                } else if value.eq_ignore_ascii_case ("bytes") {
+                    self.size_format = Some (SizeFormat::Bytes);
+                } else {
+                    self.last_parse_result.errors.push (ErrorInfo {
+                        message:             "Invalid Size value (expected Auto or Bytes)".into(),
+                        entry:               entry.into(),
+                        invalid_text:        value.into(),
+                        invalid_text_offset: eq_pos + 1,
+                    });
+                }
+                true
+            }
+            _ => false,
+        }
     }
 
 
@@ -687,6 +769,8 @@ const SWITCH_MAPPINGS: &[(&str, bool, SwitchAccessor)] = &[
     ("streams", true,  |c| &mut c.show_streams),
     ("icons",   true,  |c| &mut c.icons),
     ("icons-",  false, |c| &mut c.icons),
+    ("tree",    true,  |c| &mut c.tree),
+    ("tree-",   false, |c| &mut c.tree),
 ];
 
 

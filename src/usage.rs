@@ -82,6 +82,7 @@ const DISPLAY_ITEM_INFOS: &[DisplayItemInfo] = &[
     DisplayItemInfo { name: "Error",                   attr: Attribute::Error },
     DisplayItemInfo { name: "Owner",                   attr: Attribute::Owner },
     DisplayItemInfo { name: "Stream",                  attr: Attribute::Stream },
+    DisplayItemInfo { name: "Tree connector",           attr: Attribute::TreeConnector },
 ];
 
 
@@ -159,6 +160,7 @@ const SWITCH_INFOS: &[SwitchInfo] = &[
     SwitchInfo { name: "Owner",   description: "Display file ownership" },
     SwitchInfo { name: "Streams", description: "Display alternate data streams" },
     SwitchInfo { name: "Icons",   description: "Enable file-type icons" },
+    SwitchInfo { name: "Tree",    description: "Display directory tree view" },
 ];
 
 
@@ -257,6 +259,7 @@ fn display_synopsis(console: &mut Console, prefix: char) {
 
     // Build the list of option tokens.  Each is a color-marked string
     // with a trailing space separator.
+    #[cfg_attr(not(debug_assertions), allow(unused_mut))]
     let mut tokens: Vec<String> = vec![
         format!("[{{InformationHighlight}}drive:{{Information}}]\
                  [{{InformationHighlight}}path{{Information}}]\
@@ -276,7 +279,11 @@ fn display_synopsis(console: &mut Console, prefix: char) {
         format!("[{{InformationHighlight}}{long}Config{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Owner{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Streams{{Information}}] "),
-        format!("[{{InformationHighlight}}{long}Icons{{Information}}]"),
+        format!("[{{InformationHighlight}}{long}Icons{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Tree{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}}]"),
     ];
 
     #[cfg(debug_assertions)]
@@ -337,9 +344,10 @@ pub fn display_usage(console: &mut Console, prefix: char, icons_active: bool) {
     console.print_colorful_string("Rusticolor");
 
     // Header: product name continuation, version, copyright
-    console.color_printf(&format!("\
+    console.color_puts(&format!("\
 {{Information}} Directory version {ver} {arch} ({ts})
-Copyright {copy} 2004-{year} by Robert Elmer",
+Copyright {copy} 2004-{year} by Robert Elmer
+",
         ver  = VERSION_STRING,
         arch = architecture(),
         ts   = BUILD_TIMESTAMP,
@@ -355,8 +363,6 @@ Copyright {copy} 2004-{year} by Robert Elmer",
     // Only \ continuation is used mid-line to join two-column attribute pairs.
     console.color_puts(&format!("\
 {{Information}}
-
-
   [drive:][path][filename]
                     Specifies drive, directory, and/or files to list.
 
@@ -392,9 +398,14 @@ Copyright {copy} 2004-{year} by Robert Elmer",
   {{InformationHighlight}}{short}M{{Information}}                Enables multi-threaded enumeration (default). Use{{InformationHighlight}}{m_dis}{{Information}} to disable.
   {{InformationHighlight}}{long}Env{{Information}}             {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.
   {{InformationHighlight}}{long}Config{{Information}}          {lpad}Displays current color configuration for all items and extensions.
-  {{InformationHighlight}}{long}Owner{{Information}}           {lpad}Displays file owner (DOMAIN\\User) for each file.
+  {{InformationHighlight}}{long}Owner{{Information}}           {lpad}Displays the owner of each file and directory. Not allowed with {{InformationHighlight}}{long}Tree{{Information}}.
   {{InformationHighlight}}{long}Streams{{Information}}         {lpad}Displays alternate data streams (NTFS only).
-  {{InformationHighlight}}{long}Icons{{Information}}           {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable."
+  {{InformationHighlight}}{long}Icons{{Information}}           {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable.
+  {{InformationHighlight}}{long}Tree{{Information}}            {lpad}Displays a hierarchical directory tree view. Use {{InformationHighlight}}{long}Tree-{{Information}} to disable.
+  {{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}         {lpad}Limits tree depth to N levels (requires {{InformationHighlight}}{long}Tree{{Information}}).
+  {{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}    {lpad}Sets tree indent width (1-8, default 4; requires {{InformationHighlight}}{long}Tree{{Information}}).
+  {{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}} {lpad}File size format: {{InformationHighlight}}Auto{{Information}} = abbreviated (KB/MB/GB), {{InformationHighlight}}Bytes{{Information}} = exact with commas.
+  {lpad}                   Default: {{InformationHighlight}}Auto{{Information}} in tree mode, {{InformationHighlight}}Bytes{{Information}} otherwise."
     ));
 
     #[cfg(debug_assertions)]
@@ -454,6 +465,10 @@ display items, file attributes, or file extensions:
                   {{InformationHighlight}}Owner{{Information}}    Display file ownership
                   {{InformationHighlight}}Streams{{Information}}  Display alternate data streams (NTFS)
                   {{InformationHighlight}}Icons{{Information}}    Enable file-type icons; use {{InformationHighlight}}Icons-{{Information}} to disable
+                  {{InformationHighlight}}Tree{{Information}}     Display hierarchical tree view; use {{InformationHighlight}}Tree-{{Information}} to disable
+                  {{InformationHighlight}}Depth=N{{Information}}  Limit tree depth to N levels
+                  {{InformationHighlight}}TreeIndent=N{{Information}}  Tree indent width (1-8)
+                  {{InformationHighlight}}Size=Auto|Bytes{{Information}}  File size format
 
   {{InformationHighlight}}<Item>{{Information}}      A display item:
                   {{InformationHighlight}}D{{Information}}  Date                     {{InformationHighlight}}T{{Information}}  Time
@@ -461,6 +476,7 @@ display items, file attributes, or file extensions:
                   {{InformationHighlight}}I{{Information}}  Information              {{InformationHighlight}}H{{Information}}  Information highlight
                   {{InformationHighlight}}E{{Information}}  Error                    {{InformationHighlight}}F{{Information}}  File (default)
                   {{InformationHighlight}}O{{Information}}  Owner                    {{InformationHighlight}}M{{Information}}  Stream
+                  {{InformationHighlight}}C{{Information}}  Tree connector
 
               Cloud status (use full name, e.g., {{InformationHighlight}}CloudOnly=Blue{{Information}}):
                   {{InformationHighlight}}CloudOnly{{Information}}                   {{InformationHighlight}}LocallyAvailable{{Information}}
@@ -1262,7 +1278,8 @@ fn display_env_var_decoded_settings(console: &mut Console) {
         || config.multi_threaded.is_some()
         || config.show_owner.is_some()
         || config.show_streams.is_some()
-        || config.icons.is_some();
+        || config.icons.is_some()
+        || config.tree.is_some();
 
     let has_display_items = DISPLAY_ITEM_INFOS.iter().any(|i| {
         config.attribute_sources[i.attr as usize] == AttributeSource::Environment
@@ -1290,7 +1307,7 @@ fn display_env_var_decoded_settings(console: &mut Console) {
 
     if has_switches {
         console.puts(Attribute::Information, "    Switches:");
-        let switch_values: [&Option<bool>; 8] = [
+        let switch_values: [&Option<bool>; 9] = [
             &config.wide_listing,
             &config.recurse,
             &config.perf_timer,
@@ -1299,6 +1316,7 @@ fn display_env_var_decoded_settings(console: &mut Console) {
             &config.show_owner,
             &config.show_streams,
             &config.icons,
+            &config.tree,
         ];
         for (i, info) in SWITCH_INFOS.iter().enumerate() {
             if switch_values[i].is_some() {

@@ -446,6 +446,76 @@ fn format_with_commas(n: u64) -> String {
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+//
+//  format_abbreviated_size
+//
+//  Explorer-style abbreviated file size: 1024-based division with 3
+//  significant digits and a fixed 7-character width.  The numeric
+//  portion is right-justified in a 4-character field, followed by a
+//  space separator, followed by the unit label left-justified in a
+//  2-character field.  This ensures numbers and suffixes each align
+//  in their own sub-column.
+//
+//  Range                 Format       Example
+//  0                     0 B          "   0 B "
+//  1-999                 ### B        " 426 B "
+//  1000-1023             1 KB         "   1 KB"  (Explorer rounding)
+//  1024-10239            X.XX KB      "4.61 KB"
+//  10240-102399          XX.X KB      "17.1 KB"
+//  102400-1048575        ### KB       " 976 KB"
+//  1 MB+                 same 3-sig   "16.7 MB"
+//  1 GB+                 same         "1.39 GB"
+//  1 TB+                 same         "1.00 TB"
+//
+//  Port of: CResultsDisplayerNormal::FormatAbbreviatedSize
+//
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn format_abbreviated_size (cb_size: u64) -> String {
+
+    static SUFFIXES: &[&str] = &["B", "KB", "MB", "GB", "TB", "PB", "EB"];
+
+
+
+    // Bytes range: 0-999 displayed as integer bytes
+    if cb_size < 1000 {
+        return format! ("{:>4} {:<2}", cb_size, "B");
+    }
+
+    // 1000-1023 bytes: Explorer shows "1 KB" (rounds up)
+    if cb_size < 1024 {
+        return "   1 KB".to_string();
+    }
+
+    // Divide by 1024 repeatedly until value fits in 3 significant digits.
+    let mut value     = cb_size as f64;
+    let mut idx_suffix = 0usize;
+
+    while value >= 1024.0 && idx_suffix + 1 < SUFFIXES.len() {
+        value /= 1024.0;
+        idx_suffix += 1;
+    }
+
+    // Three-significant-digit formatting:
+    //   <10    → X.XX  (e.g., "4.61 KB")
+    //   <100   → XX.X  (e.g., "17.1 KB")
+    //   >=100  → ###   (e.g., " 976 KB")
+    let suffix = SUFFIXES[idx_suffix];
+
+    if value < 10.0 {
+        format! ("{:>4.2} {:<2}", value, suffix)
+    } else if value < 100.0 {
+        format! ("{:>4.1} {:<2}", value, suffix)
+    } else {
+        format! ("{:>4.0} {:<2}", value, suffix)
+    }
+}
+
+
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -610,5 +680,216 @@ mod tests {
         use super::super::DirectoryLevel;
         assert_eq!(DirectoryLevel::Initial, DirectoryLevel::Initial);
         assert_ne!(DirectoryLevel::Initial, DirectoryLevel::Subdirectory);
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Abbreviated size formatter tests (T024)
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_zero
+    //
+    //  Zero bytes displays as "   0 B ".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_zero () {
+        assert_eq! (format_abbreviated_size (0), "   0 B ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_small_bytes
+    //
+    //  Values 1-999 display as right-justified integer bytes.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_small_bytes () {
+        assert_eq! (format_abbreviated_size (1),   "   1 B ");
+        assert_eq! (format_abbreviated_size (426), " 426 B ");
+        assert_eq! (format_abbreviated_size (999), " 999 B ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_1000_rounds_to_kb
+    //
+    //  Values 1000-1023 display as "   1 KB" (Explorer rounding).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_1000_rounds_to_kb () {
+        assert_eq! (format_abbreviated_size (1000), "   1 KB");
+        assert_eq! (format_abbreviated_size (1023), "   1 KB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_1kb
+    //
+    //  Exactly 1024 bytes → "1.00 KB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_1kb () {
+        assert_eq! (format_abbreviated_size (1024), "1.00 KB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_fractional_kb
+    //
+    //  4720 bytes → 4.609375 KB → "4.61 KB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_fractional_kb () {
+        assert_eq! (format_abbreviated_size (4720), "4.61 KB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_tens_kb
+    //
+    //  17510 bytes → 17.099... KB → "17.1 KB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_tens_kb () {
+        assert_eq! (format_abbreviated_size (17510), "17.1 KB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_hundreds_kb
+    //
+    //  999424 bytes → 976 KB → " 976 KB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_hundreds_kb () {
+        assert_eq! (format_abbreviated_size (999424), " 976 KB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_1mb
+    //
+    //  1048576 bytes → exactly 1 MB → "1.00 MB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_1mb () {
+        assert_eq! (format_abbreviated_size (1_048_576), "1.00 MB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_tens_mb
+    //
+    //  17563648 bytes → 16.75 MB → "16.8 MB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_tens_mb () {
+        assert_eq! (format_abbreviated_size (17_563_648), "16.8 MB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_1gb
+    //
+    //  1073741824 bytes → exactly 1 GB → "1.00 GB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_1gb () {
+        assert_eq! (format_abbreviated_size (1_073_741_824), "1.00 GB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_fractional_gb
+    //
+    //  1493172224 bytes → 1.39... GB → "1.39 GB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_fractional_gb () {
+        assert_eq! (format_abbreviated_size (1_493_172_224), "1.39 GB");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  abbreviated_size_1tb
+    //
+    //  1099511627776 bytes → exactly 1 TB → "1.00 TB".
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn abbreviated_size_1tb () {
+        assert_eq! (format_abbreviated_size (1_099_511_627_776), "1.00 TB");
     }
 }

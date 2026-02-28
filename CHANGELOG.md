@@ -4,6 +4,30 @@ All notable changes to RCDir are documented in this file.
 
 ## [Unreleased]
 
+## [5.1.1132] - 2026-02-28
+
+### Added
+- `/Tree` switch: hierarchical directory tree view with Unicode box-drawing connectors (`├──`, `└──`, `│`)
+- `/Depth=N` switch: limit tree recursion depth (e.g., `/Depth=2` shows two levels)
+- `/TreeIndent=N` switch: configurable indent width per tree level (1–8, default 4)
+- `/Size=Auto` switch: Explorer-style abbreviated file sizes (e.g., `8.90 KB`, `1.00 MB`, `2.38 GB`) with fixed 7-character width — default in tree mode
+- `/Size=Bytes` switch: explicit opt-in for exact comma-separated sizes (existing default for non-tree modes)
+- Tree connector color (`TreeConnector`) configurable via `RCDIR` environment variable
+- RCDIR env var support for `Tree`, `Tree-`, `Depth=N`, `TreeIndent=N`, `Size=Auto`, `Size=Bytes`
+- Thread-safe empty subdirectory pruning when file masks are active (producer-side upward propagation via parent back-pointers and condition variables)
+- Reparse-point cycle guard: junction/symlink directories are listed but not expanded, preventing infinite loops in both `/S` and `/Tree` modes
+- Interleaved sort in tree mode: directories and files sorted together (not grouped)
+- Per-directory summary at each tree level plus grand total at end
+- Comprehensive test suite: 314 tests covering tree connectors, depth limiting, pruning, streams, icons, reparse points, and column alignment
+
+### Changed
+- Minor version bump from 5.0 to 5.1
+
+### Incompatibilities
+- `/Tree` cannot be combined with `/W` (wide), `/B` (bare), `/S` (recurse), or `/Owner`
+- `/Size=Bytes` cannot be used with `/Tree` (tree mode requires fixed-width sizes)
+- `/Depth` and `/TreeIndent` require `/Tree`
+
 ## [5.0.1131] - 2026-02-27
 
 ### Added

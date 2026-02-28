@@ -43,7 +43,7 @@
 - [ ] T010 Add parameterized long switch support to `handle_long_switch()`: split on `=` for key/value, consume next arg for space-separated form (R2) in `src/command_line.rs`
 - [ ] T011 Parse `--Tree`, `--Tree-`, `--Depth=N`, `--TreeIndent=N`, `--Size=Auto|Bytes` in `handle_long_switch()` in `src/command_line.rs`
 - [ ] T012 Implement `validate_switch_combinations()` for all conflict rules (Tree vs Wide/Bare/Recurse/Owner/Size=Bytes, Depth without Tree, TreeIndent without Tree, TreeIndent out of range, Depth ≤ 0) in `src/command_line.rs`
-- [ ] T013 Add 26 tree switch parsing unit tests ported from TCDir `CommandLineTests` in `src/command_line.rs`: `ParseTreeSwitchDoubleDash`, `ParseTreeSwitchSlash`, `ParseTreeDisableSwitchDoubleDash`, `ParseTreeSwitchCaseInsensitive`, `ParseTreeSwitchSingleDashFails`, `ParseDepthSingleDashFails`, `ParseDepthWithEquals`, `ParseDepthWithSpace`, `ParseTreeIndentWithEquals`, `ParseTreeWithWideFails`, `ParseTreeWithBareFails`, `ParseTreeWithRecurseFails`, `ParseTreeWithOwnerFails`, `ParseDepthWithoutTreeFails`, `ParseTreeIndentWithoutTreeFails`, `ParseTreeIndentOutOfRangeFails`, `ParseDepthZeroFails`, `ParseDepthNegativeFails`, `ParseTreeWithOwnerAndIconsFails`, `ParseTreeWithDepthAndIndentSucceeds`, `ApplyConfigDefaults_Tree_TransfersToCommandLine`, `ApplyConfigDefaults_TreeWithDepth_TransfersToCommandLine`, `ApplyConfigDefaults_DepthWithoutTree_SilentlyIgnored`, `CLITreeDisable_OverridesEnvVarTree`, `CLIDepth_OverridesEnvVarDepth`, `ParseSizeDefaultResolvesToBytesWithoutTree`
+- [ ] T013 Add 26 tree switch parsing unit tests ported from TCDir `CommandLineTests` in `src/command_line.rs`: `ParseTreeSwitchDoubleDash`, `ParseTreeSwitchSlash`, `ParseTreeDisableSwitchDoubleDash`, `ParseTreeSwitchCaseInsensitive`, `ParseTreeSwitchSingleDashFails`, `ParseDepthSingleDashFails`, `ParseDepthWithEquals`, `ParseDepthWithSpace`, `ParseTreeIndentWithEquals`, `ParseTreeWithWideFails`, `ParseTreeWithBareFails`, `ParseTreeWithRecurseFails`, `ParseTreeWithOwnerFails`, `ParseDepthWithoutTreeFails`, `ParseTreeIndentWithoutTreeFails`, `ParseTreeIndentOutOfRangeFails`, `ParseDepthZeroFails`, `ParseDepthNegativeFails`, `ParseTreeWithOwner_Fails_EvenWithIcons`, `ParseTreeWithDepthAndIndentSucceeds`, `ApplyConfigDefaults_Tree_TransfersToCommandLine`, `ApplyConfigDefaults_TreeWithDepth_TransfersToCommandLine`, `ApplyConfigDefaults_DepthWithoutTree_SilentlyIgnored`, `CLITreeDisable_OverridesEnvVarTree`, `CLIDepth_OverridesEnvVarDepth`, `ParseSizeDefaultResolvesToBytesWithoutTree`
 - [ ] T014 Add `--Size` non-tree unit tests in `src/command_line.rs`: `ParseSizeBytesWithoutTree`, `ParseSizeAutoWithoutTree`, `ParseSizeInvalidFails`, `ParseSizeCaseInsensitive`, `ParseSizeAutoWithTree`, `ParseSizeBytesWithTreeFails`, `ParseSizeDefaultResolvesToAutoWithTree`, `ApplyConfigDefaults_SizeAuto_TransfersToCommandLine`, `ApplyConfigDefaults_SizeBytes_NotOverriddenByCLI`
 
 ### Config / Environment Variable Parsing (R3, R9, entity 2)
@@ -195,15 +195,19 @@
 
 ### Output Parity Tests (R15)
 
-- [ ] T058 [P] Add 9 tree-mode output parity tests to `tests/output_parity.rs`: `parity_tree_basic`, `parity_tree_depth_limited`, `parity_tree_custom_indent`, `parity_tree_with_icons`, `parity_tree_with_streams`, `parity_tree_file_mask`, `parity_tree_size_auto`, `parity_size_auto_non_tree`, `parity_size_bytes_explicit`
+- [ ] T058 [P] Add 12 tree-mode output parity tests to `tests/output_parity.rs`: `parity_tree_basic`, `parity_tree_depth_limited`, `parity_tree_custom_indent`, `parity_tree_with_icons`, `parity_tree_with_streams`, `parity_tree_file_mask`, `parity_tree_size_auto`, `parity_size_auto_non_tree`, `parity_size_bytes_explicit`, `parity_tree_sort_by_size`, `parity_tree_time_created`, `parity_tree_attr_filter`
 - [ ] T059 [P] Create `scripts/CompareOutput.ps1` — ad-hoc cross-tool comparison script per R15 / data-model entity 10
+
+### Tree Integration / Scenario Tests (R16)
+
+- [ ] T060 [P] Create `tests/tree_mode_tests.rs` with 18 tree-specific integration tests covering: connector patterns at multiple depths, depth limiting behavior, empty directory display, file mask pruning, access-denied inline error in tree mode (FR-018), reparse point `[→ target]` indicator (FR-022), interleaved sort order verification, stream continuation lines, `<DIR>` abbreviated display, root-only header/footer, and custom indent widths
 
 ### Final Verification
 
-- [ ] T060 Run `cargo test` — all unit + integration tests pass
-- [ ] T061 Run `cargo clippy -- -D warnings` — no warnings
-- [ ] T062 Run `scripts/CompareOutput.ps1` against multiple directories with various tree arguments — verify byte-for-byte match between `rcdir` and `tcdir`
-- [ ] T063 Run quickstart.md verification commands (quick verification section + error cases)
+- [ ] T061 Run `cargo test` — all unit + integration tests pass
+- [ ] T062 Run `cargo clippy -- -D warnings` — no warnings
+- [ ] T063 Run `scripts/CompareOutput.ps1` against multiple directories with various tree arguments — verify byte-for-byte match between `rcdir` and `tcdir`
+- [ ] T064 Run quickstart.md verification commands (quick verification section + error cases)
 
 ---
 
@@ -319,8 +323,8 @@ T024: Add 12 size formatter unit tests
 | Phase 6: US4 (P2) | T044–T045 | Streams with tree prefix |
 | Phase 7: US5 (P2) | T046 | Switch conflict error messages |
 | Phase 8: US6 (P3) | T047 | Env var integration verification |
-| Phase 9: Polish | T048–T063 | Cycle guard, pruning, usage, parity tests, final verification |
-| **Total** | **63 tasks** | |
+| Phase 9: Polish | T048–T064 | Cycle guard, pruning, usage, parity tests, integration tests, final verification |
+| **Total** | **64 tasks** | |
 
 ### Test Count by Category
 
@@ -333,8 +337,9 @@ T024: Add 12 size formatter unit tests
 | Config Size env var | 4 | T020 |
 | Interleaved sort | 3 | T022 |
 | Abbreviated size formatter | 12 | T024 |
-| Output parity (cross-tool) | 9 | T058 |
-| **Total new tests** | **87** | |
+| Output parity (cross-tool) | 12 | T058 |
+| Tree integration / scenario | 18 | T060 |
+| **Total new tests** | **108** | |
 
 ---
 

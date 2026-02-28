@@ -113,7 +113,7 @@ All tree-specific test categories from TCDir (see R16 audit) must have Rust equi
 - Interleaved sort: 3 tests
 - Abbreviated size formatting: 12 tests
 - Tree mode integration/scenarios: 18 tests
-- Output parity (cross-tool): 9 new tests
+- Output parity (cross-tool): 12 new tests
 
 ## Complexity Tracking
 

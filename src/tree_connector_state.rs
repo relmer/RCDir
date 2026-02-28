@@ -149,7 +149,7 @@ impl TreeConnectorState {
         }
 
         // Horizontal dashes: max(indent - 2, 0) dashes
-        let dash_count = if indent > 2 { indent - 2 } else { 0 };
+        let dash_count = indent.saturating_sub (2);
         for _ in 0..dash_count {
             result.push ('─');
         }

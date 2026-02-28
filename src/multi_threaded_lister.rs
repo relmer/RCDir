@@ -5,6 +5,7 @@
 // Producer-consumer pattern: worker threads enumerate directories in parallel,
 // main thread walks the tree depth-first for in-order streaming output.
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsString;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
@@ -22,9 +23,10 @@ use crate::config::Config;
 use crate::directory_info::{DirectoryInfo, DirectoryStatus};
 use crate::drive_info::DriveInfo;
 use crate::file_comparator;
-use crate::file_info::{FileInfo, FindHandle, FILE_ATTRIBUTE_DIRECTORY};
+use crate::file_info::{FileInfo, FindHandle, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT};
 use crate::listing_totals::ListingTotals;
-use crate::results_displayer::{DirectoryLevel, Displayer, ResultsDisplayer};
+use crate::results_displayer::{DirectoryLevel, Displayer, ResultsDisplayer, TreeDisplayer};
+use crate::tree_connector_state::TreeConnectorState;
 use crate::work_queue::WorkQueue;
 
 
@@ -126,7 +128,22 @@ impl MultiThreadedLister {
         self.work_queue.push(Arc::clone(&root_node));
 
         // Consume the tree on the main thread (streaming output)
-        self.print_directory_tree(&root_node, drive_info, displayer, DirectoryLevel::Initial, totals);
+        if self.cmd.tree.unwrap_or (false) {
+            if let Displayer::Tree (tree_displayer) = displayer {
+                let mut tree_state = TreeConnectorState::new (self.cmd.tree_indent);
+
+                self.print_directory_tree_mode (
+                    &root_node,
+                    drive_info,
+                    tree_displayer,
+                    DirectoryLevel::Initial,
+                    totals,
+                    &mut tree_state,
+                );
+            }
+        } else {
+            self.print_directory_tree(&root_node, drive_info, displayer, DirectoryLevel::Initial, totals);
+        }
     }
 
 
@@ -214,6 +231,250 @@ impl MultiThreadedLister {
             }
             self.print_directory_tree(child, drive_info, displayer, DirectoryLevel::Subdirectory, totals);
         }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  print_directory_tree_mode
+    //
+    //  Tree-mode depth-first walk — interleaved display with connectors.
+    //
+    //  Port of: CMultiThreadedLister::PrintDirectoryTreeMode
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn print_directory_tree_mode (
+        &self,
+        node: &WorkItem,
+        drive_info: &DriveInfo,
+        tree_displayer: &mut TreeDisplayer,
+        level: DirectoryLevel,
+        totals: &mut ListingTotals,
+        tree_state: &mut TreeConnectorState,
+    ) {
+        if self.stop_requested() {
+            return;
+        }
+
+        // Wait for node completion
+        let (status, error_msg) = wait_for_node_completion (node, &self.stop);
+        if self.stop_requested() {
+            return;
+        }
+
+        if status == DirectoryStatus::Error {
+            if let Some (msg) = error_msg {
+                let console = tree_displayer.console_mut();
+                console.color_printf (&format! (
+                    "{{Error}}  Error accessing directory: {}\n", msg,
+                ));
+            }
+            return;
+        }
+
+        // Sort with interleaved ordering (dirs and files together)
+        {
+            let mut di = node.0.lock().unwrap();
+            file_comparator::sort_files (&mut di.matches, &self.cmd, true);
+        }
+
+        // Root directory: show drive header, path header, empty-dir message
+        if level == DirectoryLevel::Initial {
+            let di = node.0.lock().unwrap();
+            tree_displayer.display_tree_root_header (drive_info, &di);
+
+            if di.matches.is_empty() && di.children.is_empty() {
+                tree_displayer.display_tree_empty_root_message (&di);
+                return;
+            }
+        }
+
+        // Compute per-directory display state
+        {
+            let di = node.0.lock().unwrap();
+            tree_displayer.begin_directory (&di);
+        }
+
+        // Display entries interleaved with directory recursion
+        self.display_tree_entries (node, drive_info, tree_displayer, totals, tree_state);
+
+        // Flush trailing output
+        let _ = tree_displayer.console_mut().flush();
+
+        // Accumulate totals
+        {
+            let di = node.0.lock().unwrap();
+            accumulate_totals (&di, totals);
+        }
+
+        // Root directory: show summary + separator
+        if level == DirectoryLevel::Initial {
+            tree_displayer.display_tree_root_summary();
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_tree_entries
+    //
+    //  Display each visible entry interleaved with directory recursion.
+    //  Builds a child lookup map from lowercase filename to child WorkItem,
+    //  then iterates entries determining last-entry status for connectors.
+    //
+    //  Port of: CMultiThreadedLister::DisplayTreeEntries
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn display_tree_entries (
+        &self,
+        node: &WorkItem,
+        drive_info: &DriveInfo,
+        tree_displayer: &mut TreeDisplayer,
+        totals: &mut ListingTotals,
+        tree_state: &mut TreeConnectorState,
+    ) {
+        // Build lookup from lowercase filename → child WorkItem
+        let (child_map, entries) = {
+            let di = node.0.lock().unwrap();
+
+            let mut child_map: HashMap<String, WorkItem> = HashMap::new();
+            for child in &di.children {
+                let child_di = child.0.lock().unwrap();
+                let child_name = child_di.dir_path
+                    .file_name()
+                    .map (|n| n.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+                child_map.insert (child_name, Arc::clone (child));
+            }
+
+            // Clone the matches for iteration outside the lock
+            let entries: Vec<FileInfo> = di.matches.clone();
+
+            (child_map, entries)
+        };
+
+        for (i, entry) in entries.iter().enumerate() {
+            if self.stop_requested() {
+                return;
+            }
+
+            let is_dir = (entry.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+            // Determine if this is the last visible entry (look-ahead)
+            let is_last = self.is_last_visible_entry (&entries, i);
+
+            tree_displayer.display_single_entry (entry, tree_state, is_last, i);
+
+            // If entry is a directory, find its child node and recurse
+            if is_dir {
+                let lower_name = entry.file_name.to_string_lossy().to_lowercase();
+                if let Some (child_node) = child_map.get (&lower_name) {
+                    self.recurse_into_child_directory (
+                        child_node,
+                        entry,
+                        is_last,
+                        drive_info,
+                        tree_displayer,
+                        totals,
+                        tree_state,
+                    );
+                }
+            }
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  recurse_into_child_directory
+    //
+    //  Recurse into a child directory: check depth limit, save/restore
+    //  display state, push/pop tree connector state.
+    //
+    //  Port of: CMultiThreadedLister::RecurseIntoChildDirectory
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[allow(clippy::too_many_arguments)]
+    fn recurse_into_child_directory (
+        &self,
+        child_node: &WorkItem,
+        parent_entry: &FileInfo,
+        is_last: bool,
+        drive_info: &DriveInfo,
+        tree_displayer: &mut TreeDisplayer,
+        totals: &mut ListingTotals,
+        tree_state: &mut TreeConnectorState,
+    ) {
+        // Check depth limiting
+        let depth_limited = self.cmd.max_depth > 0
+            && (tree_state.depth() + 1) >= self.cmd.max_depth as usize;
+
+        // Check reparse point (junctions/symlinks)
+        let is_reparse = (parent_entry.file_attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+
+        if depth_limited || is_reparse {
+            return;
+        }
+
+        // Flush before recursing so user sees output immediately
+        let _ = tree_displayer.console_mut().flush();
+
+        // Save parent's per-directory display state
+        let saved_state = tree_displayer.save_directory_state();
+
+        // Push tree connector state: !is_last means parent has more siblings
+        tree_state.push (!is_last);
+
+        self.print_directory_tree_mode (
+            child_node,
+            drive_info,
+            tree_displayer,
+            DirectoryLevel::Subdirectory,
+            totals,
+            tree_state,
+        );
+
+        tree_state.pop();
+
+        // Restore parent's per-directory display state
+        tree_displayer.restore_directory_state (saved_state);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_last_visible_entry
+    //
+    //  Look ahead from the current entry to determine if it is the last
+    //  visible entry.  Without tree pruning active, every entry after
+    //  the current one is visible.
+    //
+    //  Port of: CMultiThreadedLister::IsLastVisibleEntry
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn is_last_visible_entry (
+        &self,
+        entries: &[FileInfo],
+        current_idx: usize,
+    ) -> bool {
+        // Without tree pruning, simply check if there are more entries
+        current_idx + 1 >= entries.len()
     }
 
 
@@ -347,8 +608,8 @@ fn perform_enumeration(
 ) -> Result<(), String> {
     enumerate_matching_files(node, stop, cmd)?;
 
-    if cmd.recurse {
-        enumerate_subdirectories(node, work_queue, stop)?;
+    if cmd.recurse || cmd.tree.unwrap_or (false) {
+        enumerate_subdirectories(node, work_queue, stop, cmd)?;
     }
 
     Ok(())
@@ -446,11 +707,31 @@ fn enumerate_subdirectories(
     node: &WorkItem,
     work_queue: &WorkQueue<WorkItem>,
     stop: &AtomicBool,
+    cmd: &CommandLine,
 ) -> Result<(), String> {
     let (dir_path, file_specs) = {
         let di = node.0.lock().unwrap();
         (di.dir_path.clone(), di.file_specs.clone())
     };
+
+    //
+    // In tree mode, directories must also appear in matches so they are
+    // visible in the interleaved tree display.  Build a set of directory
+    // names already present (from enumerate_matching_files) to avoid
+    // duplicates.
+    //
+
+    let is_tree = cmd.tree.unwrap_or (false);
+    let mut seen_dirs: HashSet<String> = HashSet::new();
+
+    if is_tree {
+        let di = node.0.lock().unwrap();
+        for entry in &di.matches {
+            if (entry.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 {
+                seen_dirs.insert (entry.file_name.to_string_lossy().to_lowercase());
+            }
+        }
+    }
 
     let mut search_path = dir_path.clone();
     search_path.push("*");
@@ -483,7 +764,24 @@ fn enumerate_subdirectories(
                 di.children.push(Arc::clone(&child_node));
             }
 
-            work_queue.push(child_node);
+            work_queue.push(Arc::clone (&child_node));
+
+            //
+            // In tree mode, add every directory to matches so the tree
+            // display can show it and recurse into it.  Skip if already
+            // added by enumerate_matching_files.
+            //
+
+            if is_tree {
+                let lower_name = name.to_string_lossy().to_lowercase();
+
+                if !seen_dirs.contains (&lower_name) {
+                    seen_dirs.insert (lower_name);
+                    let file_entry = FileInfo::from_find_data (&wfd);
+                    let mut di = node.0.lock().unwrap();
+                    add_match_to_list (&wfd, file_entry, &mut di, cmd);
+                }
+            }
         }
 
         let success = unsafe { FindNextFileW(handle, &mut wfd) };

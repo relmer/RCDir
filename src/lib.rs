@@ -219,7 +219,7 @@ fn process_directory_group(
         icons_active,
     );
 
-    if cmd.multi_threaded && cmd.recurse {
+    if cmd.tree.unwrap_or (false) || (cmd.multi_threaded && cmd.recurse) {
         process_multi_threaded (&drive_info, dir_path, file_specs, cmd, cfg, &mut displayer, totals);
     } else {
         process_single_threaded (&drive_info, dir_path, file_specs, cmd, cfg, &mut displayer, totals);

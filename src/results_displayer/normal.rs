@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use crate::cloud_status;
-use crate::command_line::{CommandLine, TimeField};
+use crate::command_line::{CommandLine, SizeFormat, TimeField};
 use crate::config::{Attribute, Config};
 use crate::console::Console;
 use crate::directory_info::DirectoryInfo;
@@ -22,6 +22,7 @@ use super::common::{
     display_listing_summary,
     display_path_header,
     display_volume_footer,
+    format_abbreviated_size,
     format_number_with_separators,
     get_string_length_of_max_file_size,
 };
@@ -217,7 +218,7 @@ fn display_file_results(
         display_attributes(console, config, file_info.file_attributes);
 
         // File size or <DIR>
-        display_file_size(console, file_info, max_size_width);
+        display_file_size (console, file_info, max_size_width, SizeFormat::Bytes);
 
         // Cloud status symbol
         let cloud = cloud_status::get_cloud_status(file_info.file_attributes, in_sync_root);
@@ -272,7 +273,7 @@ fn display_file_results(
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn get_time_field_for_display(fi: &FileInfo, time_field: TimeField) -> u64 {
+pub(super) fn get_time_field_for_display(fi: &FileInfo, time_field: TimeField) -> u64 {
     match time_field {
         TimeField::Creation => fi.creation_time,
         TimeField::Access   => fi.last_access_time,
@@ -294,7 +295,7 @@ fn get_time_field_for_display(fi: &FileInfo, time_field: TimeField) -> u64 {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_date_and_time(console: &mut Console, filetime_u64: u64) {
+pub(super) fn display_date_and_time(console: &mut Console, filetime_u64: u64) {
     let ft = windows::Win32::Foundation::FILETIME {
         dwLowDateTime:  (filetime_u64 & 0xFFFF_FFFF) as u32,
         dwHighDateTime: ((filetime_u64 >> 32) & 0xFFFF_FFFF) as u32,
@@ -375,7 +376,7 @@ fn display_date_and_time(console: &mut Console, filetime_u64: u64) {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_attributes(console: &mut Console, config: &Config, file_attributes: u32) {
+pub(super) fn display_attributes(console: &mut Console, config: &Config, file_attributes: u32) {
     let present_attr = config.attributes[Attribute::FileAttributePresent as usize];
     let absent_attr  = config.attributes[Attribute::FileAttributeNotPresent as usize];
 
@@ -397,12 +398,32 @@ fn display_attributes(console: &mut Console, config: &Config, file_attributes: u
 //  display_file_size
 //
 //  Display file size (right-aligned with separators) or centered <DIR>.
+//  In abbreviated mode (SizeFormat::Auto), uses a fixed 7-char field.
 //  Port of: CResultsDisplayerNormal::DisplayResultsNormalFileSize
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize) {
+pub(super) fn display_file_size(
+    console: &mut Console,
+    fi: &FileInfo,
+    max_size_width: usize,
+    size_format: SizeFormat,
+) {
     let dir_label = "<DIR>";
+
+    // Abbreviated size mode (Auto): fixed 7-character field, Explorer-style
+    if size_format == SizeFormat::Auto {
+        if !fi.is_directory() {
+            let abbreviated = format_abbreviated_size (fi.file_size);
+            console.writef_attr (Attribute::Size, format_args! ("  {}", abbreviated));
+        } else {
+            // " <DIR>   " — 1 leading space + <DIR> + 3 trailing spaces = 9 chars
+            console.printf_attr (Attribute::Directory, " <DIR>   ");
+        }
+        return;
+    }
+
+    // Bytes mode (comma-separated exact size): variable-width column
     let col_width = max_size_width.max(dir_label.len());
 
     if !fi.is_directory() {
@@ -438,7 +459,7 @@ fn display_file_size(console: &mut Console, fi: &FileInfo, max_size_width: usize
 ////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(debug_assertions)]
-fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &FileInfo) {
+pub(super) fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &FileInfo) {
     use windows::Win32::Storage::CloudFilters::CfGetPlaceholderStateFromAttributeTag;
 
     let cf_state = unsafe {
@@ -462,7 +483,7 @@ fn display_raw_attributes(console: &mut Console, config: &Config, file_info: &Fi
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_width: usize) {
+pub(super) fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_width: usize) {
     let color = config.attributes[Attribute::Owner as usize];
     let padding = if max_width > owner.len() { max_width - owner.len() } else { 0 };
     console.writef (color, format_args! ("{}{:width$} ", owner, "", width = padding));
@@ -481,7 +502,7 @@ fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_w
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_file_streams(
+pub(super) fn display_file_streams(
     console: &mut Console,
     config: &Config,
     file_info: &FileInfo,

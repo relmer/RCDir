@@ -83,13 +83,14 @@ pub trait ResultsDisplayer {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Polymorphic displayer wrapping Normal, Wide, or Bare variants.
+/// Polymorphic displayer wrapping Normal, Wide, Bare, or Tree variants.
 ///
 /// Provides `into_console()` and `console_mut()` without trait object issues.
 pub enum Displayer {
     Normal(NormalDisplayer),
     Wide(WideDisplayer),
     Bare(BareDisplayer),
+    Tree(TreeDisplayer),
 }
 
 
@@ -116,7 +117,9 @@ impl Displayer {
     ////////////////////////////////////////////////////////////////////////////
 
     pub fn new(console: Console, cmd: Arc<CommandLine>, config: Arc<Config>, icons_active: bool) -> Self {
-        if cmd.bare_listing {
+        if cmd.tree.unwrap_or (false) {
+            Displayer::Tree(TreeDisplayer::new(console, cmd, config, icons_active))
+        } else if cmd.bare_listing {
             Displayer::Bare(BareDisplayer::new(console, cmd, config, icons_active))
         } else if cmd.wide_listing {
             Displayer::Wide(WideDisplayer::new(console, cmd, config, icons_active))
@@ -142,6 +145,7 @@ impl Displayer {
             Displayer::Normal(d) => d.into_console(),
             Displayer::Wide(d)   => d.into_console(),
             Displayer::Bare(d)   => d.into_console(),
+            Displayer::Tree(d)   => d.into_console(),
         }
     }
 
@@ -162,6 +166,7 @@ impl Displayer {
             Displayer::Normal(d) => d.console_mut(),
             Displayer::Wide(d)   => d.console_mut(),
             Displayer::Bare(d)   => d.console_mut(),
+            Displayer::Tree(d)   => d.console_mut(),
         }
     }
 }
@@ -193,6 +198,7 @@ impl ResultsDisplayer for Displayer {
             Displayer::Normal(d) => d.display_results(drive_info, dir_info, level),
             Displayer::Wide(d)   => d.display_results(drive_info, dir_info, level),
             Displayer::Bare(d)   => d.display_results(drive_info, dir_info, level),
+            Displayer::Tree(d)   => d.display_results(drive_info, dir_info, level),
         }
     }
 
@@ -213,6 +219,7 @@ impl ResultsDisplayer for Displayer {
             Displayer::Normal(d) => d.display_recursive_summary(dir_info, totals),
             Displayer::Wide(d)   => d.display_recursive_summary(dir_info, totals),
             Displayer::Bare(d)   => d.display_recursive_summary(dir_info, totals),
+            Displayer::Tree(d)   => d.display_recursive_summary(dir_info, totals),
         }
     }
 }

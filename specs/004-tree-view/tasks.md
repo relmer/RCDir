@@ -77,20 +77,20 @@
 
 ### Implementation for User Story 1
 
-- [ ] T025 [US1] Implement `TreeDisplayer::new()` wrapping `NormalDisplayer` via composition in `src/results_displayer/tree.rs` (R10, entity 4)
-- [ ] T026 [US1] Implement `TreeDisplayer::display_single_entry()` — calls inner's column helpers, inserts tree prefix from `TreeConnectorState` before icon/filename in `src/results_displayer/tree.rs` (R1)
-- [ ] T027 [US1] Implement `TreeDisplayer::begin_directory()`, `save_directory_state()`, `restore_directory_state()`, `DirectoryDisplayState` struct in `src/results_displayer/tree.rs` (R12, entity 4)
-- [ ] T028 [US1] Implement `TreeDisplayer::display_tree_root_header()` and `display_tree_root_summary()` in `src/results_displayer/tree.rs` (R8)
-- [ ] T029 [US1] Implement `TreeDisplayer::into_console()` and `console_mut()` accessor methods in `src/results_displayer/tree.rs`
-- [ ] T030 [US1] Extract column-rendering helpers on `NormalDisplayer` as `pub(crate)` so `TreeDisplayer` can delegate to them in `src/results_displayer/normal.rs`
-- [ ] T031 [US1] Add `Tree(TreeDisplayer)` variant to `Displayer` enum and implement `ResultsDisplayer` trait delegation in `src/results_displayer/mod.rs`
-- [ ] T032 [US1] Implement `print_directory_tree_mode()` on `MultiThreadedLister` — main-thread depth-first tree walk calling `TreeDisplayer` public methods, with `TreeConnectorState` threaded through recursion in `src/multi_threaded_lister.rs` (R4)
-- [ ] T033 [US1] Implement `display_tree_entries()` on `MultiThreadedLister` — iterates entries at one level, determines `is_last` via look-ahead, calls `display_single_entry` in `src/multi_threaded_lister.rs`
-- [ ] T034 [US1] Route `--Tree` to MT lister path (always use MT even with `-M-`) in `src/multi_threaded_lister.rs` (R5)
-- [ ] T035 [US1] Pass `interleaved_sort = true` when `tree` is active in the sort call site in `src/multi_threaded_lister.rs` (R6)
-- [ ] T036 [US1] Wire `TreeDisplayer` creation in `src/lib.rs` — instantiate `Displayer::Tree(TreeDisplayer::new(...))` when `cmd.tree` is true
-- [ ] T037 [US1] Implement console flush before child directory recursion and after entry loop in `print_directory_tree_mode` in `src/multi_threaded_lister.rs` (R11)
-- [ ] T038 [US1] Integrate abbreviated size display — call `format_abbreviated_size()` when `size_format` resolves to `Auto` in the file size rendering path in `src/results_displayer/normal.rs` and `src/results_displayer/tree.rs` (R13)
+- [X] T025 [US1] Implement `TreeDisplayer::new()` wrapping `NormalDisplayer` via composition in `src/results_displayer/tree.rs` (R10, entity 4)
+- [X] T026 [US1] Implement `TreeDisplayer::display_single_entry()` — calls inner's column helpers, inserts tree prefix from `TreeConnectorState` before icon/filename in `src/results_displayer/tree.rs` (R1)
+- [X] T027 [US1] Implement `TreeDisplayer::begin_directory()`, `save_directory_state()`, `restore_directory_state()`, `DirectoryDisplayState` struct in `src/results_displayer/tree.rs` (R12, entity 4)
+- [X] T028 [US1] Implement `TreeDisplayer::display_tree_root_header()` and `display_tree_root_summary()` in `src/results_displayer/tree.rs` (R8)
+- [X] T029 [US1] Implement `TreeDisplayer::into_console()` and `console_mut()` accessor methods in `src/results_displayer/tree.rs`
+- [X] T030 [US1] Extract column-rendering helpers on `NormalDisplayer` as `pub(crate)` so `TreeDisplayer` can delegate to them in `src/results_displayer/normal.rs`
+- [X] T031 [US1] Add `Tree(TreeDisplayer)` variant to `Displayer` enum and implement `ResultsDisplayer` trait delegation in `src/results_displayer/mod.rs`
+- [X] T032 [US1] Implement `print_directory_tree_mode()` on `MultiThreadedLister` — main-thread depth-first tree walk calling `TreeDisplayer` public methods, with `TreeConnectorState` threaded through recursion in `src/multi_threaded_lister.rs` (R4)
+- [X] T033 [US1] Implement `display_tree_entries()` on `MultiThreadedLister` — iterates entries at one level, determines `is_last` via look-ahead, calls `display_single_entry` in `src/multi_threaded_lister.rs`
+- [X] T034 [US1] Route `--Tree` to MT lister path (always use MT even with `-M-`) in `src/multi_threaded_lister.rs` (R5)
+- [X] T035 [US1] Pass `interleaved_sort = true` when `tree` is active in the sort call site in `src/multi_threaded_lister.rs` (R6)
+- [X] T036 [US1] Wire `TreeDisplayer` creation in `src/lib.rs` — instantiate `Displayer::Tree(TreeDisplayer::new(...))` when `cmd.tree` is true
+- [X] T037 [US1] Implement console flush before child directory recursion and after entry loop in `print_directory_tree_mode` in `src/multi_threaded_lister.rs` (R11)
+- [X] T038 [US1] Integrate abbreviated size display — call `format_abbreviated_size()` when `size_format` resolves to `Auto` in the file size rendering path in `src/results_displayer/normal.rs` and `src/results_displayer/tree.rs` (R13)
 
 **Checkpoint**: `rcdir --Tree` displays hierarchical output with connectors, metadata, interleaved sort, abbreviated sizes, and streaming output. Manually verify alignment.
 
@@ -104,8 +104,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T039 [US2] Add depth check in `print_directory_tree_mode`: compare `TreeConnectorState::depth()` against `cmd.max_depth` before recursing into child directories in `src/multi_threaded_lister.rs`
-- [ ] T040 [US2] Ensure directories at the depth limit are displayed as entries (with `<DIR>` / abbreviated `<DIR>`) but their children are not expanded in `src/multi_threaded_lister.rs`
+- [X] T039 [US2] Add depth check in `print_directory_tree_mode`: compare `TreeConnectorState::depth()` against `cmd.max_depth` before recursing into child directories in `src/multi_threaded_lister.rs`
+- [X] T040 [US2] Ensure directories at the depth limit are displayed as entries (with `<DIR>` / abbreviated `<DIR>`) but their children are not expanded in `src/multi_threaded_lister.rs`
 
 **Checkpoint**: `rcdir --Tree --Depth=2` shows exactly 2 levels. `--Depth` without `--Tree` produces error. `--Depth 0` and `--Depth -1` produce errors. All verified by unit tests from Phase 2.
 
@@ -119,9 +119,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] Emit `Attribute::TreeConnector` color via `Console` around tree prefix characters in `TreeDisplayer::display_single_entry()` in `src/results_displayer/tree.rs` (R9)
-- [ ] T042 [US3] Handle `<DIR>` display in abbreviated size mode — render `" <DIR>   "` (7-char fixed width) when `size_format == Auto` in `src/results_displayer/normal.rs` (entity 8)
-- [ ] T043 [US3] Verify icon positioning: tree connectors prepend before icon glyph (not between icon and filename) in `src/results_displayer/tree.rs` (R1)
+- [X] T041 [US3] Emit `Attribute::TreeConnector` color via `Console` around tree prefix characters in `TreeDisplayer::display_single_entry()` in `src/results_displayer/tree.rs` (R9)
+- [X] T042 [US3] Handle `<DIR>` display in abbreviated size mode — render `" <DIR>   "` (7-char fixed width) when `size_format == Auto` in `src/results_displayer/normal.rs` (entity 8)
+- [X] T043 [US3] Verify icon positioning: tree connectors prepend before icon glyph (not between icon and filename) in `src/results_displayer/tree.rs` (R1)
 
 **Checkpoint**: `rcdir --Tree --Icons` shows icons in correct position. Tree connectors colored DarkGrey by default. `<DIR>` entries correctly formatted in abbreviated mode.
 
@@ -135,8 +135,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Implement `TreeDisplayer::display_file_streams_with_tree_prefix()` — prepend `│   ` continuation prefix to each stream line in `src/results_displayer/tree.rs`
-- [ ] T045 [US4] Call `display_file_streams_with_tree_prefix()` after each file entry that has streams in `display_tree_entries()` in `src/multi_threaded_lister.rs`
+- [X] T044 [US4] Implement `TreeDisplayer::display_file_streams_with_tree_prefix()` — prepend `│   ` continuation prefix to each stream line in `src/results_displayer/tree.rs`
+- [X] T045 [US4] Call `display_file_streams_with_tree_prefix()` after each file entry that has streams in `display_tree_entries()` in `src/multi_threaded_lister.rs`
 
 **Checkpoint**: `rcdir --Tree --Streams` shows correctly indented stream entries with vertical continuation.
 
@@ -150,7 +150,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T046 [US5] Add error messages for each conflict case in `validate_switch_combinations()` matching TCDir output format in `src/command_line.rs`
+- [X] T046 [US5] Add error messages for each conflict case in `validate_switch_combinations()` matching TCDir output format in `src/command_line.rs`
 
 **Checkpoint**: All 5 conflict scenarios produce clear, specific error messages. No partial output. All verified by unit tests from Phase 2 (T013).
 
@@ -164,7 +164,7 @@
 
 ### Implementation for User Story 6
 
-- [ ] T047 [US6] Verify end-to-end env var → config → CLI flow for tree/depth/tree_indent/size_format (wiring was done in T017/T018, this task is integration verification) in `src/config/env_overrides.rs` and `src/command_line.rs`
+- [X] T047 [US6] Verify end-to-end env var → config → CLI flow for tree/depth/tree_indent/size_format (wiring was done in T017/T018, this task is integration verification) in `src/config/env_overrides.rs` and `src/command_line.rs`
 
 **Checkpoint**: `RCDIR=Tree;Depth=2` works. `--Tree-` overrides env var. `Depth=N` without `Tree` silently ignored in env var. All verified by unit tests from Phase 2 (T019/T020).
 

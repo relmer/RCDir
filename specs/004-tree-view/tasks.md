@@ -195,12 +195,12 @@
 
 ### Output Parity Tests (R15)
 
-- [ ] T058 [P] Add 12 tree-mode output parity tests to `tests/output_parity.rs`: `parity_tree_basic`, `parity_tree_depth_limited`, `parity_tree_custom_indent`, `parity_tree_with_icons`, `parity_tree_with_streams`, `parity_tree_file_mask`, `parity_tree_size_auto`, `parity_size_auto_non_tree`, `parity_size_bytes_explicit`, `parity_tree_sort_by_size`, `parity_tree_time_created`, `parity_tree_attr_filter`
-- [ ] T059 [P] Create `scripts/CompareOutput.ps1` — ad-hoc cross-tool comparison script per R15 / data-model entity 10
+- [X] T058 [P] Add 12 tree-mode output parity tests to `tests/output_parity.rs`: `parity_tree_basic`, `parity_tree_depth_limited`, `parity_tree_custom_indent`, `parity_tree_with_icons`, `parity_tree_with_streams`, `parity_tree_file_mask`, `parity_tree_size_auto`, `parity_size_auto_non_tree`, `parity_size_bytes_explicit`, `parity_tree_sort_by_size`, `parity_tree_time_created`, `parity_tree_attr_filter`
+- [X] T059 [P] Create `scripts/CompareOutput.ps1` — ad-hoc cross-tool comparison script per R15 / data-model entity 10
 
 ### Tree Integration / Scenario Tests (R16)
 
-- [ ] T060 [P] Create `tests/tree_mode_tests.rs` with 18 tree-specific integration tests covering: connector patterns at multiple depths, depth limiting behavior, empty directory display, file mask pruning, access-denied inline error in tree mode (FR-018), reparse point `[→ target]` indicator (FR-022), interleaved sort order verification, stream continuation lines, `<DIR>` abbreviated display, root-only header/footer, and custom indent widths
+- [X] T060 [P] Create `tests/tree_mode_tests.rs` with 18 tree-specific integration tests covering: connector patterns at multiple depths, depth limiting behavior, empty directory display, file mask pruning, access-denied inline error in tree mode (FR-018), reparse point `[→ target]` indicator (FR-022), interleaved sort order verification, stream continuation lines, `<DIR>` abbreviated display, root-only header/footer, and custom indent widths
 
 ### Final Verification
 

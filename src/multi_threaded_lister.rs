@@ -646,8 +646,8 @@ fn enumerate_directory_node(
 
     let pruning = tree_pruning_active.load (Ordering::Acquire);
 
-    // Set Done or Error, and propagate match info for tree pruning
-    {
+    // Set Done or Error, and gather pruning info (under lock)
+    let should_propagate = {
         let mut di = node.0.lock().unwrap();
         match result {
             Ok(()) => di.status = DirectoryStatus::Done,
@@ -658,12 +658,20 @@ fn enumerate_directory_node(
         }
 
         // If pruning is active and this node has matching files,
-        // propagate the match flag up the ancestor chain.
-        if pruning && di.file_count > 0
-            && let Some (ref parent_weak) = di.parent
-        {
-            propagate_descendant_match (parent_weak);
+        // mark this node and extract parent ref for propagation.
+        if pruning && di.file_count > 0 {
+            di.descendant_match_found = true;
+            di.parent.as_ref().map (|w| w.clone())
+        } else {
+            None
         }
+    };
+
+    // Propagate match flag up the ancestor chain (outside the lock
+    // to avoid deadlock with signal_subtree_complete which locks
+    // parent then child).
+    if let Some (ref parent_weak) = should_propagate {
+        propagate_descendant_match (parent_weak);
     }
 
     // If pruning is active, check if this is a leaf (no children) and

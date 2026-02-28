@@ -17,10 +17,10 @@
 
 **Purpose**: Module registration and new file scaffolding
 
-- [ ] T001 Add `pub mod tree_connector_state;` to `src/lib.rs`
-- [ ] T002 [P] Create `SizeFormat` enum (`Default`, `Auto`, `Bytes`) in `src/command_line.rs`
-- [ ] T003 [P] Create empty `src/tree_connector_state.rs` with struct definition and method stubs per data-model.md entity 3
-- [ ] T004 [P] Create empty `src/results_displayer/tree.rs` with `TreeDisplayer` struct stub and `mod tree;` in `src/results_displayer/mod.rs`
+- [X] T001 Add `pub mod tree_connector_state;` to `src/lib.rs`
+- [X] T002 [P] Create `SizeFormat` enum (`Default`, `Auto`, `Bytes`) in `src/command_line.rs`
+- [X] T003 [P] Create empty `src/tree_connector_state.rs` with struct definition and method stubs per data-model.md entity 3
+- [X] T004 [P] Create empty `src/results_displayer/tree.rs` with `TreeDisplayer` struct stub and `mod tree;` in `src/results_displayer/mod.rs`
 
 ---
 

@@ -26,6 +26,7 @@ pub mod usage;
 pub mod icon_mapping;
 pub mod nerd_font_detector;
 pub mod file_attribute_map;
+pub mod tree_connector_state;
 
 
 

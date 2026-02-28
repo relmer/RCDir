@@ -18,6 +18,7 @@
 mod bare;
 mod common;
 mod normal;
+mod tree;
 mod wide;
 
 use std::sync::Arc;
@@ -32,6 +33,7 @@ use crate::listing_totals::ListingTotals;
 pub use self::bare::BareDisplayer;
 pub use self::common::format_number_with_separators;
 pub use self::normal::NormalDisplayer;
+pub use self::tree::TreeDisplayer;
 pub use self::wide::WideDisplayer;
 
 

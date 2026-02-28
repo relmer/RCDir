@@ -55,6 +55,17 @@ pub enum TimeField {
 
 
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SizeFormat {
+    Default,    // Not explicitly set; tree mode uses Auto, non-tree uses Bytes
+    Auto,       // Explorer-style abbreviated (1024-based, 3 sig digits, 7-char)
+    Bytes,      // Exact byte count with comma separators (existing behavior)
+}
+
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]

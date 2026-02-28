@@ -123,10 +123,11 @@ impl TreeConnectorState {
         }
 
         let indent = self.tree_indent.max (1) as usize;
-        let mut result = String::with_capacity (depth * indent);
+        let mut result = String::with_capacity (depth * indent + indent);
 
-        // Ancestor continuation lines (all levels except the current one)
-        for i in 0..depth - 1 {
+        // Ancestor continuation lines (skip index 0 = root level has
+        // no visible connectors)
+        for i in 1..depth {
             if self.ancestor_has_sibling[i] {
                 // Ancestor has more siblings → draw vertical continuation
                 result.push ('│');
@@ -147,14 +148,14 @@ impl TreeConnectorState {
             result.push ('├');
         }
 
-        // Horizontal dashes: indent - 2 dashes + 1 trailing space
-        let dash_count = if indent >= 2 { indent - 2 } else { 0 };
+        // Horizontal dashes: max(indent - 2, 0) dashes
+        let dash_count = if indent > 2 { indent - 2 } else { 0 };
         for _ in 0..dash_count {
             result.push ('─');
         }
-        if indent >= 2 {
-            result.push (' ');
-        }
+
+        // Always trailing space after connector
+        result.push (' ');
 
         result
     }
@@ -184,8 +185,8 @@ impl TreeConnectorState {
 
         let mut result = String::with_capacity ((depth + 1) * indent);
 
-        // Ancestor continuation lines
-        for i in 0..depth {
+        // Ancestor continuation lines (skip index 0 = root)
+        for i in 1..depth {
             if self.ancestor_has_sibling[i] {
                 result.push ('│');
             } else {
@@ -196,6 +197,350 @@ impl TreeConnectorState {
             }
         }
 
+        // Current level stream continuation (always vertical)
+        result.push ('│');
+        for _ in 1..indent {
+            result.push (' ');
+        }
+
         result
+    }
+}
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_constructor_depth0
+    //
+    //  Default TreeConnectorState has depth 0 and indent 4.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn default_constructor_depth0 () {
+        let state = TreeConnectorState::new (4);
+        assert_eq! (state.depth(), 0);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  custom_indent_stored_correctly
+    //
+    //  Custom indent value is stored correctly.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn custom_indent_stored_correctly () {
+        let state = TreeConnectorState::new (2);
+        assert_eq! (state.tree_indent, 2);
+        assert_eq! (state.depth(), 0);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  prefix_at_depth0_empty_string
+    //
+    //  At depth 0, GetPrefix returns empty string (no connectors).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn prefix_at_depth0_empty_string () {
+        let state = TreeConnectorState::new (4);
+        assert_eq! (state.get_prefix (false), "");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  prefix_at_depth0_last_entry_empty_string
+    //
+    //  At depth 0, GetPrefix returns empty string even for last entry.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn prefix_at_depth0_last_entry_empty_string () {
+        let state = TreeConnectorState::new (4);
+        assert_eq! (state.get_prefix (true), "");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  prefix_at_depth1_middle_entry
+    //
+    //  At depth 1, middle entry gets ├── connector.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn prefix_at_depth1_middle_entry () {
+        let mut state = TreeConnectorState::new (4);
+        state.push (true);
+        assert_eq! (state.get_prefix (false), "├── ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  prefix_at_depth1_last_entry
+    //
+    //  At depth 1, last entry gets └── connector.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn prefix_at_depth1_last_entry () {
+        let mut state = TreeConnectorState::new (4);
+        state.push (true);
+        assert_eq! (state.get_prefix (true), "└── ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  prefix_at_depth2_middle_entry_ancestor_has_sibling
+    //
+    //  At depth 2 with ancestor that has siblings, shows │ continuation.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn prefix_at_depth2_middle_entry_ancestor_has_sibling () {
+        let mut state = TreeConnectorState::new (4);
+        state.push (true);
+        state.push (true);
+        assert_eq! (state.get_prefix (false), "│   ├── ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  prefix_at_depth2_last_entry_ancestor_has_no_sibling
+    //
+    //  At depth 2 with ancestor that was last, shows └── with │ continuation
+    //  from the first push.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn prefix_at_depth2_last_entry_ancestor_has_no_sibling () {
+        let mut state = TreeConnectorState::new (4);
+        state.push (false);
+        state.push (true);
+        assert_eq! (state.get_prefix (true), "│   └── ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  prefix_at_depth3_mixed_ancestors
+    //
+    //  At depth 3 with mixed ancestor sibling states.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn prefix_at_depth3_mixed_ancestors () {
+        let mut state = TreeConnectorState::new (4);
+        state.push (true);
+        state.push (false);
+        state.push (true);
+        assert_eq! (state.get_prefix (false), "    │   ├── ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  push_pop_depth_tracking
+    //
+    //  Push increments depth, Pop decrements.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn push_pop_depth_tracking () {
+        let mut state = TreeConnectorState::new (4);
+        assert_eq! (state.depth(), 0);
+        state.push (true);
+        assert_eq! (state.depth(), 1);
+        state.push (false);
+        assert_eq! (state.depth(), 2);
+        state.pop();
+        assert_eq! (state.depth(), 1);
+        state.pop();
+        assert_eq! (state.depth(), 0);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pop_at_depth0_no_op
+    //
+    //  Pop at depth 0 is a no-op (doesn't crash).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn pop_at_depth0_no_op () {
+        let mut state = TreeConnectorState::new (4);
+        state.pop();
+        assert_eq! (state.depth(), 0);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  stream_continuation_depth0_empty_string
+    //
+    //  Stream continuation at depth 0 returns empty string.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn stream_continuation_depth0_empty_string () {
+        let state = TreeConnectorState::new (4);
+        assert_eq! (state.get_stream_continuation(), "");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  stream_continuation_depth1
+    //
+    //  Stream continuation at depth 1 shows │ + spaces.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn stream_continuation_depth1 () {
+        let mut state = TreeConnectorState::new (4);
+        state.push (true);
+        assert_eq! (state.get_stream_continuation(), "│   ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  stream_continuation_depth2_ancestor_has_sibling
+    //
+    //  Stream continuation at depth 2 with ancestor siblings.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn stream_continuation_depth2_ancestor_has_sibling () {
+        let mut state = TreeConnectorState::new (4);
+        state.push (true);
+        state.push (true);
+        assert_eq! (state.get_stream_continuation(), "│   │   ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  custom_indent1_short_prefix
+    //
+    //  Indent=1: ├ + space (no horizontal dashes).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn custom_indent1_short_prefix () {
+        let mut state = TreeConnectorState::new (1);
+        state.push (true);
+        assert_eq! (state.get_prefix (false), "├ ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  custom_indent2_narrow_prefix
+    //
+    //  Indent=2 at depth 2: │ + space, then └ + space.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn custom_indent2_narrow_prefix () {
+        let mut state = TreeConnectorState::new (2);
+        state.push (true);
+        state.push (true);
+        assert_eq! (state.get_prefix (true), "│ └ ");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  custom_indent8_wide_prefix
+    //
+    //  Indent=8 at depth 1: ├ + 6 horizontal dashes + space.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn custom_indent8_wide_prefix () {
+        let mut state = TreeConnectorState::new (8);
+        state.push (true);
+        assert_eq! (state.get_prefix (false), "├────── ");
     }
 }

@@ -11,6 +11,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use crate::color::*;
+use crate::command_line::SizeFormat;
 use crate::environment_provider::{DefaultEnvironmentProvider, EnvironmentProvider};
 use crate::file_attribute_map::ATTRIBUTE_PRECEDENCE;
 use crate::file_info::{
@@ -57,6 +58,7 @@ pub enum Attribute {
     CloudStatusCloudOnly              = 13,
     CloudStatusLocallyAvailable       = 14,
     CloudStatusAlwaysLocallyAvailable = 15,
+    TreeConnector                     = 16,
 }
 
 
@@ -72,7 +74,7 @@ pub enum Attribute {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl Attribute {
-    pub const COUNT: usize = 16;
+    pub const COUNT: usize = 17;
 
     /// All attribute variants in order, for iteration.
     pub const ALL: [Attribute; Self::COUNT] = [
@@ -92,6 +94,7 @@ impl Attribute {
         Attribute::CloudStatusCloudOnly,
         Attribute::CloudStatusLocallyAvailable,
         Attribute::CloudStatusAlwaysLocallyAvailable,
+        Attribute::TreeConnector,
     ];
 
     ////////////////////////////////////////////////////////////////////////////
@@ -121,6 +124,7 @@ impl Attribute {
             "CloudStatusCloudOnly"              => Some(Attribute::CloudStatusCloudOnly),
             "CloudStatusLocallyAvailable"       => Some(Attribute::CloudStatusLocallyAvailable),
             "CloudStatusAlwaysLocallyAvailable" => Some(Attribute::CloudStatusAlwaysLocallyAvailable),
+            "TreeConnector"                     => Some(Attribute::TreeConnector),
             _ => None,
         }
     }
@@ -155,6 +159,7 @@ impl Attribute {
             Attribute::CloudStatusCloudOnly              => "CloudStatusCloudOnly",
             Attribute::CloudStatusLocallyAvailable       => "CloudStatusLocallyAvailable",
             Attribute::CloudStatusAlwaysLocallyAvailable => "CloudStatusAlwaysLocallyAvailable",
+            Attribute::TreeConnector                     => "TreeConnector",
         }
     }
 
@@ -185,6 +190,7 @@ impl Attribute {
             Attribute::Default                 => Some('F'),
             Attribute::Owner                   => Some('O'),
             Attribute::Stream                  => Some('M'),
+            Attribute::TreeConnector            => Some('C'),
             _ => None,
         }
     }
@@ -344,6 +350,13 @@ pub struct Config {
     pub show_owner:     Option<bool>,
     pub show_streams:   Option<bool>,
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub tree:           Option<bool>,
+    pub max_depth:      Option<i32>,
+    pub tree_indent:    Option<i32>,
+    pub size_format:    Option<SizeFormat>,
+
     /// Validation results from last env var parse
     pub last_parse_result: ValidationResult,
 }
@@ -416,6 +429,10 @@ impl Config {
             multi_threaded:    None,
             show_owner:        None,
             show_streams:      None,
+            tree:              None,
+            max_depth:         None,
+            tree_indent:       None,
+            size_format:       None,
             last_parse_result: ValidationResult::default(),
         }
     }
@@ -471,6 +488,7 @@ impl Config {
         self.attributes[Attribute::CloudStatusCloudOnly as usize]              = FC_LIGHT_BLUE;
         self.attributes[Attribute::CloudStatusLocallyAvailable as usize]       = FC_LIGHT_GREEN;
         self.attributes[Attribute::CloudStatusAlwaysLocallyAvailable as usize] = FC_LIGHT_GREEN;
+        self.attributes[Attribute::TreeConnector as usize]                     = FC_DARK_GREY;
 
         self.initialize_extension_colors();
         self.initialize_file_attr_colors();
@@ -1679,14 +1697,14 @@ mod tests {
     //
     //  attribute_count
     //
-    //  Verifies the attribute count is 16.
+    //  Verifies the attribute count is 17.
     //
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
     fn attribute_count() {
-        assert_eq!(Attribute::COUNT, 16);
-        assert_eq!(Attribute::ALL.len(), 16);
+        assert_eq!(Attribute::COUNT, 17);
+        assert_eq!(Attribute::ALL.len(), 17);
     }
 
 
@@ -1989,5 +2007,216 @@ mod tests {
             assert_ne! (attr, 0x01 | 0x10, // Blue fore | Blue back
                 "Same fore/back entry should not apply color");
         }
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Tree config env var tests (T019)
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_tree_sets_tree_true
+    //
+    //  Verify RCDIR=Tree sets config.tree = Some(true).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_tree_sets_tree_true () {
+        let config = make_config (Some ("Tree"));
+        assert_eq! (config.tree, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_tree_disable_sets_tree_false
+    //
+    //  Verify RCDIR=Tree- sets config.tree = Some(false).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_tree_disable_sets_tree_false () {
+        let config = make_config (Some ("Tree-"));
+        assert_eq! (config.tree, Some (false));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_depth_sets_max_depth
+    //
+    //  Verify RCDIR=Depth=5 sets config.max_depth = Some(5).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_depth_sets_max_depth () {
+        let config = make_config (Some ("Depth=5"));
+        assert_eq! (config.max_depth, Some (5));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_tree_indent_sets_tree_indent
+    //
+    //  Verify RCDIR=TreeIndent=2 sets config.tree_indent = Some(2).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_tree_indent_sets_tree_indent () {
+        let config = make_config (Some ("TreeIndent=2"));
+        assert_eq! (config.tree_indent, Some (2));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_tree_with_depth_and_indent_parses_all
+    //
+    //  Verify RCDIR with Tree + Depth + TreeIndent parses all three.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_tree_with_depth_and_indent_parses_all () {
+        let config = make_config (Some ("Tree;Depth=3;TreeIndent=6"));
+        assert_eq! (config.tree, Some (true));
+        assert_eq! (config.max_depth, Some (3));
+        assert_eq! (config.tree_indent, Some (6));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_depth_invalid_records_error
+    //
+    //  Verify RCDIR=Depth=foo records a parse error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_depth_invalid_records_error () {
+        let config = make_config (Some ("Depth=foo"));
+        assert! (config.last_parse_result.has_issues());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_tree_indent_out_of_range_records_error
+    //
+    //  Verify RCDIR=TreeIndent=10 records a parse error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_tree_indent_out_of_range_records_error () {
+        let config = make_config (Some ("TreeIndent=10"));
+        assert! (config.last_parse_result.has_issues());
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Size config env var tests (T020)
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_size_auto_sets_size_format
+    //
+    //  Verify RCDIR=Size=Auto sets config.size_format = Some(Auto).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_size_auto_sets_size_format () {
+        let config = make_config (Some ("Size=Auto"));
+        assert_eq! (config.size_format, Some (SizeFormat::Auto));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_size_bytes_sets_size_format
+    //
+    //  Verify RCDIR=Size=Bytes sets config.size_format = Some(Bytes).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_size_bytes_sets_size_format () {
+        let config = make_config (Some ("Size=Bytes"));
+        assert_eq! (config.size_format, Some (SizeFormat::Bytes));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_size_invalid_records_error
+    //
+    //  Verify RCDIR=Size=Invalid records a parse error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_size_invalid_records_error () {
+        let config = make_config (Some ("Size=Invalid"));
+        assert! (config.last_parse_result.has_issues());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  env_var_size_case_insensitive
+    //
+    //  Verify Size switch is case-insensitive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn env_var_size_case_insensitive () {
+        let config = make_config (Some ("Size=auto"));
+        assert_eq! (config.size_format, Some (SizeFormat::Auto));
+
+        let config2 = make_config (Some ("Size=BYTES"));
+        assert_eq! (config2.size_format, Some (SizeFormat::Bytes));
     }
 }

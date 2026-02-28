@@ -196,7 +196,7 @@ impl MultiThreadedLister {
         {
             let mut di = node.0.lock().unwrap();
 
-            file_comparator::sort_files(&mut di.matches, &self.cmd);
+            file_comparator::sort_files(&mut di.matches, &self.cmd, false);
             displayer.display_results(drive_info, &di, level);
             accumulate_totals(&di, totals);
         }

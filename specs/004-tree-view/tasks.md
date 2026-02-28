@@ -32,38 +32,38 @@
 
 ### Tree Connector State (R1, entity 3)
 
-- [ ] T005 Implement `TreeConnectorState::new()`, `push()`, `pop()`, `depth()` in `src/tree_connector_state.rs`
-- [ ] T006 Implement `TreeConnectorState::get_prefix()` (generates `├── ` / `└── ` with ancestor continuation lines) in `src/tree_connector_state.rs`
-- [ ] T007 Implement `TreeConnectorState::get_stream_continuation()` in `src/tree_connector_state.rs`
-- [ ] T008 Add `#[cfg(test)] mod tests` with 17 unit tests ported from TCDir `TreeConnectorStateTests` in `src/tree_connector_state.rs`: `DefaultConstructor_Depth0`, `CustomIndent_StoredCorrectly`, `PrefixAtDepth0_EmptyString`, `PrefixAtDepth0_LastEntry_EmptyString`, `PrefixAtDepth1_MiddleEntry`, `PrefixAtDepth1_LastEntry`, `PrefixAtDepth2_MiddleEntry_AncestorHasSibling`, `PrefixAtDepth2_LastEntry_AncestorHasNoSibling`, `PrefixAtDepth3_MixedAncestors`, `PushPop_DepthTracking`, `Pop_AtDepth0_NoOp`, `StreamContinuation_Depth0_EmptyString`, `StreamContinuation_Depth1`, `StreamContinuation_Depth2_AncestorHasSibling`, `CustomIndent1_ShortPrefix`, `CustomIndent2_NarrowPrefix`, `CustomIndent8_WidePrefix`
+- [X] T005 Implement `TreeConnectorState::new()`, `push()`, `pop()`, `depth()` in `src/tree_connector_state.rs`
+- [X] T006 Implement `TreeConnectorState::get_prefix()` (generates `├── ` / `└── ` with ancestor continuation lines) in `src/tree_connector_state.rs`
+- [X] T007 Implement `TreeConnectorState::get_stream_continuation()` in `src/tree_connector_state.rs`
+- [X] T008 Add `#[cfg(test)] mod tests` with 17 unit tests ported from TCDir `TreeConnectorStateTests` in `src/tree_connector_state.rs`: `DefaultConstructor_Depth0`, `CustomIndent_StoredCorrectly`, `PrefixAtDepth0_EmptyString`, `PrefixAtDepth0_LastEntry_EmptyString`, `PrefixAtDepth1_MiddleEntry`, `PrefixAtDepth1_LastEntry`, `PrefixAtDepth2_MiddleEntry_AncestorHasSibling`, `PrefixAtDepth2_LastEntry_AncestorHasNoSibling`, `PrefixAtDepth3_MixedAncestors`, `PushPop_DepthTracking`, `Pop_AtDepth0_NoOp`, `StreamContinuation_Depth0_EmptyString`, `StreamContinuation_Depth1`, `StreamContinuation_Depth2_AncestorHasSibling`, `CustomIndent1_ShortPrefix`, `CustomIndent2_NarrowPrefix`, `CustomIndent8_WidePrefix`
 
 ### Switch Parsing (R2, R3, entity 1)
 
-- [ ] T009 Add `tree: bool`, `max_depth: i32`, `tree_indent: i32`, `size_format: SizeFormat` fields to `CommandLine` struct in `src/command_line.rs`
-- [ ] T010 Add parameterized long switch support to `handle_long_switch()`: split on `=` for key/value, consume next arg for space-separated form (R2) in `src/command_line.rs`
-- [ ] T011 Parse `--Tree`, `--Tree-`, `--Depth=N`, `--TreeIndent=N`, `--Size=Auto|Bytes` in `handle_long_switch()` in `src/command_line.rs`
-- [ ] T012 Implement `validate_switch_combinations()` for all conflict rules (Tree vs Wide/Bare/Recurse/Owner/Size=Bytes, Depth without Tree, TreeIndent without Tree, TreeIndent out of range, Depth ≤ 0) in `src/command_line.rs`
-- [ ] T013 Add 26 tree switch parsing unit tests ported from TCDir `CommandLineTests` in `src/command_line.rs`: `ParseTreeSwitchDoubleDash`, `ParseTreeSwitchSlash`, `ParseTreeDisableSwitchDoubleDash`, `ParseTreeSwitchCaseInsensitive`, `ParseTreeSwitchSingleDashFails`, `ParseDepthSingleDashFails`, `ParseDepthWithEquals`, `ParseDepthWithSpace`, `ParseTreeIndentWithEquals`, `ParseTreeWithWideFails`, `ParseTreeWithBareFails`, `ParseTreeWithRecurseFails`, `ParseTreeWithOwnerFails`, `ParseDepthWithoutTreeFails`, `ParseTreeIndentWithoutTreeFails`, `ParseTreeIndentOutOfRangeFails`, `ParseDepthZeroFails`, `ParseDepthNegativeFails`, `ParseTreeWithOwner_Fails_EvenWithIcons`, `ParseTreeWithDepthAndIndentSucceeds`, `ApplyConfigDefaults_Tree_TransfersToCommandLine`, `ApplyConfigDefaults_TreeWithDepth_TransfersToCommandLine`, `ApplyConfigDefaults_DepthWithoutTree_SilentlyIgnored`, `CLITreeDisable_OverridesEnvVarTree`, `CLIDepth_OverridesEnvVarDepth`, `ParseSizeDefaultResolvesToBytesWithoutTree`
-- [ ] T014 Add `--Size` non-tree unit tests in `src/command_line.rs`: `ParseSizeBytesWithoutTree`, `ParseSizeAutoWithoutTree`, `ParseSizeInvalidFails`, `ParseSizeCaseInsensitive`, `ParseSizeAutoWithTree`, `ParseSizeBytesWithTreeFails`, `ParseSizeDefaultResolvesToAutoWithTree`, `ApplyConfigDefaults_SizeAuto_TransfersToCommandLine`, `ApplyConfigDefaults_SizeBytes_NotOverriddenByCLI`
+- [X] T009 Add `tree: bool`, `max_depth: i32`, `tree_indent: i32`, `size_format: SizeFormat` fields to `CommandLine` struct in `src/command_line.rs`
+- [X] T010 Add parameterized long switch support to `handle_long_switch()`: split on `=` for key/value, consume next arg for space-separated form (R2) in `src/command_line.rs`
+- [X] T011 Parse `--Tree`, `--Tree-`, `--Depth=N`, `--TreeIndent=N`, `--Size=Auto|Bytes` in `handle_long_switch()` in `src/command_line.rs`
+- [X] T012 Implement `validate_switch_combinations()` for all conflict rules (Tree vs Wide/Bare/Recurse/Owner/Size=Bytes, Depth without Tree, TreeIndent without Tree, TreeIndent out of range, Depth ≤ 0) in `src/command_line.rs`
+- [X] T013 Add 26 tree switch parsing unit tests ported from TCDir `CommandLineTests` in `src/command_line.rs`: `ParseTreeSwitchDoubleDash`, `ParseTreeSwitchSlash`, `ParseTreeDisableSwitchDoubleDash`, `ParseTreeSwitchCaseInsensitive`, `ParseTreeSwitchSingleDashFails`, `ParseDepthSingleDashFails`, `ParseDepthWithEquals`, `ParseDepthWithSpace`, `ParseTreeIndentWithEquals`, `ParseTreeWithWideFails`, `ParseTreeWithBareFails`, `ParseTreeWithRecurseFails`, `ParseTreeWithOwnerFails`, `ParseDepthWithoutTreeFails`, `ParseTreeIndentWithoutTreeFails`, `ParseTreeIndentOutOfRangeFails`, `ParseDepthZeroFails`, `ParseDepthNegativeFails`, `ParseTreeWithOwner_Fails_EvenWithIcons`, `ParseTreeWithDepthAndIndentSucceeds`, `ApplyConfigDefaults_Tree_TransfersToCommandLine`, `ApplyConfigDefaults_TreeWithDepth_TransfersToCommandLine`, `ApplyConfigDefaults_DepthWithoutTree_SilentlyIgnored`, `CLITreeDisable_OverridesEnvVarTree`, `CLIDepth_OverridesEnvVarDepth`, `ParseSizeDefaultResolvesToBytesWithoutTree`
+- [X] T014 Add `--Size` non-tree unit tests in `src/command_line.rs`: `ParseSizeBytesWithoutTree`, `ParseSizeAutoWithoutTree`, `ParseSizeInvalidFails`, `ParseSizeCaseInsensitive`, `ParseSizeAutoWithTree`, `ParseSizeBytesWithTreeFails`, `ParseSizeDefaultResolvesToAutoWithTree`, `ApplyConfigDefaults_SizeAuto_TransfersToCommandLine`, `ApplyConfigDefaults_SizeBytes_NotOverriddenByCLI`
 
 ### Config / Environment Variable Parsing (R3, R9, entity 2)
 
-- [ ] T015 Add `Attribute::TreeConnector` variant with DarkGrey default color to `Attribute` enum in `src/config/mod.rs`
-- [ ] T016 [P] Add `tree: Option<bool>`, `max_depth: Option<i32>`, `tree_indent: Option<i32>`, `size_format: Option<SizeFormat>` fields to `Config` struct in `src/config/mod.rs`
-- [ ] T017 Parse `Tree`/`Tree-` boolean switch, `Depth=N`/`TreeIndent=N` integer switches, and `Size=Auto|Bytes` enum switch from RCDIR env var in `src/config/env_overrides.rs`
-- [ ] T018 Wire config-to-CLI override for tree/depth/tree_indent/size_format in `apply_config_defaults()` in `src/command_line.rs`
-- [ ] T019 Add 7 tree config env var unit tests ported from TCDir `ConfigSwitchOverrideTests` in `src/config/mod.rs`: `EnvVar_Tree_SetsTreeTrue`, `EnvVar_TreeDisable_SetsTreeFalse`, `EnvVar_Depth_SetsMaxDepth`, `EnvVar_TreeIndent_SetsTreeIndent`, `EnvVar_TreeWithDepthAndIndent_ParsesAll`, `EnvVar_DepthInvalid_RecordsError`, `EnvVar_TreeIndentOutOfRange_RecordsError`
-- [ ] T020 [P] Add env var `Size` unit tests in `src/config/mod.rs`: `EnvVar_SizeAuto_SetsSizeFormat`, `EnvVar_SizeBytes_SetsSizeFormat`, `EnvVar_SizeInvalid_RecordsError`, `EnvVar_SizeCaseInsensitive`
+- [X] T015 Add `Attribute::TreeConnector` variant with DarkGrey default color to `Attribute` enum in `src/config/mod.rs`
+- [X] T016 [P] Add `tree: Option<bool>`, `max_depth: Option<i32>`, `tree_indent: Option<i32>`, `size_format: Option<SizeFormat>` fields to `Config` struct in `src/config/mod.rs`
+- [X] T017 Parse `Tree`/`Tree-` boolean switch, `Depth=N`/`TreeIndent=N` integer switches, and `Size=Auto|Bytes` enum switch from RCDIR env var in `src/config/env_overrides.rs`
+- [X] T018 Wire config-to-CLI override for tree/depth/tree_indent/size_format in `apply_config_defaults()` in `src/command_line.rs`
+- [X] T019 Add 7 tree config env var unit tests ported from TCDir `ConfigSwitchOverrideTests` in `src/config/mod.rs`: `EnvVar_Tree_SetsTreeTrue`, `EnvVar_TreeDisable_SetsTreeFalse`, `EnvVar_Depth_SetsMaxDepth`, `EnvVar_TreeIndent_SetsTreeIndent`, `EnvVar_TreeWithDepthAndIndent_ParsesAll`, `EnvVar_DepthInvalid_RecordsError`, `EnvVar_TreeIndentOutOfRange_RecordsError`
+- [X] T020 [P] Add env var `Size` unit tests in `src/config/mod.rs`: `EnvVar_SizeAuto_SetsSizeFormat`, `EnvVar_SizeBytes_SetsSizeFormat`, `EnvVar_SizeInvalid_RecordsError`, `EnvVar_SizeCaseInsensitive`
 
 ### Interleaved Sort (R6, entity 7)
 
-- [ ] T021 Add `interleaved_sort` parameter to `sort_files()` in `src/file_comparator.rs` — when true, skip `is_dir` grouping in `SortKey` comparison
-- [ ] T022 Add 3 interleaved sort unit tests ported from TCDir `FileComparatorTests` in `src/file_comparator.rs`: `InterleavedSort_DirectoriesNotGroupedFirst`, `InterleavedSort_SortsByNameNotType`, `InterleavedSort_NonInterleavedGroupsDirsFirst`
+- [X] T021 Add `interleaved_sort` parameter to `sort_files()` in `src/file_comparator.rs` — when true, skip `is_dir` grouping in `SortKey` comparison
+- [X] T022 Add 3 interleaved sort unit tests ported from TCDir `FileComparatorTests` in `src/file_comparator.rs`: `InterleavedSort_DirectoriesNotGroupedFirst`, `InterleavedSort_SortsByNameNotType`, `InterleavedSort_NonInterleavedGroupsDirsFirst`
 
 ### Abbreviated Size Formatter (R13, entity 8)
 
-- [ ] T023 Implement `format_abbreviated_size()` function (1024-based, 3 significant digits, 7-char fixed width) in `src/results_displayer/normal.rs` (or `src/results_displayer/common.rs`)
-- [ ] T024 Add 12 abbreviated size unit tests ported from TCDir `ResultsDisplayerTests` in the same file: `FormatAbbreviatedSize_Zero`, `FormatAbbreviatedSize_SmallBytes`, `FormatAbbreviatedSize_1000`, `FormatAbbreviatedSize_1KB`, `FormatAbbreviatedSize_FractionalKB`, `FormatAbbreviatedSize_TensKB`, `FormatAbbreviatedSize_HundredsKB`, `FormatAbbreviatedSize_1MB`, `FormatAbbreviatedSize_TensMB`, `FormatAbbreviatedSize_1GB`, `FormatAbbreviatedSize_FractionalGB`, `FormatAbbreviatedSize_1TB`
+- [X] T023 Implement `format_abbreviated_size()` function (1024-based, 3 significant digits, 7-char fixed width) in `src/results_displayer/normal.rs` (or `src/results_displayer/common.rs`)
+- [X] T024 Add 12 abbreviated size unit tests ported from TCDir `ResultsDisplayerTests` in the same file: `FormatAbbreviatedSize_Zero`, `FormatAbbreviatedSize_SmallBytes`, `FormatAbbreviatedSize_1000`, `FormatAbbreviatedSize_1KB`, `FormatAbbreviatedSize_FractionalKB`, `FormatAbbreviatedSize_TensKB`, `FormatAbbreviatedSize_HundredsKB`, `FormatAbbreviatedSize_1MB`, `FormatAbbreviatedSize_TensMB`, `FormatAbbreviatedSize_1GB`, `FormatAbbreviatedSize_FractionalGB`, `FormatAbbreviatedSize_1TB`
 
 **Checkpoint**: All foundational constructs built, tested, and passing. `cargo test` green. User story implementation can now begin.
 

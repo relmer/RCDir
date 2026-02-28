@@ -307,7 +307,7 @@ fn process_single_threaded(
 
         totals.directory_count += di.subdirectory_count;
 
-        file_comparator::sort_files (&mut di.matches, cmd);
+        file_comparator::sort_files (&mut di.matches, cmd, false);
 
         displayer.display_results (drive_info, &di, DirectoryLevel::Initial);
 
@@ -425,7 +425,7 @@ fn recurse_into_subdirectories(
                 totals.directory_count += di.subdirectory_count;
 
                 // Sort results
-                file_comparator::sort_files(&mut di.matches, cmd);
+                file_comparator::sort_files(&mut di.matches, cmd, false);
 
                 // Display results (Subdirectory level — skips empty dirs)
                 displayer.display_results(drive_info, &di, DirectoryLevel::Subdirectory);

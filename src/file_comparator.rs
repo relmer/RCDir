@@ -91,7 +91,7 @@ impl SortKey {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn sort_files(matches: &mut [FileInfo], cmd: &CommandLine) {
+pub fn sort_files(matches: &mut [FileInfo], cmd: &CommandLine, interleaved_sort: bool) {
     if matches.len() <= 1 {
         return;
     }
@@ -103,7 +103,7 @@ pub fn sort_files(matches: &mut [FileInfo], cmd: &CommandLine) {
 
     // Sort indices using pre-computed keys
     let mut indices: Vec<usize> = (0..matches.len()).collect();
-    indices.sort_by (|&a, &b| compare_keyed (&keys[a], &keys[b], cmd));
+    indices.sort_by (|&a, &b| compare_keyed (&keys[a], &keys[b], cmd, interleaved_sort));
 
     // Apply the permutation in-place
     apply_permutation (matches, indices);
@@ -159,9 +159,9 @@ fn apply_permutation<T>(slice: &mut [T], perm: Vec<usize>) {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn compare_keyed(lhs: &SortKey, rhs: &SortKey, cmd: &CommandLine) -> Ordering {
-    // Directories always sort before files
-    if lhs.is_dir != rhs.is_dir {
+fn compare_keyed(lhs: &SortKey, rhs: &SortKey, cmd: &CommandLine, interleaved_sort: bool) -> Ordering {
+    // Directories always sort before files (unless interleaved for tree mode)
+    if !interleaved_sort && lhs.is_dir != rhs.is_dir {
         return if lhs.is_dir { Ordering::Less } else { Ordering::Greater };
     }
 
@@ -286,7 +286,7 @@ mod tests {
             make_file("adir",  FILE_ATTRIBUTE_DIRECTORY, 0),
             make_file("a.txt", 0x20, 200),
         ];
-        sort_files(&mut files, &cmd);
+        sort_files(&mut files, &cmd, false);
 
         assert!(files[0].is_directory());
         assert!(!files[1].is_directory());
@@ -313,7 +313,7 @@ mod tests {
             make_file("alpha.txt",   0x20, 200),
             make_file("bravo.txt",   0x20, 150),
         ];
-        sort_files(&mut files, &cmd);
+        sort_files(&mut files, &cmd, false);
 
         assert_eq!(files[0].file_name, "alpha.txt");
         assert_eq!(files[1].file_name, "bravo.txt");
@@ -343,7 +343,7 @@ mod tests {
             make_file("small.txt",  0x20, 100),
             make_file("medium.txt", 0x20, 1500),
         ];
-        sort_files(&mut files, &cmd);
+        sort_files(&mut files, &cmd, false);
 
         assert_eq!(files[0].file_name, "small.txt");
         assert_eq!(files[1].file_name, "medium.txt");
@@ -374,11 +374,100 @@ mod tests {
             make_file("small.txt",  0x20, 100),
             make_file("medium.txt", 0x20, 1500),
         ];
-        sort_files(&mut files, &cmd);
+        sort_files(&mut files, &cmd, false);
 
         assert_eq!(files[0].file_name, "big.txt");
         assert_eq!(files[1].file_name, "medium.txt");
         assert_eq!(files[2].file_name, "small.txt");
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Interleaved sort tests (T022)
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  interleaved_sort_directories_not_grouped_first
+    //
+    //  With interleaved_sort = true, directories are NOT grouped before files.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn interleaved_sort_directories_not_grouped_first () {
+        let cmd = CommandLine::default();
+        let mut files = vec![
+            make_file ("b.txt", 0x20, 100),
+            make_file ("adir",  FILE_ATTRIBUTE_DIRECTORY, 0),
+            make_file ("a.txt", 0x20, 200),
+        ];
+        sort_files (&mut files, &cmd, true);
+
+        // Sorted by name: a.txt, adir, b.txt — directories NOT grouped first
+        assert_eq! (files[0].file_name, "a.txt");
+        assert_eq! (files[1].file_name, "adir");
+        assert_eq! (files[2].file_name, "b.txt");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  interleaved_sort_sorts_by_name_not_type
+    //
+    //  With interleaved_sort, entries sort purely by name without
+    //  type grouping.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn interleaved_sort_sorts_by_name_not_type () {
+        let cmd = CommandLine::default();
+        let mut files = vec![
+            make_file ("charlie",  FILE_ATTRIBUTE_DIRECTORY, 0),
+            make_file ("alpha.txt", 0x20, 100),
+            make_file ("bravo",    FILE_ATTRIBUTE_DIRECTORY, 0),
+        ];
+        sort_files (&mut files, &cmd, true);
+
+        assert_eq! (files[0].file_name, "alpha.txt");
+        assert_eq! (files[1].file_name, "bravo");
+        assert_eq! (files[2].file_name, "charlie");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  non_interleaved_groups_dirs_first
+    //
+    //  With interleaved_sort = false, directories are grouped before files
+    //  (existing behavior).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn non_interleaved_groups_dirs_first () {
+        let cmd = CommandLine::default();
+        let mut files = vec![
+            make_file ("charlie",  FILE_ATTRIBUTE_DIRECTORY, 0),
+            make_file ("alpha.txt", 0x20, 100),
+            make_file ("bravo",    FILE_ATTRIBUTE_DIRECTORY, 0),
+        ];
+        sort_files (&mut files, &cmd, false);
+
+        // Directories first, then files
+        assert! (files[0].is_directory());
+        assert! (files[1].is_directory());
+        assert! (!files[2].is_directory());
     }
 
 

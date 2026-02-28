@@ -430,28 +430,26 @@ impl CommandLine {
         }
 
         // Depth: only apply if CLI didn't set and tree is active
-        if self.max_depth == 0 {
-            if let Some (d) = config.max_depth {
-                if self.tree.unwrap_or (false) {
-                    self.max_depth = d;
-                }
-            }
+        if self.max_depth == 0
+            && let Some (d) = config.max_depth
+            && self.tree.unwrap_or (false)
+        {
+            self.max_depth = d;
         }
 
         // TreeIndent: only apply if CLI didn't change from default and tree active
-        if self.tree_indent == 4 {
-            if let Some (ti) = config.tree_indent {
-                if self.tree.unwrap_or (false) {
-                    self.tree_indent = ti;
-                }
-            }
+        if self.tree_indent == 4
+            && let Some (ti) = config.tree_indent
+            && self.tree.unwrap_or (false)
+        {
+            self.tree_indent = ti;
         }
 
         // SizeFormat: only apply if CLI didn't set
-        if self.size_format == SizeFormat::Default {
-            if let Some (sf) = config.size_format {
-                self.size_format = sf;
-            }
+        if self.size_format == SizeFormat::Default
+            && let Some (sf) = config.size_format
+        {
+            self.size_format = sf;
         }
     }
 

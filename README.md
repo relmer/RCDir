@@ -6,7 +6,7 @@
 <!--
 [![Downloads](https://img.shields.io/github/downloads/relmer/RCDir/total)](https://github.com/relmer/RCDir/releases)
 -->
-This is a Rust port of [TCDir](https://github.com/relmer/TCDir).
+This is a Rust port of [TCDir](https://github.com/relmer/TCDir), the original C++ implementation.  Features generally show up in TCDir first, and I try to get them ported to RCDir within a week or so.
 
 RCDir ("Rust Colorized Directory") is a fast, colorized directory listing tool for Windows consoles.
 It's designed as a practical `dir`-style command with useful defaults (color by extension/attributes, Nerd Font file/folder icons, sorting, recursion, wide output, and a multi-threaded enumerator).
@@ -15,21 +15,19 @@ It's designed as a practical `dir`-style command with useful defaults (color by 
 
 ## What's New
 
-| Version | Highlights |
-|---|---|
-| **5.1** | `--Tree` hierarchical directory view with depth control |
+| Version | Highlights                                                     |
+|---------|----------------------------------------------------------------|
+| **5.1** | `--Tree` hierarchical directory view with depth control        |
 | **5.0** | Nerd Font file/folder icons (~187 extensions, ~65 directories) |
 
 See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
 Hat tip to [Chris Kirmse](https://github.com/ckirmse) whose excellent [ZDir](https://github.com/ckirmse/ZDir) from the '90s was the original inspiration for TCDir/RCDir.
 
-> **Also available in C++:** [TCDir](https://github.com/relmer/TCDir) is the original C++ implementation with feature parity.
-
 ## Why RCDir?
 
 | Feature | `dir` | RCDir | [eza](https://github.com/eza-community/eza) | [lsd](https://github.com/lsd-rs/lsd) |
-|---|:---:|:---:|:---:|:---:|
+| --- | :---: | :---: | :---: | :---: |
 | Color-coded by extension & attribute | — | ✅ | ✅ | ✅ |
 | Cloud sync status (OneDrive, iCloud) | — | ✅ | — | — |
 | Nerd Font file/folder icons | — | ✅ | ✅ | ✅ |
@@ -76,7 +74,7 @@ Set-Alias dir rcdir -Option AllScope
 
 - Windows 10/11
 - PowerShell 7 (`pwsh`) to run the build/test scripts
-- Rust toolchain (install from https://rustup.rs/)
+- Rust toolchain (install from <https://rustup.rs/>)
   - Targets: `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc`
   - Install with: `rustup target add x86_64-pc-windows-msvc aarch64-pc-windows-msvc`
 - Optional: VS Code with rust-analyzer extension
@@ -143,11 +141,13 @@ Common switches:
 Standard attributes: `D` (directory), `H` (hidden), `S` (system), `R` (read-only), `A` (archive)
 
 Cloud sync attributes (OneDrive, iCloud, etc.):
+
 - `O` - cloud-only placeholder files (not locally available)
 - `L` - locally available files (hydrated, can be dehydrated)
 - `V` - pinned/always available files (won't be dehydrated)
 
 Extended attributes:
+
 - `X` - not content indexed (excluded from Windows Search)
 - `I` - integrity stream enabled (ReFS only)
 - `B` - no scrub data (ReFS only)
@@ -159,6 +159,7 @@ Use `-` prefix to exclude (e.g., `/A:-H` excludes hidden files).
 ### Cloud file visualization
 
 When browsing cloud-synced folders (OneDrive, iCloud Drive, etc.), RCDir displays sync status symbols:
+
 - `○` (hollow) - cloud-only placeholder, not available offline
 - `◐` (half) - locally available, can be dehydrated
 - `●` (solid) - pinned, always available offline
@@ -170,6 +171,7 @@ When a Nerd Font is detected, the cloud symbols are automatically upgraded to de
 When RCDir detects a [Nerd Font](https://www.nerdfonts.com/) in the console, it automatically displays file and folder icons next to each entry — in normal, wide, and bare listing modes.
 
 Detection works via:
+
 1. **GDI glyph probe** — renders a canary glyph to confirm Nerd Font symbols are available in the active console font
 2. **System font enumeration** — checks whether any installed font's name contains "Nerd Font" or a "NF", "NFM", or "NFP" suffix
 3. **WezTerm detection** — WezTerm bundles Nerd Font symbols natively, so icons are enabled automatically
@@ -196,6 +198,7 @@ Incompatible with `-W` (wide), `-B` (bare), `-S` (recurse), `--Owner`, and `--Si
 ![RCDir tree listing](Assets/RCDir%20Tree.png)
 
 Examples:
+
 - Recurse through subdirectories: `rcdir.exe -s`
 ![RCDir recursive listing](Assets/RCDir%20Subdirectories.png)
 
@@ -248,26 +251,31 @@ Decoded breakdown of the example:
 - `.png=Black on Magenta` sets the `.png` extension color to black text on a magenta background
 
 Display items for color configuration:
+
 - `D` (Date), `S` (Size), `N` (Name), `Attr` (Attributes)
 - `CloudOnly`, `Local`, `Pinned` - cloud sync status symbol colors
 
 Icon override (`<.ext>=<Color>,U+<codepoint>`):
+
 - Override the icon glyph for any extension: `.rs=DarkRed,U+E7A8`
 - Color-only override (keep default glyph): `.js=Yellow`
 - Glyph-only override (keep default color): `.md=,U+F48A`
 
 File attribute colors (`Attr:<letter>`):
+
 - `H` (hidden), `S` (system), `R` (read-only), `D` (directory)
 
 - Here's an example of the default output, setting the RCDIR environment variable, then showing its effects:
 ![RCDir with RCDIR environment variable](Assets/RCDir%20Env%20Variable.png)
 
-To see the full list of supported colors and a nicely formatted explanation, use --Env.  
+To see the full list of supported colors and a nicely formatted explanation, use --Env.
+
 - Any errors in the RCDIR variable are shown at the end.
 - `rcdir.exe --Env`:
 ![RCDir --Env help](Assets/RCDir%20Env.png)
 
 To see your current color configuration, use --Config:
+
 - All configuration settings are displayed along with the source of that configuration.
 - `rcdir.exe --Config`:
 ![RCDir --Config output](Assets/RCDir%20Config.png)

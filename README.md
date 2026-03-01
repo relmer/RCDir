@@ -1,5 +1,11 @@
 # RCDir
 
+[![CI](https://github.com/relmer/RCDir/actions/workflows/ci.yml/badge.svg)](https://github.com/relmer/RCDir/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/relmer/RCDir)](https://github.com/relmer/RCDir/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/relmer/RCDir)](LICENSE)
+<!--
+[![Downloads](https://img.shields.io/github/downloads/relmer/RCDir/total)](https://github.com/relmer/RCDir/releases)
+-->
 This is a Rust port of [TCDir](https://github.com/relmer/TCDir).
 
 RCDir ("Rust Colorized Directory") is a fast, colorized directory listing tool for Windows consoles.
@@ -17,6 +23,54 @@ It's designed as a practical `dir`-style command with useful defaults (color by 
 See [CHANGELOG.md](CHANGELOG.md) for full release history.
 
 Hat tip to [Chris Kirmse](https://github.com/ckirmse) whose excellent [ZDir](https://github.com/ckirmse/ZDir) from the '90s was the original inspiration for TCDir/RCDir.
+
+> **Also available in C++:** [TCDir](https://github.com/relmer/TCDir) is the original C++ implementation with feature parity.
+
+## Why RCDir?
+
+| Feature | `dir` | RCDir | [eza](https://github.com/eza-community/eza) | [lsd](https://github.com/lsd-rs/lsd) |
+|---|:---:|:---:|:---:|:---:|
+| Color-coded by extension & attribute | — | ✅ | ✅ | ✅ |
+| Cloud sync status (OneDrive, iCloud) | — | ✅ | — | — |
+| Nerd Font file/folder icons | — | ✅ | ✅ | ✅ |
+| Tree view with full metadata | — | ✅ | ✅ | ✅ |
+| Multi-threaded enumeration | — | ✅ | — | — |
+| Native Windows (no WSL/MSYS) | ✅ | ✅ | ⚠️ | ⚠️ |
+| Familiar `dir` switch syntax | ✅ | ✅ | — | — |
+| ARM64 native binary | ✅ | ✅ | — | — |
+| NTFS alternate data streams | ✅ | ✅ | — | — |
+| Configurable via environment variable | — | ✅ | — | — |
+
+## Installation
+
+### Download
+
+Grab the latest binary for your architecture:
+
+- [**rcdir.exe**](https://github.com/relmer/RCDir/releases/latest/download/rcdir.exe) — x64 (Intel/AMD 64-bit)
+- [**rcdir-ARM64.exe**](https://github.com/relmer/RCDir/releases/latest/download/rcdir-ARM64.exe) — ARM64 (Snapdragon, etc.)
+
+Place the `.exe` somewhere on your `PATH`, or add its directory to your `PATH`.
+
+See all releases on the [Releases page](https://github.com/relmer/RCDir/releases).
+
+<!--
+### Package managers (coming soon)
+
+```powershell
+winget install relmer.RCDir
+scoop install rcdir
+```
+-->
+
+### Shell integration
+
+Make RCDir your default directory listing command:
+
+```powershell
+# Add to your PowerShell profile ($PROFILE):
+Set-Alias dir rcdir -Option AllScope
+```
 
 ## Requirements
 
@@ -74,15 +128,15 @@ Common switches:
 - `-B`: bare listing format
 - `-P`: show performance timing information
 - `-M`: enable multi-threaded enumeration (default); use `-M-` to disable
+- `--Env`: show `RCDIR` environment variable help/syntax/current value
+- `--Config`: show current color configuration
+- `--Owner`: display file owner (DOMAIN\User format); not allowed with `--Tree`
+- `--Streams`: display NTFS alternate data streams
+- `--Icons`: enable Nerd Font file/folder icons; use `--Icons-` to disable
 - `--Tree`: hierarchical directory tree view; use `--Tree-` to disable
 - `--Depth=N`: limit tree depth to N levels (requires `--Tree`)
 - `--TreeIndent=N`: tree indent width per level, 1–8, default 4 (requires `--Tree`)
 - `--Size=Auto|Bytes`: `Auto` shows abbreviated sizes (e.g., `8.90 KB`); `Bytes` shows exact comma-separated sizes. Tree mode defaults to `Auto`, non-tree defaults to `Bytes`
-- `--Owner`: display file owner (DOMAIN\User format); not allowed with `--Tree`
-- `--Streams`: display NTFS alternate data streams
-- `--Env`: show `RCDIR` environment variable help/syntax/current value
-- `--Config`: show current color configuration
-- `--Icons`: enable Nerd Font file/folder icons; use `--Icons-` to disable
 
 ### Attribute filters (`/A:`)
 
@@ -108,6 +162,22 @@ When browsing cloud-synced folders (OneDrive, iCloud Drive, etc.), RCDir display
 - `○` (hollow) - cloud-only placeholder, not available offline
 - `◐` (half) - locally available, can be dehydrated
 - `●` (solid) - pinned, always available offline
+
+When a Nerd Font is detected, the cloud symbols are automatically upgraded to dedicated NF glyphs (cloud-outline, cloud-check, pin).
+
+### Nerd Font icons
+
+When RCDir detects a [Nerd Font](https://www.nerdfonts.com/) in the console, it automatically displays file and folder icons next to each entry — in normal, wide, and bare listing modes.
+
+Detection works via:
+1. **GDI glyph probe** — renders a canary glyph to confirm Nerd Font symbols are available in the active console font
+2. **System font enumeration** — checks whether any installed font's name contains "Nerd Font" or a "NF", "NFM", or "NFP" suffix
+3. **WezTerm detection** — WezTerm bundles Nerd Font symbols natively, so icons are enabled automatically
+4. **ConPTY detection** — Windows Terminal, VS Code terminal, and other modern terminals are recognized
+
+Icon mappings (~187 extensions, ~65 well-known directories) are aligned with the [Terminal-Icons](https://github.com/devblackops/Terminal-Icons) PowerShell module default theme.
+
+Use `--Icons` to force icons on, or `--Icons-` to force them off, regardless of detection.
 
 ### Tree view (`--Tree`)
 
@@ -181,6 +251,11 @@ Display items for color configuration:
 - `D` (Date), `S` (Size), `N` (Name), `Attr` (Attributes)
 - `CloudOnly`, `Local`, `Pinned` - cloud sync status symbol colors
 
+Icon override (`<.ext>=<Color>,U+<codepoint>`):
+- Override the icon glyph for any extension: `.rs=DarkRed,U+E7A8`
+- Color-only override (keep default glyph): `.js=Yellow`
+- Glyph-only override (keep default color): `.md=,U+F48A`
+
 File attribute colors (`Attr:<letter>`):
 - `H` (hidden), `S` (system), `R` (read-only), `D` (directory)
 
@@ -223,6 +298,10 @@ Run unit tests:
 
 - `pwsh -File .\scripts\RunTests.ps1`
 - Or directly: `cargo test`
+
+## Versioning
+
+The version is managed in `Version.toml` and auto-stamped into the binary at build time by `build.rs`.
 
 ## License
 

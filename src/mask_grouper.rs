@@ -7,7 +7,65 @@
 // are grouped by their normalized directory path (case-insensitive).
 
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+
+
+
+
+/// Trait for filesystem queries needed by mask grouping.
+/// Enables unit testing without touching the real filesystem.
+pub trait FileSystemQuery {
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_dir
+    //
+    //  Returns true if the given path is an existing directory.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn is_dir(&self, path: &Path) -> bool;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  canonicalize
+    //
+    //  Returns the canonical, absolute form of a path.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf>;
+}
+
+
+
+
+
+/// Default implementation that queries the real filesystem.
+pub struct DefaultFileSystemQuery;
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  impl FileSystemQuery for DefaultFileSystemQuery
+//
+//  Delegates to std::path::Path methods.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+impl FileSystemQuery for DefaultFileSystemQuery {
+    fn is_dir(&self, path: &Path) -> bool {
+        path.is_dir()
+    }
+
+    fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+        path.canonicalize()
+    }
+}
 
 
 
@@ -82,10 +140,10 @@ fn strip_extended_length_prefix(path: PathBuf) -> PathBuf {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn split_pure_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
+fn split_pure_mask(mask: &str, cwd: &Path, fs: &dyn FileSystemQuery) -> (PathBuf, OsString) {
     if !mask.contains ('*') && !mask.contains ('?') {
         let candidate = cwd.join (mask);
-        if candidate.is_dir() {
+        if fs.is_dir (&candidate) {
             return (candidate, OsString::from ("*"));
         }
     }
@@ -109,7 +167,7 @@ fn split_pure_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn split_qualified_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
+fn split_qualified_mask(mask: &str, cwd: &Path, fs: &dyn FileSystemQuery) -> (PathBuf, OsString) {
     let mask_path = PathBuf::from (mask);
     let absolute_path = if mask_path.is_absolute() {
         mask_path
@@ -121,7 +179,7 @@ fn split_qualified_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString
         // Normalize the path by canonicalizing where possible.
         // On Windows, canonicalize() returns paths with \\?\ prefix —
         // strip it so display paths are clean.
-        match abs.canonicalize() {
+        match fs.canonicalize (&abs) {
             Ok(canonical) => strip_extended_length_prefix (canonical),
             Err(_) => abs,
         }
@@ -131,7 +189,7 @@ fn split_qualified_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString
     let is_dir = if !mask.is_empty() && (mask.ends_with('\\') || mask.ends_with('/')) {
         true
     } else {
-        absolute_path.is_dir()
+        fs.is_dir (&absolute_path)
     };
 
     if is_dir {
@@ -140,7 +198,7 @@ fn split_qualified_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString
     } else {
         // Has file component — split into parent dir and filename
         let dir_path = absolute_path.parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
+            .unwrap_or_else(|| Path::new("."))
             .to_path_buf();
         let file_spec = absolute_path.file_name()
             .unwrap_or_else(|| std::ffi::OsStr::new("*"))
@@ -163,11 +221,11 @@ fn split_qualified_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn split_mask_into_dir_and_filespec(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
+fn split_mask_into_dir_and_filespec(mask: &str, cwd: &Path, fs: &dyn FileSystemQuery) -> (PathBuf, OsString) {
     if is_pure_mask (mask) {
-        split_pure_mask (mask, cwd)
+        split_pure_mask (mask, cwd, fs)
     } else {
-        split_qualified_mask (mask, cwd)
+        split_qualified_mask (mask, cwd, fs)
     }
 }
 
@@ -224,6 +282,22 @@ fn add_mask_to_groups(
 ////////////////////////////////////////////////////////////////////////////////
 
 pub fn group_masks_by_directory(masks: &[OsString]) -> Vec<MaskGroup> {
+    group_masks_by_directory_with_fs (masks, &DefaultFileSystemQuery)
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  group_masks_by_directory_with_fs
+//
+//  Internal entry point that accepts a FileSystemQuery for testability.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn group_masks_by_directory_with_fs(masks: &[OsString], fs: &dyn FileSystemQuery) -> Vec<MaskGroup> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
     let mut groups: Vec<MaskGroup> = Vec::new();
@@ -235,7 +309,7 @@ pub fn group_masks_by_directory(masks: &[OsString]) -> Vec<MaskGroup> {
     } else {
         for mask_os in masks {
             let mask = mask_os.to_string_lossy();
-            let (dir_path, file_spec) = split_mask_into_dir_and_filespec(&mask, &cwd);
+            let (dir_path, file_spec) = split_mask_into_dir_and_filespec(&mask, &cwd, fs);
             add_mask_to_groups(dir_path, file_spec, &mut groups, &mut dir_to_index);
         }
     }
@@ -250,6 +324,81 @@ pub fn group_masks_by_directory(masks: &[OsString]) -> Vec<MaskGroup> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
+
+
+
+
+    /// Mock implementation for unit tests.
+    /// Returns preset is_dir results based on stored paths.
+    struct MockFileSystemQuery {
+        directories: HashSet<PathBuf>,
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  impl MockFileSystemQuery
+    //
+    //  Mock filesystem setup for unit tests.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    impl MockFileSystemQuery {
+
+        ////////////////////////////////////////////////////////////////////////
+        //
+        //  new
+        //
+        //  Creates a new empty MockFileSystemQuery.
+        //
+        ////////////////////////////////////////////////////////////////////////
+
+        fn new() -> Self {
+            MockFileSystemQuery {
+                directories: HashSet::new(),
+            }
+        }
+
+        ////////////////////////////////////////////////////////////////////////
+        //
+        //  with_dir
+        //
+        //  Registers a path as an existing directory.
+        //
+        ////////////////////////////////////////////////////////////////////////
+
+        fn with_dir(mut self, path: &Path) -> Self {
+            self.directories.insert (path.to_path_buf());
+            self
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  impl FileSystemQuery for MockFileSystemQuery
+    //
+    //  Returns mock results based on registered directories.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    impl FileSystemQuery for MockFileSystemQuery {
+        fn is_dir(&self, path: &Path) -> bool {
+            self.directories.contains (path)
+        }
+
+        fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+            Ok (path.to_path_buf())
+        }
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -379,15 +528,14 @@ mod tests {
 
     #[test]
     fn pure_mask_existing_directory_lists_contents() {
-        let temp = std::env::temp_dir().join ("rcdir_test_pure_mask_dir");
-        let subdir = temp.join ("subdir");
-        std::fs::create_dir_all (&subdir).unwrap();
+        let cwd = PathBuf::from (r"C:\Projects");
+        let subdir = cwd.join ("subdir");
+        let fs = MockFileSystemQuery::new()
+            .with_dir (&subdir);
 
-        let (dir, spec) = split_pure_mask ("subdir", &temp);
+        let (dir, spec) = split_pure_mask ("subdir", &cwd, &fs);
         assert_eq! (dir, subdir);
         assert_eq! (spec, OsString::from ("*"));
-
-        std::fs::remove_dir_all (&temp).ok();
     }
 
 
@@ -404,14 +552,12 @@ mod tests {
 
     #[test]
     fn pure_mask_nonexistent_treated_as_pattern() {
-        let temp = std::env::temp_dir().join ("rcdir_test_pure_mask_nodir");
-        std::fs::create_dir_all (&temp).unwrap();
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
 
-        let (dir, spec) = split_pure_mask ("nonexistent", &temp);
-        assert_eq! (dir, temp);
+        let (dir, spec) = split_pure_mask ("nonexistent", &cwd, &fs);
+        assert_eq! (dir, cwd);
         assert_eq! (spec, OsString::from ("nonexistent"));
-
-        std::fs::remove_dir_all (&temp).ok();
     }
 
 
@@ -429,13 +575,13 @@ mod tests {
 
     #[test]
     fn wildcard_mask_never_treated_as_directory() {
-        let temp = std::env::temp_dir().join ("rcdir_test_wildcard_mask");
-        std::fs::create_dir_all (&temp).unwrap();
+        let cwd = PathBuf::from (r"C:\Projects");
+        let star_path = cwd.join ("*");
+        let fs = MockFileSystemQuery::new()
+            .with_dir (&star_path);
 
-        let (dir, spec) = split_pure_mask ("*", &temp);
-        assert_eq! (dir, temp);
+        let (dir, spec) = split_pure_mask ("*", &cwd, &fs);
+        assert_eq! (dir, cwd);
         assert_eq! (spec, OsString::from ("*"));
-
-        std::fs::remove_dir_all (&temp).ok();
     }
 }

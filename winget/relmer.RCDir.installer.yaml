@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 
 PackageIdentifier: relmer.RCDir
 PackageVersion: 5.1.1132
@@ -13,4 +13,4 @@ Installers:
     InstallerUrl: https://github.com/relmer/RCDir/releases/download/v5.1.1132/rcdir-ARM64.exe
     InstallerSha256: 5778AD094E638439061D785F14275E1007CD295616C959AFF3DFC1E939AF6A27
 ManifestType: installer
-ManifestVersion: 1.10.0
+ManifestVersion: 1.12.0

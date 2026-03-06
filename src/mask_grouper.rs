@@ -73,21 +73,44 @@ fn strip_extended_length_prefix(path: PathBuf) -> PathBuf {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  split_mask_into_dir_and_filespec
+//  split_pure_mask
 //
-//  Split a mask into a directory path and file specification.
-//  Port of: CMaskGrouper::SplitMaskIntoDirAndFileSpec
+//  Handles a pure mask (no path separator).  If the mask has no wildcards
+//  and matches an existing directory name under cwd, it is treated as a
+//  directory to list.  Otherwise it is treated as a file pattern for cwd.
+//  Port of: CMaskGrouper::SplitPureMask
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn split_mask_into_dir_and_filespec(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
-    if is_pure_mask(mask) {
-        // Pure mask — use CWD
-        return (cwd.to_path_buf(), OsString::from(mask));
+fn split_pure_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
+    if !mask.contains ('*') && !mask.contains ('?') {
+        let candidate = cwd.join (mask);
+        if candidate.is_dir() {
+            return (candidate, OsString::from ("*"));
+        }
     }
 
-    // Directory-qualified mask — make absolute
-    let mask_path = PathBuf::from(mask);
+    (cwd.to_path_buf(), OsString::from (mask))
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  split_qualified_mask
+//
+//  Handles a directory-qualified mask (contains path separators or a drive
+//  letter).  The mask is made absolute, then checked to see if it refers to
+//  an existing directory.  If so, "*" is used as the file spec.  Otherwise
+//  the mask is split into parent directory and filename.
+//  Port of: CMaskGrouper::SplitQualifiedMask
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn split_qualified_mask(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
+    let mask_path = PathBuf::from (mask);
     let absolute_path = if mask_path.is_absolute() {
         mask_path
     } else {
@@ -123,6 +146,28 @@ fn split_mask_into_dir_and_filespec(mask: &str, cwd: &std::path::Path) -> (PathB
             .unwrap_or_else(|| std::ffi::OsStr::new("*"))
             .to_os_string();
         (dir_path, file_spec)
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  split_mask_into_dir_and_filespec
+//
+//  Split a mask into a directory path and file specification.
+//  Dispatches to split_pure_mask or split_qualified_mask.
+//  Port of: CMaskGrouper::SplitMaskIntoDirAndFileSpec
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn split_mask_into_dir_and_filespec(mask: &str, cwd: &std::path::Path) -> (PathBuf, OsString) {
+    if is_pure_mask (mask) {
+        split_pure_mask (mask, cwd)
+    } else {
+        split_qualified_mask (mask, cwd)
     }
 }
 
@@ -317,5 +362,80 @@ mod tests {
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].1.len(), 1);
         assert_eq!(groups[0].1[0], OsString::from("*.txt"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pure_mask_existing_directory_lists_contents
+    //
+    //  Verifies that a pure mask matching an existing directory is treated
+    //  as a directory to list, not a file pattern.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn pure_mask_existing_directory_lists_contents() {
+        let temp = std::env::temp_dir().join ("rcdir_test_pure_mask_dir");
+        let subdir = temp.join ("subdir");
+        std::fs::create_dir_all (&subdir).unwrap();
+
+        let (dir, spec) = split_pure_mask ("subdir", &temp);
+        assert_eq! (dir, subdir);
+        assert_eq! (spec, OsString::from ("*"));
+
+        std::fs::remove_dir_all (&temp).ok();
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  pure_mask_nonexistent_treated_as_pattern
+    //
+    //  Verifies that a pure mask not matching a directory stays as a pattern.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn pure_mask_nonexistent_treated_as_pattern() {
+        let temp = std::env::temp_dir().join ("rcdir_test_pure_mask_nodir");
+        std::fs::create_dir_all (&temp).unwrap();
+
+        let (dir, spec) = split_pure_mask ("nonexistent", &temp);
+        assert_eq! (dir, temp);
+        assert_eq! (spec, OsString::from ("nonexistent"));
+
+        std::fs::remove_dir_all (&temp).ok();
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  wildcard_mask_never_treated_as_directory
+    //
+    //  Verifies that wildcard masks skip the directory check even when a
+    //  matching directory exists.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn wildcard_mask_never_treated_as_directory() {
+        let temp = std::env::temp_dir().join ("rcdir_test_wildcard_mask");
+        std::fs::create_dir_all (&temp).unwrap();
+
+        let (dir, spec) = split_pure_mask ("*", &temp);
+        assert_eq! (dir, temp);
+        assert_eq! (spec, OsString::from ("*"));
+
+        std::fs::remove_dir_all (&temp).ok();
     }
 }

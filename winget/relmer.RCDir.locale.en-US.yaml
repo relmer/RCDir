@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
 PackageIdentifier: relmer.RCDir
-PackageVersion: 5.1.1132
+PackageVersion: 5.1.1133
 PackageLocale: en-US
 Publisher: relmer
 PublisherUrl: https://github.com/relmer
@@ -26,6 +26,6 @@ Tags:
   - rust
   - terminal
   - windows
-ReleaseNotesUrl: https://github.com/relmer/RCDir/releases/tag/v5.1.1132
+ReleaseNotesUrl: https://github.com/relmer/RCDir/releases/tag/v5.1.1133
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0

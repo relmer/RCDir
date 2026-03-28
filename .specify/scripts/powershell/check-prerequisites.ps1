@@ -146,4 +146,3 @@ if ($Json) {
         Test-FileExists -Path $paths.TASKS -Description 'tasks.md' | Out-Null
     }
 }
-

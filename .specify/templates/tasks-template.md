@@ -1,4 +1,3 @@
-````markdown
 ---
 
 description: "Task list template for feature implementation"
@@ -250,5 +249,3 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
-
-````

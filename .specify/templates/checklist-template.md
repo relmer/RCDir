@@ -1,4 +1,3 @@
-```markdown
 # [CHECKLIST TYPE] Checklist: [FEATURE NAME]
 
 **Purpose**: [Brief description of what this checklist covers]
@@ -39,5 +38,3 @@
 - Add comments or findings inline
 - Link to relevant resources or documentation
 - Items are numbered sequentially for easy reference
-
-```

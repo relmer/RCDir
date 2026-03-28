@@ -1,6 +1,3 @@
-```prompt
 ---
 agent: speckit.plan
 ---
-
-```

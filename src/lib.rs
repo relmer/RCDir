@@ -27,6 +27,12 @@ pub mod icon_mapping;
 pub mod nerd_font_detector;
 pub mod file_attribute_map;
 pub mod tree_connector_state;
+pub mod alias_types;
+pub mod profile_path_resolver;
+pub mod profile_file_manager;
+pub mod alias_block_generator;
+pub mod tui_widgets;
+pub mod alias_manager;
 
 
 
@@ -60,6 +66,11 @@ pub fn run() -> Result<(), AppError> {
     let mut console = console::Console::initialize (Arc::clone (&cfg))?;
 
     if process_info_switches (&mut console, &cmd, icons_active)? {
+        return Ok(());
+    }
+
+    if cmd.set_aliases || cmd.get_aliases || cmd.remove_aliases {
+        alias_manager::run (&cmd, &mut console)?;
         return Ok(());
     }
 

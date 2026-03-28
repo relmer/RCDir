@@ -152,15 +152,19 @@ struct SwitchInfo {
 
 
 const SWITCH_INFOS: &[SwitchInfo] = &[
-    SwitchInfo { name: "W",       description: "Wide listing format" },
-    SwitchInfo { name: "S",       description: "Recurse into subdirectories" },
-    SwitchInfo { name: "P",       description: "Display performance timing" },
-    SwitchInfo { name: "M",       description: "Multi-threaded enumeration" },
-    SwitchInfo { name: "B",       description: "Bare listing format" },
-    SwitchInfo { name: "Owner",   description: "Display file ownership" },
-    SwitchInfo { name: "Streams", description: "Display alternate data streams" },
-    SwitchInfo { name: "Icons",   description: "Enable file-type icons" },
-    SwitchInfo { name: "Tree",    description: "Display directory tree view" },
+    SwitchInfo { name: "W",              description: "Wide listing format" },
+    SwitchInfo { name: "S",              description: "Recurse into subdirectories" },
+    SwitchInfo { name: "P",              description: "Display performance timing" },
+    SwitchInfo { name: "M",              description: "Multi-threaded enumeration" },
+    SwitchInfo { name: "B",              description: "Bare listing format" },
+    SwitchInfo { name: "Owner",          description: "Display file ownership" },
+    SwitchInfo { name: "Streams",        description: "Display alternate data streams" },
+    SwitchInfo { name: "Icons",          description: "Enable file-type icons" },
+    SwitchInfo { name: "Tree",           description: "Display directory tree view" },
+    SwitchInfo { name: "Set-Aliases",    description: "Configure PowerShell aliases" },
+    SwitchInfo { name: "Get-Aliases",    description: "Display current alias configuration" },
+    SwitchInfo { name: "Remove-Aliases", description: "Remove PowerShell aliases" },
+    SwitchInfo { name: "WhatIf",         description: "Preview alias changes without applying" },
 ];
 
 

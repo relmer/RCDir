@@ -50,7 +50,8 @@ specs/005-powershell-aliases/
 
 ```text
 src/
-├── alias_manager.rs             # Top-level orchestrator for --set/--get/--remove-aliases
+├── alias_types.rs               # Shared data model structs and enums for all alias modules
+├── alias_manager.rs             # Top-level orchestrator for --set/--get/--remove-aliases (module-level functions)
 ├── profile_path_resolver.rs     # PS version detection + profile path resolution
 ├── profile_file_manager.rs      # Read/write/backup profile files, marker block parsing
 ├── alias_block_generator.rs     # Generate PowerShell alias function code

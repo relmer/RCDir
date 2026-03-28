@@ -1,0 +1,27 @@
+[2026-03-28 03:04:22]
+C:\Users\relmer\repos\relmer\TCDir\x64\Debug [master ≡]> .\TCDir.exe --remove-aliases --whatif
+
+
+  Remove aliases from:
+    [ ] $PROFILE.CurrentUserAllHosts (C:\Users\relmer\OneDrive - Microsoft\Documents\PowerShell\profile.ps1)
+        Found aliases: d, dt, dw, dd, ds, dsb
+
+    [✓] $PROFILE.AllUsersAllHosts (C:\Program Files\PowerShell\7\profile.ps1)
+        Found aliases: tc, tct, tcw, tcd, tcs, tcsb
+
+
+
+  Whatif: The following aliases would be removed from:
+  C:\Program Files\PowerShell\7\profile.ps1
+
+    tc
+    tct
+    tcw
+    tcd
+    tcs
+    tcsb
+
+  Whatif: No changes were made.
+
+[2026-03-28 03:08:17]
+C:\Users\relmer\repos\relmer\TCDir\x64\Debug [master ≡]>

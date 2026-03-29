@@ -194,7 +194,7 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
     }
 
     for line in &block_lines {
-        console.printf_attr (Attribute::Information, &format! ("  {}\n", line));
+        console.printf_attr (Attribute::Default, &format! ("  {}\n", line));
     }
     console.printf_attr (Attribute::Information, "\n");
     console.flush()?;

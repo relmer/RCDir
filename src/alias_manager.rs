@@ -101,14 +101,26 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
          \x20 saved to your PowerShell profile and loaded automatically.\n\n");
     console.flush()?;
 
-    // Step 1: Root alias name
+    // Step 1: Root alias name (loops if conflict detected)
     let default_root = existing_block.as_ref()
         .map (|b| b.root_alias.clone())
         .unwrap_or_else (|| "d".to_string());
 
-    let root_alias = match tui_widgets::text_input (console, "Root alias name (1-4 chars)", &default_root)? {
-        TuiResult::Confirmed (val) => val,
-        TuiResult::Cancelled       => { print_cancelled (console); return Ok(()); }
+    let root_alias = loop {
+        let candidate = match tui_widgets::text_input (console, "Root alias name (1-4 chars)", &default_root)? {
+            TuiResult::Confirmed (val) => val,
+            TuiResult::Cancelled       => { print_cancelled (console); return Ok(()); }
+        };
+
+        if let Some (conflict) = find_alias_conflict (&candidate) {
+            console.printf_attr (Attribute::Error,
+                &format! ("\n  '{}' conflicts with PowerShell alias for '{}'. Choose a different name.\n\n",
+                    candidate, conflict));
+            console.flush()?;
+            continue;
+        }
+
+        break candidate;
     };
 
     // Step 2: Sub-aliases
@@ -475,6 +487,31 @@ fn build_profile_labels (
 ////////////////////////////////////////////////////////////////////////////////
 
 fn check_alias_conflicts (console: &mut Console, names: &[String]) -> Result<(), AppError> {
+    let mut any = false;
+    for name in names {
+        if let Some (conflict) = find_alias_conflict (name) {
+            if !any { console.printf_attr (Attribute::Information, "\n"); any = true; }
+            console.printf_attr (Attribute::Error,
+                &format! ("  Warning: '{}' conflicts with PowerShell alias for '{}'\n", name, conflict));
+        }
+    }
+    Ok(())
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  find_alias_conflict
+//
+//  Checks a single name against known PowerShell built-in aliases.
+//  Returns the conflicting cmdlet name if found, None otherwise.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn find_alias_conflict (name: &str) -> Option<&'static str> {
     const BUILTINS: &[(&str, &str)] = &[
         ("ac", "Add-Content"), ("cat", "Get-Content"), ("cd", "Set-Location"),
         ("cls", "Clear-Host"), ("cp", "Copy-Item"), ("del", "Remove-Item"),
@@ -486,17 +523,12 @@ fn check_alias_conflicts (console: &mut Console, names: &[String]) -> Result<(),
         ("type", "Get-Content"),
     ];
 
-    let mut any = false;
-    for name in names {
-        for &(builtin, cmdlet) in BUILTINS {
-            if name.eq_ignore_ascii_case (builtin) {
-                if !any { console.printf_attr (Attribute::Information, "\n"); any = true; }
-                console.printf_attr (Attribute::Error,
-                    &format! ("  Warning: '{}' conflicts with PowerShell alias for '{}'\n", name, cmdlet));
-            }
+    for &(builtin, cmdlet) in BUILTINS {
+        if name.eq_ignore_ascii_case (builtin) {
+            return Some (cmdlet);
         }
     }
-    Ok(())
+    None
 }
 
 

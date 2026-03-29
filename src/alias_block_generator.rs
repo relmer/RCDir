@@ -59,7 +59,7 @@ pub fn generate (config: &AliasConfig) -> Vec<String> {
         if alias.enabled {
             funcs.push ((
                 alias.name.clone(),
-                format! ("{} {} @args", config.root_alias, alias.flags),
+                format! ("{} {} @args", config.root_alias, quote_ps_flags (&alias.flags)),
             ));
         }
     }
@@ -88,6 +88,39 @@ pub fn generate (config: &AliasConfig) -> Vec<String> {
     lines.push (BANNER_LINE.to_string());
 
     lines
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  quote_ps_flags
+//
+//  Quote individual flag tokens that would be misinterpreted by PowerShell.
+//  PowerShell treats -name:value as named-parameter binding inside function
+//  calls, which splits e.g. "-a:d" into two arguments.  Wrapping such tokens
+//  in single quotes prevents the split.
+//
+//  Tokens that start with '-' and contain ':' are wrapped in single quotes.
+//  Multi-token flags (e.g., "-s -b") are split, quoted individually if needed,
+//  and reassembled.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn quote_ps_flags (flags: &str) -> String {
+    flags
+        .split_whitespace()
+        .map (|token| {
+            if token.starts_with ('-') && token.contains (':') {
+                format! ("'{}'", token)
+            } else {
+                token.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join (" ")
 }
 
 

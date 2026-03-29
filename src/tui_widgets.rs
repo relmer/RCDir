@@ -244,7 +244,7 @@ pub fn text_input (
             KeyEvent::Char (ch) => {
                 if ch.is_alphanumeric() && value.len() < 4 {
                     value.push (ch);
-                    console.write_raw (&ch.to_string());
+                    console.printf_attr (crate::config::Attribute::InformationHighlight, &ch.to_string());
                     console.flush()?;
                 }
             }

@@ -25,7 +25,7 @@ use crate::tui_widgets::{self, TuiResult};
 const SUB_ALIAS_DEFS: &[(&str, &str, &str)] = &[
     ("t",  "--tree",  "Tree view"),
     ("w",  "-w",      "Wide format"),
-    ("d",  "/a:d",    "Directories only"),
+    ("d",  "-a:d",    "Directories only"),
     ("s",  "-s",      "Recursive"),
     ("sb", "-s -b",   "Recursive bare"),
 ];
@@ -112,11 +112,16 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
     };
 
     // Step 2: Sub-aliases
-    let sub_items: Vec<(String, bool)> = SUB_ALIAS_DEFS.iter().map (|(suffix, flags, desc)| {
-        let name = format! ("{}{}", root_alias, suffix);
-        let label = format! ("{}  = {} {:<7} ({})", name, root_alias, flags, desc);
+    let sub_names: Vec<String> = SUB_ALIAS_DEFS.iter()
+        .map (|(suffix, _, _)| format! ("{}{}", root_alias, suffix))
+        .collect();
+    let max_name_len = sub_names.iter().map (|n| n.len()).max().unwrap_or (0);
+
+    let sub_items: Vec<(String, bool)> = SUB_ALIAS_DEFS.iter().enumerate().map (|(idx, (suffix, flags, desc))| {
+        let name = &sub_names[idx];
+        let label = format! ("{:<width$} = {} {:<7} ({})", name, root_alias, flags, desc, width = max_name_len);
         let enabled = existing_block.as_ref()
-            .map (|b| b.alias_names.contains (&name))
+            .map (|b| b.alias_names.contains (name))
             .unwrap_or (true);
         (label, enabled)
     }).collect();

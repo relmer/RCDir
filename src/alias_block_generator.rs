@@ -163,7 +163,7 @@ mod tests {
     fn generates_sub_aliases() {
         let config = make_config ("d", "rcdir", &[
             ("dt", "--tree", true),
-            ("dd", "/a:d", true),
+            ("dd", "-a:d", true),
             ("ds", "-s", true),
             ("dsb", "-s -b", false),  // disabled
         ]);

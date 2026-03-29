@@ -310,7 +310,6 @@ pub fn remove_alias_block (lines: &mut Vec<String>, block: &AliasBlock) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
 
 

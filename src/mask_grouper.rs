@@ -299,17 +299,34 @@ pub fn group_masks_by_directory(masks: &[OsString]) -> Vec<MaskGroup> {
 
 fn group_masks_by_directory_with_fs(masks: &[OsString], fs: &dyn FileSystemQuery) -> Vec<MaskGroup> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    group_masks_with_cwd_and_fs (masks, &cwd, fs)
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  group_masks_with_cwd_and_fs
+//
+//  Core grouping logic with explicit CWD and filesystem query for full
+//  testability.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn group_masks_with_cwd_and_fs(masks: &[OsString], cwd: &Path, fs: &dyn FileSystemQuery) -> Vec<MaskGroup> {
 
     let mut groups: Vec<MaskGroup> = Vec::new();
     let mut dir_to_index: Vec<(String, usize)> = Vec::new();
 
     if masks.is_empty() {
         // No masks — return CWD with "*"
-        groups.push((cwd, vec![OsString::from("*")]));
+        groups.push((cwd.to_path_buf(), vec![OsString::from("*")]));
     } else {
         for mask_os in masks {
             let mask = mask_os.to_string_lossy();
-            let (dir_path, file_spec) = split_mask_into_dir_and_filespec(&mask, &cwd, fs);
+            let (dir_path, file_spec) = split_mask_into_dir_and_filespec(&mask, cwd, fs);
             add_mask_to_groups(dir_path, file_spec, &mut groups, &mut dir_to_index);
         }
     }
@@ -466,8 +483,11 @@ mod tests {
 
     #[test]
     fn group_empty_masks_returns_cwd_star() {
-        let groups = group_masks_by_directory(&[]);
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
+        let groups = group_masks_with_cwd_and_fs (&[], &cwd, &fs);
         assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].0, cwd);
         assert_eq!(groups[0].1.len(), 1);
         assert_eq!(groups[0].1[0], OsString::from("*"));
     }
@@ -486,8 +506,10 @@ mod tests {
 
     #[test]
     fn group_pure_masks_same_dir() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
         let masks = vec![OsString::from("*.rs"), OsString::from("*.toml")];
-        let groups = group_masks_by_directory(&masks);
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].1.len(), 2);
     }
@@ -506,8 +528,10 @@ mod tests {
 
     #[test]
     fn group_single_mask() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
         let masks = vec![OsString::from("*.txt")];
-        let groups = group_masks_by_directory(&masks);
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].1.len(), 1);
         assert_eq!(groups[0].1[0], OsString::from("*.txt"));
@@ -583,5 +607,285 @@ mod tests {
         let (dir, spec) = split_pure_mask ("*", &cwd, &fs);
         assert_eq! (dir, cwd);
         assert_eq! (spec, OsString::from ("*"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_multiple_pure_masks_one_group
+    //
+    //  Port of: GroupMasks_MultiplePureMasks_OneGroupWithAllMasks
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_multiple_pure_masks_one_group() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
+        let masks = vec![
+            OsString::from ("*.cpp"),
+            OsString::from ("*.h"),
+            OsString::from ("*.hpp"),
+        ];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 1);
+        assert_eq! (groups[0].1.len(), 3);
+        assert_eq! (groups[0].1[0], OsString::from ("*.cpp"));
+        assert_eq! (groups[0].1[1], OsString::from ("*.h"));
+        assert_eq! (groups[0].1[2], OsString::from ("*.hpp"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_mixed_pure_and_directory_qualified
+    //
+    //  Port of: GroupMasks_MixedPureAndDirectoryQualified_MultipleGroups
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_mixed_pure_and_directory_qualified() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
+        let masks = vec![
+            OsString::from ("*.cpp"),
+            OsString::from (r"foo\*.h"),
+        ];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 2, "Should have 2 groups");
+
+        // First group: pure mask in CWD
+        assert_eq! (groups[0].1.len(), 1);
+        assert_eq! (groups[0].1[0], OsString::from ("*.cpp"));
+
+        // Second group: directory-qualified
+        assert_eq! (groups[1].1.len(), 1);
+        assert_eq! (groups[1].1[0], OsString::from ("*.h"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_same_directory_different_masks_combined
+    //
+    //  Port of: GroupMasks_SameDirectoryDifferentMasks_CombinedIntoOneGroup
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_same_directory_different_masks_combined() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
+        let masks = vec![
+            OsString::from (r"foo\*.cpp"),
+            OsString::from (r"foo\*.h"),
+        ];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 1, "Same directory masks should combine");
+        assert_eq! (groups[0].1.len(), 2);
+        assert_eq! (groups[0].1[0], OsString::from ("*.cpp"));
+        assert_eq! (groups[0].1[1], OsString::from ("*.h"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_directory_only_no_mask_uses_star
+    //
+    //  Port of: GroupMasks_DirectoryOnlyNoMask_UsesStarMask
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_directory_only_no_mask_uses_star() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let bar_dir = cwd.join ("bar");
+        let fs = MockFileSystemQuery::new()
+            .with_dir (&bar_dir);
+        let masks = vec![OsString::from (r"bar\")];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 1);
+        assert_eq! (groups[0].1.len(), 1);
+        assert_eq! (groups[0].1[0], OsString::from ("*"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_order_preserved_first_seen_directory_first
+    //
+    //  Port of: GroupMasks_OrderPreserved_FirstSeenDirectoryFirst
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_order_preserved_first_seen_directory_first() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
+        let masks = vec![
+            OsString::from (r"foo\*.cpp"),
+            OsString::from ("*.h"),
+            OsString::from (r"bar\*.txt"),
+        ];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 3, "Should have 3 groups");
+
+        // First group should be foo
+        let dir0 = groups[0].0.to_string_lossy();
+        assert! (dir0.contains ("foo"), "First group should be 'foo': {}", dir0);
+
+        // Second group should be CWD (with *.h)
+        assert_eq! (groups[1].1[0], OsString::from ("*.h"));
+
+        // Third group should be bar
+        let dir2 = groups[2].0.to_string_lossy();
+        assert! (dir2.contains ("bar"), "Third group should be 'bar': {}", dir2);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_multiple_different_directories_separate_groups
+    //
+    //  Port of: GroupMasks_MultipleDifferentDirectories_SeparateGroups
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_multiple_different_directories_separate_groups() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let foo_dir = cwd.join ("foo");
+        let bar_dir = cwd.join ("bar");
+        let fs = MockFileSystemQuery::new()
+            .with_dir (&foo_dir)
+            .with_dir (&bar_dir);
+        let masks = vec![
+            OsString::from (r"foo\"),
+            OsString::from (r"bar\"),
+        ];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 2, "Should have 2 groups");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_duplicate_masks_in_same_dir_all_included
+    //
+    //  Port of: GroupMasks_DuplicateMasksInSameDir_AllIncluded
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_duplicate_masks_in_same_dir_all_included() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
+        let masks = vec![
+            OsString::from ("*.cpp"),
+            OsString::from ("*.cpp"),
+        ];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 1);
+        assert_eq! (groups[0].1.len(), 2, "Both masks should be included");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  group_single_directory_qualified_mask
+    //
+    //  Port of: GroupMasks_SingleDirectoryQualifiedMask_OneGroup
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn group_single_directory_qualified_mask() {
+        let cwd = PathBuf::from (r"C:\Projects");
+        let fs = MockFileSystemQuery::new();
+        let masks = vec![OsString::from (r"foo\*.cpp")];
+
+        let groups = group_masks_with_cwd_and_fs (&masks, &cwd, &fs);
+
+        assert_eq! (groups.len(), 1);
+        assert_eq! (groups[0].1.len(), 1);
+        assert_eq! (groups[0].1[0], OsString::from ("*.cpp"));
+
+        let dir = groups[0].0.to_string_lossy();
+        assert! (dir.contains ("foo"), "Dir should contain 'foo': {}", dir);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_pure_mask_dot_slash_prefix_returns_false
+    //
+    //  Port of: IsPureMask_DotSlashPrefix_ReturnsFalse
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn is_pure_mask_dot_slash_prefix_returns_false() {
+        assert! (!is_pure_mask (r".\*.cpp"));
+        assert! (!is_pure_mask ("./file.txt"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_pure_mask_absolute_path_returns_false
+    //
+    //  Port of: IsPureMask_AbsolutePath_ReturnsFalse
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn is_pure_mask_absolute_path_returns_false() {
+        assert! (!is_pure_mask (r"C:\foo\*.cpp"));
+        assert! (!is_pure_mask (r"D:\file.txt"));
     }
 }

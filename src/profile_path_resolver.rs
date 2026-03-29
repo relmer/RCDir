@@ -31,12 +31,29 @@ pub fn detect_powershell_version() -> Result<PowerShellVersion, AppError> {
         .and_then (|n| n.to_str())
         .unwrap_or ("");
 
+    Ok (map_image_name_to_version (filename))
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  map_image_name_to_version
+//
+//  Pure function: convert an executable filename to a PowerShellVersion.
+//  Port of: CProfilePathResolver::MapImageNameToVersion
+//
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn map_image_name_to_version (filename: &str) -> PowerShellVersion {
     if filename.eq_ignore_ascii_case ("pwsh.exe") {
-        Ok (PowerShellVersion::PowerShell)
+        PowerShellVersion::PowerShell
     } else if filename.eq_ignore_ascii_case ("powershell.exe") {
-        Ok (PowerShellVersion::WindowsPowerShell)
+        PowerShellVersion::WindowsPowerShell
     } else {
-        Ok (PowerShellVersion::Unknown)
+        PowerShellVersion::Unknown
     }
 }
 
@@ -141,6 +158,42 @@ pub fn resolve_profile_paths (
         .parent()
         .unwrap_or (std::path::Path::new (""));
 
+    let admin_required = !is_writable (pshome);
+
+    let mut locations = build_profile_locations (&documents, pshome, version, admin_required)?;
+
+    // Probe the filesystem for path existence — kept out of
+    // build_profile_locations so that function stays pure for unit tests.
+    for loc in &mut locations {
+        loc.exists = loc.resolved_path.exists();
+    }
+
+    Ok (locations)
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  build_profile_locations
+//
+//  Pure-logic path construction — no system calls, directly unit-testable.
+//  Builds the four ProfileLocation structs from base directory paths.
+//  Does NOT check path existence (caller does that).
+//
+//  Port of: CProfilePathResolver::BuildProfileLocations
+//
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn build_profile_locations (
+    documents_dir:   &std::path::Path,
+    pshome:          &std::path::Path,
+    version:         PowerShellVersion,
+    admin_required:  bool,
+) -> Result<Vec<ProfileLocation>, AppError> {
+
     let ps_subdir = match version {
         PowerShellVersion::PowerShell        => "PowerShell",
         PowerShellVersion::WindowsPowerShell => "WindowsPowerShell",
@@ -149,15 +202,14 @@ pub fn resolve_profile_paths (
         )),
     };
 
-    let user_dir = documents.join (ps_subdir);
-    let admin_required = !is_writable (pshome);
+    let user_dir = documents_dir.join (ps_subdir);
 
     let locations = vec![
         ProfileLocation {
             scope:           ProfileScope::CurrentUserCurrentHost,
             variable_name:   ProfileScope::CurrentUserCurrentHost.variable_name().to_string(),
             resolved_path:   user_dir.join ("Microsoft.PowerShell_profile.ps1"),
-            exists:          user_dir.join ("Microsoft.PowerShell_profile.ps1").exists(),
+            exists:          false,
             requires_admin:  false,
             has_alias_block: false,
         },
@@ -165,7 +217,7 @@ pub fn resolve_profile_paths (
             scope:           ProfileScope::CurrentUserAllHosts,
             variable_name:   ProfileScope::CurrentUserAllHosts.variable_name().to_string(),
             resolved_path:   user_dir.join ("profile.ps1"),
-            exists:          user_dir.join ("profile.ps1").exists(),
+            exists:          false,
             requires_admin:  false,
             has_alias_block: false,
         },
@@ -173,7 +225,7 @@ pub fn resolve_profile_paths (
             scope:           ProfileScope::AllUsersCurrentHost,
             variable_name:   ProfileScope::AllUsersCurrentHost.variable_name().to_string(),
             resolved_path:   pshome.join ("Microsoft.PowerShell_profile.ps1"),
-            exists:          pshome.join ("Microsoft.PowerShell_profile.ps1").exists(),
+            exists:          false,
             requires_admin:  admin_required,
             has_alias_block: false,
         },
@@ -181,7 +233,7 @@ pub fn resolve_profile_paths (
             scope:           ProfileScope::AllUsersAllHosts,
             variable_name:   ProfileScope::AllUsersAllHosts.variable_name().to_string(),
             resolved_path:   pshome.join ("profile.ps1"),
-            exists:          pshome.join ("profile.ps1").exists(),
+            exists:          false,
             requires_admin:  admin_required,
             has_alias_block: false,
         },
@@ -319,3 +371,318 @@ pub fn resolve_rcdir_invocation() -> Result<String, AppError> {
     }
 }
 
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  map_image_name_pwsh_returns_powershell
+    //
+    //  Port of: MapImageName_Pwsh_ReturnsPowerShell
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn map_image_name_pwsh_returns_powershell() {
+        assert_eq! (map_image_name_to_version ("pwsh.exe"), PowerShellVersion::PowerShell);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  map_image_name_pwsh_upper_case_returns_powershell
+    //
+    //  Port of: MapImageName_PwshUpperCase_ReturnsPowerShell
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn map_image_name_pwsh_upper_case_returns_powershell() {
+        assert_eq! (map_image_name_to_version ("PWSH.EXE"), PowerShellVersion::PowerShell);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  map_image_name_powershell_returns_windows_powershell
+    //
+    //  Port of: MapImageName_Powershell_ReturnsWindowsPowerShell
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn map_image_name_powershell_returns_windows_powershell() {
+        assert_eq! (map_image_name_to_version ("powershell.exe"), PowerShellVersion::WindowsPowerShell);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  map_image_name_cmd_returns_unknown
+    //
+    //  Port of: MapImageName_Cmd_ReturnsUnknown
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn map_image_name_cmd_returns_unknown() {
+        assert_eq! (map_image_name_to_version ("cmd.exe"), PowerShellVersion::Unknown);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  map_image_name_explorer_returns_unknown
+    //
+    //  Port of: MapImageName_Explorer_ReturnsUnknown
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn map_image_name_explorer_returns_unknown() {
+        assert_eq! (map_image_name_to_version ("explorer.exe"), PowerShellVersion::Unknown);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_powershell_returns_four_paths
+    //
+    //  Port of: BuildProfileLocations_PowerShell_ReturnsFourPaths
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_powershell_returns_four_paths() {
+        let docs  = Path::new (r"C:\Users\test\Documents");
+        let pshome = Path::new (r"C:\Program Files\PowerShell\7");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::PowerShell, true).unwrap();
+
+        assert_eq! (locs.len(), 4);
+        for loc in &locs {
+            let path_str = loc.resolved_path.to_string_lossy();
+            assert! (path_str.contains (r"\PowerShell\"), "Path should contain \\PowerShell\\: {}", path_str);
+            assert! (!path_str.contains (r"\WindowsPowerShell\"));
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_windows_powershell_uses_correct_dir
+    //
+    //  Port of: BuildProfileLocations_WindowsPowerShell_UsesCorrectDir
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_windows_powershell_uses_correct_dir() {
+        let docs   = Path::new (r"C:\Users\test\Documents");
+        let pshome = Path::new (r"C:\Windows\System32\WindowsPowerShell\v1.0");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::WindowsPowerShell, true).unwrap();
+
+        assert_eq! (locs.len(), 4);
+        let path0 = locs[0].resolved_path.to_string_lossy();
+        let path1 = locs[1].resolved_path.to_string_lossy();
+        assert! (path0.contains (r"\WindowsPowerShell\"));
+        assert! (path1.contains (r"\WindowsPowerShell\"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_scopes_are_correct
+    //
+    //  Port of: BuildProfileLocations_ScopesAreCorrect
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_scopes_are_correct() {
+        let docs   = Path::new (r"C:\Users\test\Documents");
+        let pshome = Path::new (r"C:\Program Files\PowerShell\7");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::PowerShell, true).unwrap();
+
+        assert_eq! (locs[0].scope, ProfileScope::CurrentUserCurrentHost);
+        assert_eq! (locs[1].scope, ProfileScope::CurrentUserAllHosts);
+        assert_eq! (locs[2].scope, ProfileScope::AllUsersCurrentHost);
+        assert_eq! (locs[3].scope, ProfileScope::AllUsersAllHosts);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_all_users_requires_admin
+    //
+    //  Port of: BuildProfileLocations_AllUsersRequiresAdmin
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_all_users_requires_admin() {
+        let docs   = Path::new (r"C:\Users\test\Documents");
+        let pshome = Path::new (r"C:\Program Files\PowerShell\7");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::PowerShell, true).unwrap();
+
+        assert! (!locs[0].requires_admin);
+        assert! (!locs[1].requires_admin);
+        assert! (locs[2].requires_admin);
+        assert! (locs[3].requires_admin);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_variable_names_correct
+    //
+    //  Port of: BuildProfileLocations_VariableNamesCorrect
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_variable_names_correct() {
+        let docs   = Path::new (r"C:\Users\test\Documents");
+        let pshome = Path::new (r"C:\Program Files\PowerShell\7");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::PowerShell, true).unwrap();
+
+        assert_eq! (locs[0].variable_name, "$PROFILE.CurrentUserCurrentHost");
+        assert_eq! (locs[1].variable_name, "$PROFILE.CurrentUserAllHosts");
+        assert_eq! (locs[2].variable_name, "$PROFILE.AllUsersCurrentHost");
+        assert_eq! (locs[3].variable_name, "$PROFILE.AllUsersAllHosts");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_full_paths_correct_powershell
+    //
+    //  Port of: BuildProfileLocations_FullPathsCorrect_PowerShell
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_full_paths_correct_powershell() {
+        let docs   = Path::new (r"C:\Users\test\Documents");
+        let pshome = Path::new (r"C:\Program Files\PowerShell\7");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::PowerShell, true).unwrap();
+
+        assert_eq! (locs[0].resolved_path.to_string_lossy(), r"C:\Users\test\Documents\PowerShell\Microsoft.PowerShell_profile.ps1");
+        assert_eq! (locs[1].resolved_path.to_string_lossy(), r"C:\Users\test\Documents\PowerShell\profile.ps1");
+        assert_eq! (locs[2].resolved_path.to_string_lossy(), r"C:\Program Files\PowerShell\7\Microsoft.PowerShell_profile.ps1");
+        assert_eq! (locs[3].resolved_path.to_string_lossy(), r"C:\Program Files\PowerShell\7\profile.ps1");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_full_paths_correct_windows_powershell
+    //
+    //  Port of: BuildProfileLocations_FullPathsCorrect_WindowsPowerShell
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_full_paths_correct_windows_powershell() {
+        let docs   = Path::new (r"C:\Users\test\Documents");
+        let pshome = Path::new (r"C:\Windows\System32\WindowsPowerShell\v1.0");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::WindowsPowerShell, true).unwrap();
+
+        assert_eq! (locs[0].resolved_path.to_string_lossy(), r"C:\Users\test\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1");
+        assert_eq! (locs[1].resolved_path.to_string_lossy(), r"C:\Users\test\Documents\WindowsPowerShell\profile.ps1");
+        assert_eq! (locs[2].resolved_path.to_string_lossy(), r"C:\Windows\System32\WindowsPowerShell\v1.0\Microsoft.PowerShell_profile.ps1");
+        assert_eq! (locs[3].resolved_path.to_string_lossy(), r"C:\Windows\System32\WindowsPowerShell\v1.0\profile.ps1");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_exists_defaults_false
+    //
+    //  Port of: BuildProfileLocations_FExistsDefaultsFalse
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_exists_defaults_false() {
+        let docs   = Path::new (r"C:\Fake\Documents");
+        let pshome = Path::new (r"C:\Fake\PSHome");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::PowerShell, true).unwrap();
+
+        for loc in &locs {
+            assert! (!loc.exists, "exists should be false for fake paths: {}", loc.resolved_path.display());
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_profile_locations_onedrive_redirected_path
+    //
+    //  Port of: BuildProfileLocations_OneDriveRedirectedPath
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_profile_locations_onedrive_redirected_path() {
+        let docs   = Path::new (r"C:\Users\test\OneDrive\Documents");
+        let pshome = Path::new (r"C:\Program Files\PowerShell\7");
+
+        let locs = build_profile_locations (docs, pshome, PowerShellVersion::PowerShell, true).unwrap();
+
+        assert_eq! (locs[1].resolved_path.to_string_lossy(),
+            r"C:\Users\test\OneDrive\Documents\PowerShell\profile.ps1");
+    }
+}

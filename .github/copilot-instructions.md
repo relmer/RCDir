@@ -196,15 +196,20 @@ console.print_error(&format!("Error: {}", msg));
 
 ## Build and Test
 
-### Cargo Commands
-- Use `cargo build` for debug builds
-- Use `cargo build --release` for release builds
-- Use `cargo test` to run all tests
-- Use `cargo clippy` for linting
+### CRITICAL: Always Use Build Tasks — Never Raw Cargo for Builds
+- **NEVER** run `cargo build` directly — it skips the version increment
+- **ALWAYS** use the VS Code build task (`Build Debug (current arch)`) or `scripts/Build.ps1` to build
+- `Build.ps1` calls `IncrementVersion.ps1` before cargo, which bumps the build number in `Version.toml`
+- Running `cargo build` directly produces a binary with a stale version number
+- `cargo test`, `cargo check`, and `cargo clippy` are fine to run directly — they don't produce release artifacts
+
+### Allowed Direct Cargo Commands (no build task needed)
+- `cargo test` — run tests (no version increment needed)
+- `cargo check` — quick compilation verification
+- `cargo clippy` — lint checking
 
 ### Build Integration
-- Always run build after making changes
-- Use `cargo check` for quick compilation verification
+- Always build after making changes using the build task or `Build.ps1`
 - Fix all clippy warnings before considering task complete
 - Check for both errors and warnings
 

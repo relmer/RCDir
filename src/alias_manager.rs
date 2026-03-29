@@ -531,3 +531,533 @@ fn find_alias_conflict (name: &str) -> Option<&'static str> {
 fn print_cancelled (console: &mut Console) {
     console.printf_attr (Attribute::Information, "\n  Operation cancelled.\n");
 }
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::alias_block_generator;
+    use crate::profile_file_manager;
+
+    /// Helper: build an AliasConfig for in-memory tests.
+    fn make_config (root: &str, invocation: &str, subs: &[(&str, &str, &str, bool)]) -> AliasConfig {
+        AliasConfig {
+            root_alias:       root.to_string(),
+            rcdir_invocation: invocation.to_string(),
+            sub_aliases:      subs.iter().map (|(name, flags, desc, enabled)| AliasDefinition {
+                name:        name.to_string(),
+                flags:       flags.to_string(),
+                description: desc.to_string(),
+                enabled:     *enabled,
+            }).collect(),
+            target_scope:  ProfileScope::CurrentUserAllHosts,
+            target_path:   PathBuf::new(),
+            session_only:  false,
+            what_if:       false,
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_default_sub_aliases_default_root
+    //
+    //  Port of: BuildDefaultSubAliases_DefaultRoot
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_default_sub_aliases_default_root() {
+        let names: Vec<String> = SUB_ALIAS_DEFS.iter()
+            .map (|(suffix, _, _)| format! ("d{}", suffix))
+            .collect();
+
+        assert_eq! (names.len(), 5);
+        assert_eq! (names[0], "dt");
+        assert_eq! (names[1], "dw");
+        assert_eq! (names[2], "dd");
+        assert_eq! (names[3], "ds");
+        assert_eq! (names[4], "dsb");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  build_default_sub_aliases_custom_root
+    //
+    //  Port of: BuildDefaultSubAliases_CustomRoot
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn build_default_sub_aliases_custom_root() {
+        let names: Vec<String> = SUB_ALIAS_DEFS.iter()
+            .map (|(suffix, _, _)| format! ("tc{}", suffix))
+            .collect();
+
+        assert_eq! (names.len(), 5);
+        assert_eq! (names[0], "tct");
+        assert_eq! (names[1], "tcw");
+        assert_eq! (names[2], "tcd");
+        assert_eq! (names[3], "tcs");
+        assert_eq! (names[4], "tcsb");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  set_aliases_generate_and_append_in_memory
+    //
+    //  Port of: SetAliases_GenerateAndAppend_InMemory
+    //  Tests generate + append + find round-trip entirely in memory.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn set_aliases_generate_and_append_in_memory() {
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs",   true),
+            ("ds", "-s",   "search", true),
+            ("dw", "-w",   "wide",   false),
+        ]);
+
+        let block_lines = alias_block_generator::generate (&config);
+        let mut lines: Vec<String> = Vec::new();
+
+        profile_file_manager::append_alias_block (&mut lines, &block_lines);
+
+        let block = profile_file_manager::find_alias_block (&lines);
+
+        assert! (block.found);
+        assert_eq! (block.root_alias, "d");
+        // Root + 2 enabled subs = 3
+        assert_eq! (block.alias_names.len(), 3);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  set_aliases_existing_block_replaces_correctly
+    //
+    //  Port of: SetAliases_ExistingBlock_ReplacesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn set_aliases_existing_block_replaces_correctly() {
+        let config1 = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+        let config2 = make_config ("tc", "rcdir", &[
+            ("tcd", "-a:d", "dirs",   true),
+            ("tcs", "-s",   "search", true),
+        ]);
+
+        let block1 = alias_block_generator::generate (&config1);
+        let block2 = alias_block_generator::generate (&config2);
+
+        let mut lines = vec!["# Before content".to_string()];
+        profile_file_manager::append_alias_block (&mut lines, &block1);
+        lines.push ("# After content".to_string());
+
+        let found = profile_file_manager::find_alias_block (&lines);
+        assert! (found.found);
+
+        profile_file_manager::replace_alias_block (&mut lines, &found, &block2);
+
+        let found2 = profile_file_manager::find_alias_block (&lines);
+        assert! (found2.found);
+        assert_eq! (found2.root_alias, "tc");
+        assert_eq! (found2.alias_names.len(), 3); // tc, tcd, tcs
+
+        assert_eq! (lines.first().unwrap(), "# Before content");
+        assert_eq! (lines.last().unwrap(), "# After content");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  session_only_generates_block
+    //
+    //  Port of: SessionOnly_NoFileWrite
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn session_only_generates_block() {
+        let mut config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+        config.session_only = true;
+
+        let block_lines = alias_block_generator::generate (&config);
+
+        assert! (block_lines.len() > 5);
+
+        let found_root = block_lines.iter().any (|l| l.contains ("function d"));
+        assert! (found_root);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  get_aliases_finds_block_in_file
+    //
+    //  Port of: GetAliases_FindsBlockInFile
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn get_aliases_finds_block_in_file() {
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs",   true),
+            ("ds", "-s",   "search", true),
+        ]);
+
+        let block_lines = alias_block_generator::generate (&config);
+
+        let mut lines = vec!["# My profile".to_string(), "Import-Module posh-git".to_string()];
+        profile_file_manager::append_alias_block (&mut lines, &block_lines);
+
+        let block = profile_file_manager::find_alias_block (&lines);
+
+        assert! (block.found);
+        assert_eq! (block.root_alias, "d");
+        assert_eq! (block.alias_names.len(), 3); // d, dd, ds
+        assert_eq! (block.alias_names[0], "d");
+        assert_eq! (block.alias_names[1], "dd");
+        assert_eq! (block.alias_names[2], "ds");
+        assert! (!block.version.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  get_aliases_no_aliases_block_not_found
+    //
+    //  Port of: GetAliases_NoAliases_BlockNotFound
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn get_aliases_no_aliases_block_not_found() {
+        let lines = vec![
+            "# My PowerShell profile".to_string(),
+            "Set-Location C:\\code".to_string(),
+            "Import-Module posh-git".to_string(),
+        ];
+
+        let block = profile_file_manager::find_alias_block (&lines);
+        assert! (!block.found);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  get_aliases_multiple_profiles_scanned
+    //
+    //  Port of: GetAliases_MultipleProfilesCanBeScanned
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn get_aliases_multiple_profiles_scanned() {
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+
+        let block_lines = alias_block_generator::generate (&config);
+
+        // Profile 1: has aliases
+        let mut profile1 = vec!["# profile 1".to_string()];
+        profile_file_manager::append_alias_block (&mut profile1, &block_lines);
+
+        // Profile 2: no aliases
+        let profile2 = vec!["# profile 2".to_string()];
+
+        let block1 = profile_file_manager::find_alias_block (&profile1);
+        let block2 = profile_file_manager::find_alias_block (&profile2);
+
+        assert! (block1.found);
+        assert! (!block2.found);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  update_aliases_root_change_full_round_trip
+    //
+    //  Port of: UpdateAliases_RootChange_FullRoundTrip
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn update_aliases_root_change_full_round_trip() {
+        let config1 = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+
+        let block1 = alias_block_generator::generate (&config1);
+
+        let mut lines = vec!["# My profile".to_string()];
+        profile_file_manager::append_alias_block (&mut lines, &block1);
+
+        let found = profile_file_manager::find_alias_block (&lines);
+        assert! (found.found);
+        assert_eq! (found.root_alias, "d");
+
+        // Generate replacement with new root
+        let config2 = make_config ("tc", "rcdir", &[
+            ("tcd", "-a:d", "dirs",   true),
+            ("tcs", "-s",   "search", true),
+        ]);
+        let block2 = alias_block_generator::generate (&config2);
+
+        profile_file_manager::replace_alias_block (&mut lines, &found, &block2);
+
+        let found2 = profile_file_manager::find_alias_block (&lines);
+        assert! (found2.found);
+        assert_eq! (found2.root_alias, "tc");
+        assert_eq! (found2.alias_names.len(), 3);
+
+        assert_eq! (lines[0], "# My profile");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  update_aliases_same_root_different_subs
+    //
+    //  Port of: UpdateAliases_SameRootDifferentSubs
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn update_aliases_same_root_different_subs() {
+        let config1 = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs",   true),
+            ("ds", "-s",   "search", true),
+        ]);
+        let config2 = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs",   false),  // disabled
+            ("ds", "-s",   "search", true),
+            ("dw", "-w",   "wide",   true),   // newly enabled
+        ]);
+
+        let block1 = alias_block_generator::generate (&config1);
+        let block2 = alias_block_generator::generate (&config2);
+
+        let mut lines: Vec<String> = Vec::new();
+        profile_file_manager::append_alias_block (&mut lines, &block1);
+
+        let found = profile_file_manager::find_alias_block (&lines);
+        assert! (found.found);
+
+        profile_file_manager::replace_alias_block (&mut lines, &found, &block2);
+
+        let found2 = profile_file_manager::find_alias_block (&lines);
+        assert! (found2.found);
+        assert_eq! (found2.root_alias, "d");
+        // d, ds, dw (dd disabled)
+        assert_eq! (found2.alias_names.len(), 3);
+        assert_eq! (found2.alias_names[0], "d");
+        assert_eq! (found2.alias_names[1], "ds");
+        assert_eq! (found2.alias_names[2], "dw");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  remove_aliases_clean_removal_in_memory
+    //
+    //  Port of: RemoveAliases_CleanRemoval_InMemory
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn remove_aliases_clean_removal_in_memory() {
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+        let block_lines = alias_block_generator::generate (&config);
+
+        let mut lines = vec![
+            "# Before aliases".to_string(),
+            "Import-Module posh-git".to_string(),
+        ];
+        profile_file_manager::append_alias_block (&mut lines, &block_lines);
+        lines.push ("# After aliases".to_string());
+
+        let found = profile_file_manager::find_alias_block (&lines);
+        assert! (found.found);
+
+        profile_file_manager::remove_alias_block (&mut lines, &found);
+
+        let found2 = profile_file_manager::find_alias_block (&lines);
+        assert! (!found2.found);
+
+        let text = lines.join ("\n");
+        assert! (text.contains ("# Before aliases"));
+        assert! (text.contains ("Import-Module posh-git"));
+        assert! (text.contains ("# After aliases"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  remove_aliases_no_aliases_nothing_to_remove
+    //
+    //  Port of: RemoveAliases_NoAliases_NothingToRemove
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn remove_aliases_no_aliases_nothing_to_remove() {
+        let lines = vec![
+            "# My profile".to_string(),
+            "Set-Location C:\\code".to_string(),
+        ];
+
+        let block = profile_file_manager::find_alias_block (&lines);
+        assert! (!block.found);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  whatif_set_aliases_no_file_modification
+    //
+    //  Port of: WhatIf_SetAliases_NoFileModification
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn whatif_set_aliases_no_file_modification() {
+        let mut config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+        config.what_if = true;
+
+        let block_lines = alias_block_generator::generate (&config);
+
+        assert! (config.what_if);
+        assert! (block_lines.len() > 5);
+
+        let found_root = block_lines.iter().any (|l|
+            l.contains ("function d") && l.contains ("rcdir @args")
+        );
+        assert! (found_root);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  whatif_remove_aliases_no_file_modification
+    //
+    //  Port of: WhatIf_RemoveAliases_NoFileModification
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn whatif_remove_aliases_no_file_modification() {
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+        let block_lines = alias_block_generator::generate (&config);
+
+        let mut lines = vec!["# Profile content".to_string()];
+        profile_file_manager::append_alias_block (&mut lines, &block_lines);
+
+        let original_count = lines.len();
+
+        // WhatIf: detect block but do NOT remove
+        let block = profile_file_manager::find_alias_block (&lines);
+        assert! (block.found);
+
+        // Verify lines are unchanged (whatif = no modification)
+        assert_eq! (lines.len(), original_count);
+
+        let block2 = profile_file_manager::find_alias_block (&lines);
+        assert! (block2.found);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  conflict_detection_known_builtin
+    //
+    //  Port of: ConflictDetection_KnownBuiltinAliasTable
+    //  "r" is a known PowerShell alias for Invoke-History.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn conflict_detection_known_builtin() {
+        let conflict = find_alias_conflict ("r");
+        assert! (conflict.is_some());
+        assert_eq! (conflict.unwrap(), "Invoke-History");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  conflict_detection_no_conflict
+    //
+    //  Port of: ConflictDetection_NoConflict
+    //  "zzz" is not a known built-in alias.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn conflict_detection_no_conflict() {
+        let conflict = find_alias_conflict ("zzz");
+        assert! (conflict.is_none());
+    }
+}

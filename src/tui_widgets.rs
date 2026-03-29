@@ -365,7 +365,7 @@ fn render_checkbox_list (
 
         if is_locked {
             console.write_raw ("\x1b[2K");
-            console.printf_attr (crate::config::Attribute::Error, "          ^ conflicts with PowerShell built-in\n");
+            console.printf_attr (crate::config::Attribute::Error, "        ^ conflicts with PowerShell built-in\n");
         }
     }
 

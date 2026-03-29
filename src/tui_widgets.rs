@@ -140,8 +140,6 @@ fn show_cursor() {
         let _ = unsafe { SetConsoleCursorInfo (stdout, &cursor_info) };
     }
 }
-    }
-}
 
 
 

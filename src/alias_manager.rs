@@ -140,12 +140,11 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
     check_alias_conflicts (console, &all_names)?;
 
     // Step 4: Profile location
-    let save_label = if what_if {
-        "  Save aliases to: (Whatif: no changes will be written)\n"
-    } else {
-        "  Save aliases to:\n"
-    };
-    console.printf_attr (Attribute::Information, &format! ("\n{}", save_label));
+    console.printf_attr (Attribute::Information, "\n  Save aliases to:");
+    if what_if {
+        console.printf_attr (Attribute::Error, " (Whatif: no changes will be written)");
+    }
+    console.printf_attr (Attribute::Information, "\n");
 
     let (radio_items, default_idx) = build_profile_labels (&locations, console.width() as usize);
     for _ in 0..radio_items.len() { console.printf_attr (Attribute::Information, "\n"); }
@@ -187,9 +186,9 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
 
     if what_if {
         if session_only {
-            console.printf_attr (Attribute::Information, "  Whatif: The following alias block would be written to console.\n\n");
+            console.printf_attr (Attribute::Error, "  Whatif: The following alias block would be written to console.\n\n");
         } else {
-            console.printf_attr (Attribute::Information,
+            console.printf_attr (Attribute::Error,
                 &format! ("  Whatif: The following alias block would be written to:\n  {}\n\n", target_path.display()));
         }
     }
@@ -201,7 +200,7 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
     console.flush()?;
 
     if what_if {
-        console.printf_attr (Attribute::Information, "  Whatif: No changes were made.\n");
+        console.printf_attr (Attribute::Error, "  Whatif: No changes were made.\n");
         return Ok(());
     }
 
@@ -377,7 +376,7 @@ fn remove_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError>
         if !selected[i] { continue; }
 
         if what_if {
-            console.printf_attr (Attribute::Information,
+            console.printf_attr (Attribute::Error,
                 &format! ("\n\n  Whatif: The following aliases would be removed from:\n  {}\n\n",
                     profile.path.display()));
             for name in &profile.block.alias_names {
@@ -396,7 +395,7 @@ fn remove_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError>
     }
 
     if what_if {
-        console.printf_attr (Attribute::Information, "\n  Whatif: No changes were made.\n");
+        console.printf_attr (Attribute::Error, "\n  Whatif: No changes were made.\n");
     }
 
     Ok(())

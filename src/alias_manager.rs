@@ -149,7 +149,7 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
     console.printf_attr (Attribute::Information, "\n  Select sub-aliases:\n");
     let pre_render_lines: usize = sub_items.iter().enumerate()
         .map (|(i, _)| if sub_locked[i] { 2 } else { 1 })
-        .sum();
+        .sum::<usize>() + 1; // +1 for guidance line
     for _ in 0..pre_render_lines { console.printf_attr (Attribute::Information, "\n"); }
     console.flush()?;
 
@@ -166,7 +166,7 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
     console.printf_attr (Attribute::Information, "\n");
 
     let (radio_items, default_idx) = build_profile_labels (&locations, console.width() as usize);
-    for _ in 0..radio_items.len() { console.printf_attr (Attribute::Information, "\n"); }
+    for _ in 0..(radio_items.len() + 1) { console.printf_attr (Attribute::Information, "\n"); } // +1 for guidance line
     console.flush()?;
 
     let selected_idx = match tui_widgets::radio_button_list (console, &radio_items, default_idx)? {
@@ -378,7 +378,7 @@ fn remove_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError>
         (label, false)
     }).collect();
 
-    for _ in 0..(check_items.len() * 3) { console.printf_attr (Attribute::Information, "\n"); }
+    for _ in 0..(check_items.len() * 3 + 1) { console.printf_attr (Attribute::Information, "\n"); } // +1 for guidance line
     console.flush()?;
 
     let no_locked = vec![false; check_items.len()];

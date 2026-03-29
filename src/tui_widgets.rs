@@ -217,19 +217,29 @@ pub fn text_input (
 
     console.printf_attr (crate::config::Attribute::Information, &format! ("  {} [", prompt));
     console.printf_attr (crate::config::Attribute::InformationHighlight, default);
-    console.printf_attr (crate::config::Attribute::Information, "]  (Esc to cancel): ");
+    console.printf_attr (crate::config::Attribute::Information, "]: ");
+    console.flush()?;
+
+    // Guidance line below prompt
+    console.printf_attr (crate::config::Attribute::Information, "\n  (Enter=confirm, Esc=cancel)");
+    // Move cursor back up to the input position
+    console.write_raw ("\x1b[1A");
+    // Position cursor at end of prompt line (after ]: )
+    let cursor_col = 2 + prompt.len() + 2 + default.len() + 3;
+    console.write_raw (&format! ("\x1b[{}G", cursor_col + 1));
     console.flush()?;
 
     loop {
         match guard.read_key()? {
             KeyEvent::Enter => {
-                console.printf_attr (crate::config::Attribute::Information, "\n");
+                // Move to guidance line, clear it, then newline
+                console.write_raw ("\n\x1b[2K");
                 console.flush()?;
                 let result = if value.is_empty() { default.to_string() } else { value };
                 return Ok (TuiResult::Confirmed (result));
             }
             KeyEvent::Escape | KeyEvent::CtrlC => {
-                console.printf_attr (crate::config::Attribute::Information, "\n");
+                console.write_raw ("\n\x1b[2K");
                 console.flush()?;
                 return Ok (TuiResult::Cancelled);
             }
@@ -324,10 +334,10 @@ fn render_checkbox_list (
     locked:   &[bool],
     cursor:   usize,
 ) -> Result<(), AppError> {
-    // Count total display lines (items + conflict warning lines for locked items)
+    // Count total display lines (items + conflict warning lines + guidance line)
     let total_lines: usize = items.iter().enumerate()
         .map (|(i, _)| if locked.get (i).copied().unwrap_or (false) { 2 } else { 1 })
-        .sum();
+        .sum::<usize>() + 1; // +1 for guidance line
 
     // Move cursor up to overwrite previous render
     if total_lines > 0 {
@@ -358,6 +368,10 @@ fn render_checkbox_list (
             console.printf_attr (crate::config::Attribute::Error, "          ^ conflicts with PowerShell built-in\n");
         }
     }
+
+    // Guidance line
+    console.write_raw ("\x1b[2K");
+    console.printf_attr (crate::config::Attribute::Information, "  (Space=toggle, Enter=confirm, Esc=cancel)\n");
 
     console.flush()?;
     Ok(())
@@ -425,8 +439,9 @@ fn render_radio_list (
     items:   &[String],
     cursor:  usize,
 ) -> Result<(), AppError> {
-    if items.len() > 0 {
-        console.write_raw (&format! ("\x1b[{}A", items.len()));
+    let total_lines = items.len() + 1; // +1 for guidance line
+    if total_lines > 0 {
+        console.write_raw (&format! ("\x1b[{}A", total_lines));
     }
 
     for (i, label) in items.iter().enumerate() {
@@ -444,6 +459,10 @@ fn render_radio_list (
         }
         console.printf_attr (crate::config::Attribute::Information, &format! (") {}\n", label));
     }
+
+    // Guidance line
+    console.write_raw ("\x1b[2K");
+    console.printf_attr (crate::config::Attribute::Information, "  (Enter=select, Esc=cancel)\n");
 
     console.flush()?;
     Ok(())

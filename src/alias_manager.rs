@@ -139,9 +139,12 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
         let enabled = if sub_locked[idx] {
             false
         } else {
-            existing_block.as_ref()
-                .map (|b| b.alias_names.contains (name))
-                .unwrap_or (true)
+            // Default to ON unless we have an existing block with the SAME root alias
+            // (in which case, preserve the user's previous sub-alias selections)
+            match existing_block.as_ref() {
+                Some (b) if b.root_alias == root_alias => b.alias_names.contains (name),
+                _ => true,
+            }
         };
         (label, enabled)
     }).collect();

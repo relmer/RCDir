@@ -14,13 +14,6 @@ use crate::ehm::AppError;
 
 
 
-const HEADER_MARKER: &str = "#  RCDir Aliases";
-const FOOTER_MARKER: &str = "#  End RCDir Aliases";
-
-
-
-
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 //  detect_powershell_version

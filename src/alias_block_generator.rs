@@ -207,6 +207,50 @@ mod tests {
         assert! (text.contains ("function dd"));
         assert! (text.contains ("function ds"));
         assert! (!text.contains ("function dsb"));  // disabled
+        assert! (text.contains ("'-a:d'"), "-a:d must be single-quoted for PowerShell");
+    }
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  dash_colon_flags_single_quoted
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn dash_colon_flags_single_quoted() {
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", true),
+            ("ds", "-s", true),
+            ("do", "-o:s", true),
+        ]);
+        let lines = generate (&config);
+        let text = lines.join ("\n");
+
+        assert! (text.contains ("'-a:d'"), "-a:d should be single-quoted");
+        assert! (text.contains ("'-o:s'"), "-o:s should be single-quoted");
+        assert! (text.contains ("-s @args"), "-s should NOT be quoted");
+    }
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  slash_colon_flags_not_quoted
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn slash_colon_flags_not_quoted() {
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "/a:d", true),
+        ]);
+        let lines = generate (&config);
+        let text = lines.join ("\n");
+
+        assert! (text.contains ("/a:d @args"), "/a:d should NOT be quoted");
+        assert! (!text.contains ("'/a:d'"), "forward-slash flags must not be quoted");
     }
 
 

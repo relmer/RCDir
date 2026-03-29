@@ -90,12 +90,12 @@ if cl.set_aliases || cl.get_aliases || cl.remove_aliases {
 #
 ################################################################################
 
-function d   { rcdir @args     }
-function dt  { d --tree @args  }
-function dw  { d -w @args      }
-function dd  { d -a:d @args    }
-function ds  { d -s @args      }
-function dsb { d -s -b @args   }
+function d   { rcdir @args      }
+function dt  { d --tree @args   }
+function dw  { d -w @args       }
+function dd  { d '-a:d' @args   }
+function ds  { d -s @args       }
+function dsb { d -s -b @args    }
 
 ################################################################################
 #  End RCDir Aliases

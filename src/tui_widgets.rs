@@ -270,29 +270,36 @@ pub fn text_input (
 pub fn checkbox_list (
     console:  &mut Console,
     items:    &[(String, bool)],
+    locked:   &[bool],
 ) -> Result<TuiResult<Vec<bool>>, AppError> {
 
     // Check for test mode
     if let Some (val) = get_test_input() {
         let states = if val == "all" {
-            vec![true; items.len()]
+            items.iter().enumerate().map (|(i, _)| !locked.get (i).copied().unwrap_or (false)).collect()
         } else {
-            items.iter().map (|(_, checked)| *checked).collect()
+            items.iter().enumerate().map (|(i, (_, checked))| *checked && !locked.get (i).copied().unwrap_or (false)).collect()
         };
         return Ok (TuiResult::Confirmed (states));
     }
 
     let guard = TuiGuard::new()?;
-    let mut selected: Vec<bool> = items.iter().map (|(_, s)| *s).collect();
+    let mut selected: Vec<bool> = items.iter().enumerate()
+        .map (|(i, (_, s))| *s && !locked.get (i).copied().unwrap_or (false))
+        .collect();
     let mut cursor = 0usize;
 
-    render_checkbox_list (console, items, &selected, cursor)?;
+    render_checkbox_list (console, items, &selected, locked, cursor)?;
 
     loop {
         match guard.read_key()? {
             KeyEvent::Up    => { if cursor > 0 { cursor -= 1; } }
             KeyEvent::Down  => { if cursor < items.len() - 1 { cursor += 1; } }
-            KeyEvent::Space => { selected[cursor] = !selected[cursor]; }
+            KeyEvent::Space => {
+                if !locked.get (cursor).copied().unwrap_or (false) {
+                    selected[cursor] = !selected[cursor];
+                }
+            }
             KeyEvent::Enter => {
                 console.printf_attr (crate::config::Attribute::Information, "\n");
                 console.flush()?;
@@ -306,7 +313,7 @@ pub fn checkbox_list (
             _ => continue,
         }
 
-        render_checkbox_list (console, items, &selected, cursor)?;
+        render_checkbox_list (console, items, &selected, locked, cursor)?;
     }
 }
 
@@ -314,14 +321,22 @@ fn render_checkbox_list (
     console:  &mut Console,
     items:    &[(String, bool)],
     selected: &[bool],
+    locked:   &[bool],
     cursor:   usize,
 ) -> Result<(), AppError> {
+    // Count total display lines (items + conflict warning lines for locked items)
+    let total_lines: usize = items.iter().enumerate()
+        .map (|(i, _)| if locked.get (i).copied().unwrap_or (false) { 2 } else { 1 })
+        .sum();
+
     // Move cursor up to overwrite previous render
-    if items.len() > 0 {
-        console.write_raw (&format! ("\x1b[{}A", items.len()));
+    if total_lines > 0 {
+        console.write_raw (&format! ("\x1b[{}A", total_lines));
     }
 
     for (i, (label, _)) in items.iter().enumerate() {
+        let is_locked = locked.get (i).copied().unwrap_or (false);
+
         console.write_raw ("\x1b[2K");
         if i == cursor {
             console.printf_attr (crate::config::Attribute::InformationHighlight, "  \u{276f} ");
@@ -329,12 +344,19 @@ fn render_checkbox_list (
             console.printf_attr (crate::config::Attribute::Information, "    ");
         }
         console.printf_attr (crate::config::Attribute::Information, "[");
-        if selected[i] {
+        if is_locked {
+            console.printf_attr (crate::config::Attribute::Error, "x");
+        } else if selected[i] {
             console.printf_attr (crate::config::Attribute::InformationHighlight, "\u{2713}");
         } else {
             console.printf_attr (crate::config::Attribute::Information, " ");
         }
         console.printf_attr (crate::config::Attribute::Information, &format! ("] {}\n", label));
+
+        if is_locked {
+            console.write_raw ("\x1b[2K");
+            console.printf_attr (crate::config::Attribute::Error, "          ^ conflicts with PowerShell built-in\n");
+        }
     }
 
     console.flush()?;

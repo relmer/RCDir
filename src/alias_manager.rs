@@ -123,40 +123,42 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
         break candidate;
     };
 
-    // Step 2: Sub-aliases
+    // Step 2: Sub-aliases — check for conflicts, lock conflicting ones
     let sub_names: Vec<String> = SUB_ALIAS_DEFS.iter()
         .map (|(suffix, _, _)| format! ("{}{}", root_alias, suffix))
         .collect();
     let max_name_len = sub_names.iter().map (|n| n.len()).max().unwrap_or (0);
 
-    let sub_items: Vec<(String, bool)> = SUB_ALIAS_DEFS.iter().enumerate().map (|(idx, (suffix, flags, desc))| {
+    let sub_locked: Vec<bool> = sub_names.iter()
+        .map (|name| find_alias_conflict (name).is_some())
+        .collect();
+
+    let sub_items: Vec<(String, bool)> = SUB_ALIAS_DEFS.iter().enumerate().map (|(idx, (_suffix, flags, desc))| {
         let name = &sub_names[idx];
         let label = format! ("{:<width$} = {} {:<7} ({})", name, root_alias, flags, desc, width = max_name_len);
-        let enabled = existing_block.as_ref()
-            .map (|b| b.alias_names.contains (name))
-            .unwrap_or (true);
+        let enabled = if sub_locked[idx] {
+            false
+        } else {
+            existing_block.as_ref()
+                .map (|b| b.alias_names.contains (name))
+                .unwrap_or (true)
+        };
         (label, enabled)
     }).collect();
 
     console.printf_attr (Attribute::Information, "\n  Select sub-aliases:\n");
-    for _ in 0..sub_items.len() { console.printf_attr (Attribute::Information, "\n"); }
+    let pre_render_lines: usize = sub_items.iter().enumerate()
+        .map (|(i, _)| if sub_locked[i] { 2 } else { 1 })
+        .sum();
+    for _ in 0..pre_render_lines { console.printf_attr (Attribute::Information, "\n"); }
     console.flush()?;
 
-    let sub_enabled = match tui_widgets::checkbox_list (console, &sub_items)? {
+    let sub_enabled = match tui_widgets::checkbox_list (console, &sub_items, &sub_locked)? {
         TuiResult::Confirmed (states) => states,
         TuiResult::Cancelled           => { print_cancelled (console); return Ok(()); }
     };
 
-    // Step 3: Conflict detection
-    let mut all_names = vec![root_alias.clone()];
-    for (i, (suffix, _, _)) in SUB_ALIAS_DEFS.iter().enumerate() {
-        if sub_enabled[i] {
-            all_names.push (format! ("{}{}", root_alias, suffix));
-        }
-    }
-    check_alias_conflicts (console, &all_names)?;
-
-    // Step 4: Profile location
+    // Step 3: Profile location (conflict detection now handled by locked checkboxes)
     console.printf_attr (Attribute::Information, "\n  Save aliases to:");
     if what_if {
         console.printf_attr (Attribute::Error, " (Whatif: no changes will be written)");
@@ -379,7 +381,8 @@ fn remove_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError>
     for _ in 0..(check_items.len() * 3) { console.printf_attr (Attribute::Information, "\n"); }
     console.flush()?;
 
-    let selected = match tui_widgets::checkbox_list (console, &check_items)? {
+    let no_locked = vec![false; check_items.len()];
+    let selected = match tui_widgets::checkbox_list (console, &check_items, &no_locked)? {
         TuiResult::Confirmed (states) => states,
         TuiResult::Cancelled           => { print_cancelled (console); return Ok(()); }
     };
@@ -474,28 +477,6 @@ fn build_profile_labels (
 
     items.push (format! ("{:<width$}  (not persisted)", "Current session only", width = max_var_len));
     (items, default_idx)
-}
-
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
-//  check_alias_conflicts
-//
-////////////////////////////////////////////////////////////////////////////////
-
-fn check_alias_conflicts (console: &mut Console, names: &[String]) -> Result<(), AppError> {
-    let mut any = false;
-    for name in names {
-        if let Some (conflict) = find_alias_conflict (name) {
-            if !any { console.printf_attr (Attribute::Information, "\n"); any = true; }
-            console.printf_attr (Attribute::Error,
-                &format! ("  Warning: '{}' conflicts with PowerShell alias for '{}'\n", name, conflict));
-        }
-    }
-    Ok(())
 }
 
 

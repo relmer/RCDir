@@ -17,6 +17,7 @@ It's designed as a practical `dir`-style command with useful defaults (color by 
 
 | Version | Highlights                                                     |
 |---------|----------------------------------------------------------------|
+| **5.2** | Interactive PowerShell alias configuration (`--set-aliases`, `--get-aliases`, `--remove-aliases`) |
 | **5.1** | `--Tree` hierarchical directory view with depth control        |
 | **5.0** | Nerd Font file/folder icons (~187 extensions, ~65 directories) |
 

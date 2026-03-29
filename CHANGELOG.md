@@ -4,7 +4,7 @@ All notable changes to RCDir are documented in this file.
 
 ## [Unreleased]
 
-## [5.2.1397] - 2026-03-28
+## [5.2.1398] - 2026-03-28
 
 ### Added
 - `--set-aliases`: interactive TUI wizard for configuring PowerShell aliases

@@ -91,7 +91,8 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
 
     // Header
     let whatif_tag = if what_if { "  (Whatif: preview only, no changes will be made)" } else { "" };
-    console.printf_attr (Attribute::Information, &format! ("\n  RCDir Alias Setup{}\n\n", whatif_tag));
+    console.printf_attr (Attribute::InformationHighlight, &format! ("\n  RCDir Alias Setup{}", whatif_tag));
+    console.printf_attr (Attribute::Information, "\n\n");
     console.printf_attr (Attribute::Information,
         "  This wizard configures PowerShell aliases so you can invoke rcdir\n\
          \x20 with short commands (e.g., 'd' instead of 'rcdir'). Aliases will be\n\

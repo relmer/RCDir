@@ -192,7 +192,9 @@ pub fn text_input (
     let guard = TuiGuard::new()?;
     let mut value = String::new();
 
-    console.printf_attr (crate::config::Attribute::Information, &format! ("  {} [{}]: ", prompt, default));
+    console.printf_attr (crate::config::Attribute::Information, &format! ("  {} [", prompt));
+    console.printf_attr (crate::config::Attribute::InformationHighlight, default);
+    console.printf_attr (crate::config::Attribute::Information, "]: ");
     console.flush()?;
 
     loop {

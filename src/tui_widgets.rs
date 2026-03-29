@@ -204,11 +204,6 @@ pub fn text_input (
     default:      &str,
 ) -> Result<TuiResult<String>, AppError> {
 
-    // Check for test mode
-    if let Some (val) = get_test_input() {
-        return Ok (TuiResult::Confirmed (if val.is_empty() { default.to_string() } else { val }));
-    }
-
     let guard = TuiGuard::new()?;
     let mut value = String::new();
 
@@ -282,16 +277,6 @@ pub fn checkbox_list (
     items:    &[(String, bool)],
     locked:   &[bool],
 ) -> Result<TuiResult<Vec<bool>>, AppError> {
-
-    // Check for test mode
-    if let Some (val) = get_test_input() {
-        let states = if val == "all" {
-            items.iter().enumerate().map (|(i, _)| !locked.get (i).copied().unwrap_or (false)).collect()
-        } else {
-            items.iter().enumerate().map (|(i, (_, checked))| *checked && !locked.get (i).copied().unwrap_or (false)).collect()
-        };
-        return Ok (TuiResult::Confirmed (states));
-    }
 
     let guard = TuiGuard::new()?;
     let mut selected: Vec<bool> = items.iter().enumerate()
@@ -410,17 +395,6 @@ pub fn radio_button_list (
     default:  usize,
 ) -> Result<TuiResult<usize>, AppError> {
 
-    // Check for test mode
-    if let Some (val) = get_test_input() {
-        // Parse by name match or use default
-        for (i, item) in items.iter().enumerate() {
-            if item.contains (&val) {
-                return Ok (TuiResult::Confirmed (i));
-            }
-        }
-        return Ok (TuiResult::Confirmed (default));
-    }
-
     let guard = TuiGuard::new()?;
     let mut cursor = default;
 
@@ -499,12 +473,6 @@ pub fn confirmation_prompt (
     prompt:  &str,
 ) -> Result<TuiResult<bool>, AppError> {
 
-    // Check for test mode
-    if let Some (val) = get_test_input() {
-        let confirmed = val.eq_ignore_ascii_case ("y") || val.eq_ignore_ascii_case ("yes");
-        return Ok (TuiResult::Confirmed (confirmed));
-    }
-
     let guard = TuiGuard::new()?;
     show_cursor();
 
@@ -532,45 +500,4 @@ pub fn confirmation_prompt (
     }
 }
 
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-//
-//  Test input support (FR-090)
-//
-//  When RCDIR_ALIAS_TEST_INPUTS is set, each widget call consumes the next
-//  semicolon-delimited value instead of reading interactive input.
-//
-////////////////////////////////////////////////////////////////////////////////
-
-use std::sync::Mutex;
-use std::sync::OnceLock;
-
-static TEST_INPUTS: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
-static TEST_INITIALIZED: OnceLock<bool> = OnceLock::new();
-
-fn init_test_inputs() {
-    TEST_INITIALIZED.get_or_init (|| {
-        if let Ok (val) = std::env::var ("RCDIR_ALIAS_TEST_INPUTS") {
-            let inputs: Vec<String> = val.split (';').map (|s| s.to_string()).collect();
-            let _ = TEST_INPUTS.set (Mutex::new (inputs));
-        }
-        true
-    });
-}
-
-fn get_test_input() -> Option<String> {
-    init_test_inputs();
-
-    TEST_INPUTS.get().and_then (|mutex| {
-        let mut inputs = mutex.lock().ok()?;
-        if inputs.is_empty() {
-            None
-        } else {
-            Some (inputs.remove (0))
-        }
-    })
-}
 

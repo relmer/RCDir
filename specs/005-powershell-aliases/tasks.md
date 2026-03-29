@@ -189,10 +189,10 @@
 - [X] T065 Implement `RCDIR_ALIAS_TEST_INPUTS` env var support in TUI wizard: when set, skip interactive input and parse semicolon-delimited predetermined answers (FR-090) in `src/tui_widgets.rs` and `src/alias_manager.rs`
 - [X] T066 Ensure test mode is not shown in `--help` or usage output (FR-092)
 - [X] T067 [P] Capture TCDir reference output files for parity scenarios (user-supplied): `--set-aliases --whatif` with default inputs, `--get-aliases` with no aliases, `--get-aliases` with aliases present, `--remove-aliases --whatif`; stored in `tests/fixtures/alias_parity/`
-- [ ] T068 [P] Add parity test `parity_set_aliases_whatif` in `tests/output_parity.rs`: run `rcdir --set-aliases --whatif` with `RCDIR_ALIAS_TEST_INPUTS=d;all;CurrentUserAllHosts;y`, compare output against reference file, filtering tool name (`rcdir`/`tcdir`) and version strings
-- [ ] T069 [P] Add parity test `parity_get_aliases_no_aliases` in `tests/output_parity.rs`: run `rcdir --get-aliases`, compare against reference file for "no aliases found" scenario
-- [ ] T070 [P] Add parity test `parity_remove_aliases_whatif` in `tests/output_parity.rs`: run `rcdir --remove-aliases --whatif` with `RCDIR_ALIAS_TEST_INPUTS`, compare against reference file
-- [ ] T071 Build and verify all parity tests pass
+- [X] T068 [P] Add parity test `parity_set_aliases_whatif` in `tests/output_parity.rs`: run `rcdir --set-aliases --whatif` with `RCDIR_ALIAS_TEST_INPUTS=d;all;CurrentUserAllHosts;y`, compare output against reference file, filtering tool name (`rcdir`/`tcdir`) and version strings
+- [X] T069 [P] Add parity test `parity_get_aliases_no_aliases` in `tests/output_parity.rs`: run `rcdir --get-aliases`, compare against reference file for "no aliases found" scenario
+- [X] T070 [P] Add parity test `parity_remove_aliases_whatif` in `tests/output_parity.rs`: run `rcdir --remove-aliases --whatif` with `RCDIR_ALIAS_TEST_INPUTS`, compare against reference file
+- [X] T071 Build and verify all parity tests pass
 
 ---
 
@@ -202,11 +202,11 @@
 
 **⚠️ CRITICAL**: This phase is a hard gate — the feature branch MUST NOT be merged until all test scaffolding is removed.
 
-- [ ] T072 Remove `RCDIR_ALIAS_TEST_INPUTS` env var support from `src/tui_widgets.rs` and `src/alias_manager.rs` (revert T065)
-- [ ] T073 Remove FR-090/FR-091/FR-092 test mode requirements from spec (mark as completed/removed in this tasks file)
-- [ ] T074 Verify `cargo build --release` produces no references to `RCDIR_ALIAS_TEST_INPUTS` (grep the binary)
-- [ ] T075 Remove parity test fixture files from `tests/fixtures/alias_parity/` and parity test functions (T068–T070) from `tests/output_parity.rs`
-- [ ] T076 Build and verify all remaining tests still pass (no regressions from cleanup)
+- [X] T072 Remove `RCDIR_ALIAS_TEST_INPUTS` env var support from `src/tui_widgets.rs` and `src/alias_manager.rs` (revert T065)
+- [X] T073 Remove FR-090/FR-091/FR-092 test mode requirements from spec (mark as completed/removed in this tasks file)
+- [X] T074 Verify `cargo build --release` produces no references to `RCDIR_ALIAS_TEST_INPUTS` (grep the binary)
+- [X] T075 Remove parity test fixture files from `tests/fixtures/alias_parity/` and parity test functions (T068–T070) from `tests/output_parity.rs`
+- [X] T076 Build and verify all remaining tests still pass (no regressions from cleanup)
 
 ---
 

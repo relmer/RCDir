@@ -217,11 +217,11 @@ During setup, the system checks whether the chosen root alias or sub-aliases con
 - **FR-081**: The tool MUST resolve profile paths for both PowerShell 7+ (`Documents\PowerShell\`) and Windows PowerShell 5.1 (`Documents\WindowsPowerShell\`). For each version, the four profile paths are: Current User Current Host, Current User All Hosts, All Users Current Host, All Users All Hosts
 - **FR-082**: The tool MUST auto-detect the calling PowerShell version by inspecting the parent process image name (`pwsh.exe` → 7+, `powershell.exe` → 5.1). If the parent is neither (e.g., CMD, Explorer), display an error directing the user to run from PowerShell. All alias commands MUST scope profile paths to the detected version only. The "Current Host" profile filename is `Microsoft.PowerShell_profile.ps1` for both `pwsh.exe` and `powershell.exe`
 
-#### Test Mode (Development/CI — temporary scaffolding, removed before merge)
+#### Test Mode (removed — parity validated manually)
 
-- **FR-090**: When the environment variable `RCDIR_ALIAS_TEST_INPUTS` is set, the TUI wizard MUST skip interactive input and instead consume predetermined answers from the variable's value. The format is a semicolon-delimited string of wizard step values (e.g., `d;all;CurrentUserAllHosts;y` for root alias `d`, all sub-aliases enabled, profile scope, confirm). This allows deterministic, non-interactive execution for automated parity testing. **Temporary** — removed after parity tests pass.
-- **FR-091**: Test mode (FR-090) combined with `--whatif` MUST produce identical output to TCDir's equivalent test-mode `--whatif` output, excluding tool name references (`rcdir` vs `tcdir`) and version strings. Reference output files from TCDir are stored in the test fixtures and compared line-by-line. **Temporary** — removed after parity tests pass.
-- **FR-092**: Test mode MUST NOT be documented in user-facing help text (`--help`, usage output). It is a development-only facility. **Temporary** — removed after parity tests pass.
+- ~~**FR-090**~~: Removed. Test input scaffolding was used during development and cleaned up before merge.
+- ~~**FR-091**~~: Removed. Parity validated manually against TCDir reference output.
+- ~~**FR-092**~~: Removed. No test mode code remains in production.
 
 ### Key Entities
 

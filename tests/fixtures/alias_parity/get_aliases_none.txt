@@ -1,9 +1,0 @@
-[2026-03-28 02:55:45]
-C:\Users\relmer\repos\relmer\TCDir\x64\Debug [master ≡]> .\TCDir.exe --get-aliases
-
-  No tcdir aliases found.
-  Run 'tcdir --set-aliases' to configure aliases.
-
-
-[2026-03-28 02:55:51]
-C:\Users\relmer\repos\relmer\TCDir\x64\Debug [master ≡]>

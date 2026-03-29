@@ -30,17 +30,16 @@ const UTF16_BE_BOM: [u8; 2] = [0xFE, 0xFF];
 ////////////////////////////////////////////////////////////////////////////////
 
 pub fn read_profile_file (path: &Path) -> Result<(Vec<String>, bool), AppError> {
-    let bytes = fs::read (path).map_err (|e| AppError::Io (e))?;
+    let bytes = fs::read (path).map_err (AppError::Io)?;
 
     // Check for UTF-16 BOM — refuse to modify
-    if bytes.len() >= 2 {
-        if bytes[0..2] == UTF16_LE_BOM || bytes[0..2] == UTF16_BE_BOM {
+    if bytes.len() >= 2
+        && (bytes[0..2] == UTF16_LE_BOM || bytes[0..2] == UTF16_BE_BOM) {
             return Err (AppError::InvalidArg (format! (
                 "Profile file is UTF-16 encoded: {}\nConvert to UTF-8 before using alias commands.",
                 path.display()
             )));
         }
-    }
 
     // Check for UTF-8 BOM
     let (content, has_bom) = if bytes.len() >= 3 && bytes[0..3] == UTF8_BOM {
@@ -120,20 +119,18 @@ pub fn find_alias_block (lines: &[String]) -> AliasBlock {
     //
 
     if block.found {
-        for k in block.start_line..=block.end_line {
-            let line = &lines[k];
+        for line in lines.iter().take (block.end_line + 1).skip (block.start_line) {
             if line.starts_with ("function ") {
                 block.function_lines.push (line.clone());
 
-                if let Some (rest) = line.strip_prefix ("function ") {
-                    if let Some (pos) = rest.find (' ') {
+                if let Some (rest) = line.strip_prefix ("function ")
+                    && let Some (pos) = rest.find (' ') {
                         let name = rest[..pos].to_string();
                         if block.root_alias.is_empty() {
                             block.root_alias = name.clone();
                         }
                         block.alias_names.push (name);
                     }
-                }
             }
         }
     }
@@ -161,11 +158,10 @@ pub fn write_profile_file (
 ) -> Result<(), AppError> {
 
     // Create parent directories if needed
-    if let Some (parent) = path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all (parent).map_err (|e| AppError::Io (e))?;
+    if let Some (parent) = path.parent()
+        && !parent.exists() {
+            fs::create_dir_all (parent).map_err (AppError::Io)?;
         }
-    }
 
     // Create backup if file exists
     if path.exists() {
@@ -173,18 +169,18 @@ pub fn write_profile_file (
     }
 
     // Write content
-    let mut file = fs::File::create (path).map_err (|e| AppError::Io (e))?;
+    let mut file = fs::File::create (path).map_err (AppError::Io)?;
 
     if has_bom {
-        file.write_all (&UTF8_BOM).map_err (|e| AppError::Io (e))?;
+        file.write_all (&UTF8_BOM).map_err (AppError::Io)?;
     }
 
     let content = lines.join ("\r\n");
-    file.write_all (content.as_bytes()).map_err (|e| AppError::Io (e))?;
+    file.write_all (content.as_bytes()).map_err (AppError::Io)?;
 
     // Ensure trailing newline
     if !content.ends_with ('\n') {
-        file.write_all (b"\r\n").map_err (|e| AppError::Io (e))?;
+        file.write_all (b"\r\n").map_err (AppError::Io)?;
     }
 
     Ok(())
@@ -212,7 +208,7 @@ pub fn create_backup (path: &Path) -> Result<(), AppError> {
     let backup_name = format! ("{}.{}.bak", filename, timestamp);
     let backup_path = path.with_file_name (backup_name);
 
-    fs::copy (path, &backup_path).map_err (|e| AppError::Io (e))?;
+    fs::copy (path, &backup_path).map_err (AppError::Io)?;
     Ok(())
 }
 
@@ -273,7 +269,7 @@ pub fn replace_alias_block (
 
 pub fn append_alias_block (lines: &mut Vec<String>, new_block: &[String]) {
     // Ensure there's a blank line before the block
-    if !lines.is_empty() && !lines.last().map_or (true, |l| l.is_empty()) {
+    if !lines.is_empty() && !lines.last().is_none_or (|l| l.is_empty()) {
         lines.push (String::new());
     }
     lines.extend (new_block.iter().cloned());

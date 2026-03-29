@@ -352,16 +352,15 @@ impl CommandLine {
             ));
         }
 
-        if alias_count == 1 {
-            if tree || self.wide_listing || self.bare_listing || self.recurse
+        if alias_count == 1
+            && (tree || self.wide_listing || self.bare_listing || self.recurse
                 || self.show_owner || self.show_streams || self.sort_order != SortOrder::Default
-                || self.attrs_required != 0 || self.attrs_excluded != 0
+                || self.attrs_required != 0 || self.attrs_excluded != 0)
             {
                 return Err (AppError::InvalidArg (
                     "Alias switches cannot be combined with directory listing switches".into()
                 ));
             }
-        }
 
         if self.what_if && !self.set_aliases && !self.remove_aliases {
             return Err (AppError::InvalidArg (

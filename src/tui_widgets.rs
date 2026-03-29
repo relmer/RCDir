@@ -30,34 +30,34 @@ pub struct TuiGuard {
 impl TuiGuard {
     pub fn new() -> Result<Self, AppError> {
         let stdin = unsafe { GetStdHandle (STD_INPUT_HANDLE) }
-            .map_err (|e| AppError::Win32 (e))?;
+            .map_err (AppError::Win32)?;
 
         // Save original mode
         let mut original_mode = CONSOLE_MODE::default();
         unsafe { GetConsoleMode (stdin, &mut original_mode) }
-            .map_err (|e| AppError::Win32 (e))?;
+            .map_err (AppError::Win32)?;
 
         // Save cursor visibility
         let stdout = unsafe { GetStdHandle (STD_OUTPUT_HANDLE) }
-            .map_err (|e| AppError::Win32 (e))?;
+            .map_err (AppError::Win32)?;
         let mut cursor_info = CONSOLE_CURSOR_INFO::default();
         unsafe { GetConsoleCursorInfo (stdout, &mut cursor_info) }
-            .map_err (|e| AppError::Win32 (e))?;
+            .map_err (AppError::Win32)?;
         let cursor_was_visible = cursor_info.bVisible.as_bool();
 
         // Set raw input mode
         let raw_mode = ENABLE_EXTENDED_FLAGS | ENABLE_WINDOW_INPUT;
         unsafe { SetConsoleMode (stdin, raw_mode) }
-            .map_err (|e| AppError::Win32 (e))?;
+            .map_err (AppError::Win32)?;
 
         // Flush input buffer
         unsafe { FlushConsoleInputBuffer (stdin) }
-            .map_err (|e| AppError::Win32 (e))?;
+            .map_err (AppError::Win32)?;
 
         // Hide cursor
         let hidden_cursor = CONSOLE_CURSOR_INFO { dwSize: cursor_info.dwSize, bVisible: false.into() };
         unsafe { SetConsoleCursorInfo (stdout, &hidden_cursor) }
-            .map_err (|e| AppError::Win32 (e))?;
+            .map_err (AppError::Win32)?;
 
         Ok (TuiGuard { stdin_handle: stdin, original_mode, cursor_was_visible })
     }
@@ -68,7 +68,7 @@ impl TuiGuard {
 
         loop {
             unsafe { ReadConsoleInputW (self.stdin_handle, &mut buf, &mut count) }
-                .map_err (|e| AppError::Win32 (e))?;
+                .map_err (AppError::Win32)?;
 
             if count > 0 {
                 let rec = &buf[0];
@@ -288,7 +288,7 @@ pub fn checkbox_list (
 
     loop {
         match guard.read_key()? {
-            KeyEvent::Up    => { if cursor > 0 { cursor -= 1; } }
+            KeyEvent::Up    => { cursor = cursor.saturating_sub(1); }
             KeyEvent::Down  => { if cursor < items.len() - 1 { cursor += 1; } }
             KeyEvent::Space => {
                 if !locked.get (cursor).copied().unwrap_or (false) {
@@ -402,7 +402,7 @@ pub fn radio_button_list (
 
     loop {
         match guard.read_key()? {
-            KeyEvent::Up    => { if cursor > 0 { cursor -= 1; } }
+            KeyEvent::Up    => { cursor = cursor.saturating_sub(1); }
             KeyEvent::Down  => { if cursor < items.len() - 1 { cursor += 1; } }
             KeyEvent::Enter => {
                 console.printf_attr (crate::config::Attribute::Information, "\n");

@@ -76,7 +76,7 @@ fn get_parent_process_path() -> Result<PathBuf, AppError> {
 
     let process = unsafe {
         OpenProcess (PROCESS_QUERY_LIMITED_INFORMATION, false, parent_pid)
-    }.map_err (|e| AppError::Win32 (e))?;
+    }.map_err (AppError::Win32)?;
 
     let mut buf = vec![0u16; 1024];
     let mut len = buf.len() as u32;
@@ -88,7 +88,7 @@ fn get_parent_process_path() -> Result<PathBuf, AppError> {
             PWSTR (buf.as_mut_ptr()),
             &mut len,
         )
-    }.map_err (|e| AppError::Win32 (e))?;
+    }.map_err (AppError::Win32)?;
 
     let path_str = String::from_utf16_lossy (&buf[..len as usize]);
     Ok (PathBuf::from (path_str))
@@ -109,7 +109,7 @@ fn get_parent_process_path() -> Result<PathBuf, AppError> {
 fn find_parent_pid (pid: u32) -> Result<u32, AppError> {
     let snapshot = unsafe {
         CreateToolhelp32Snapshot (TH32CS_SNAPPROCESS, 0)
-    }.map_err (|e| AppError::Win32 (e))?;
+    }.map_err (AppError::Win32)?;
 
     let mut entry = PROCESSENTRY32W {
         dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
@@ -117,7 +117,7 @@ fn find_parent_pid (pid: u32) -> Result<u32, AppError> {
     };
 
     unsafe { Process32FirstW (snapshot, &mut entry) }
-        .map_err (|e| AppError::Win32 (e))?;
+        .map_err (AppError::Win32)?;
 
     loop {
         if entry.th32ProcessID == pid {
@@ -279,7 +279,7 @@ fn get_documents_folder() -> Result<PathBuf, AppError> {
             KNOWN_FOLDER_FLAG::default(),
             None,
         )
-    }.map_err (|e| AppError::Win32 (e))?;
+    }.map_err (AppError::Win32)?;
 
     let path_str = unsafe { path.to_string() }
         .map_err (|_| AppError::InvalidArg ("Failed to convert Documents path".into()))?;
@@ -330,7 +330,7 @@ fn is_writable (path: &std::path::Path) -> bool {
 
 pub fn resolve_rcdir_invocation() -> Result<String, AppError> {
     let exe_path = std::env::current_exe()
-        .map_err (|e| AppError::Io (e))?;
+        .map_err (AppError::Io)?;
 
     let exe_name = exe_path
         .file_name()

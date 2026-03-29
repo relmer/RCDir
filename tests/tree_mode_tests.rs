@@ -563,7 +563,7 @@ fn tree_switch_conflicts_with_bare() {
     let pattern = format! ("{}\\*", test_dir.display());
 
     let output = Command::new (&exe)
-        .args (&["/Tree", "/b", &pattern])
+        .args (["/Tree", "/b", &pattern])
         .output()
         .expect ("Failed to run rcdir");
 
@@ -598,7 +598,7 @@ fn tree_switch_conflicts_with_wide() {
     let pattern = format! ("{}\\*", test_dir.display());
 
     let output = Command::new (&exe)
-        .args (&["/Tree", "/w", &pattern])
+        .args (["/Tree", "/w", &pattern])
         .output()
         .expect ("Failed to run rcdir");
 

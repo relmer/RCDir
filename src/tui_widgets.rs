@@ -217,7 +217,7 @@ pub fn text_input (
 
     console.printf_attr (crate::config::Attribute::Information, &format! ("  {} [", prompt));
     console.printf_attr (crate::config::Attribute::InformationHighlight, default);
-    console.printf_attr (crate::config::Attribute::Information, "]: ");
+    console.printf_attr (crate::config::Attribute::Information, "]  (Esc to cancel): ");
     console.flush()?;
 
     loop {

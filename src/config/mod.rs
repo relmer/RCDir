@@ -2219,4 +2219,1178 @@ mod tests {
         let config2 = make_config (Some ("Size=BYTES"));
         assert_eq! (config2.size_format, Some (SizeFormat::Bytes));
     }
+
+
+
+
+
+    // =========================================================================
+    //  Color name parsing tests
+    //  Port of: ConfigEnvironmentTests (ParseColorName, ParseColorSpec)
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_name_all_foreground_colors
+    //
+    //  Port of: ParseColorName_AllForegroundColors_ReturnsCorrectValues
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_color_name_all_foreground_colors () {
+        use crate::color::*;
+
+        let cases: &[(&str, u16)] = &[
+            ("Black",        FC_BLACK),
+            ("Blue",         FC_BLUE),
+            ("Green",        FC_GREEN),
+            ("Cyan",         FC_CYAN),
+            ("Red",          FC_RED),
+            ("Magenta",      FC_MAGENTA),
+            ("Brown",        FC_BROWN),
+            ("LightGrey",    FC_LIGHT_GREY),
+            ("DarkGrey",     FC_DARK_GREY),
+            ("LightBlue",    FC_LIGHT_BLUE),
+            ("LightGreen",   FC_LIGHT_GREEN),
+            ("LightCyan",    FC_LIGHT_CYAN),
+            ("LightRed",     FC_LIGHT_RED),
+            ("LightMagenta", FC_LIGHT_MAGENTA),
+            ("Yellow",       FC_YELLOW),
+            ("White",        FC_WHITE),
+        ];
+
+        for (name, expected) in cases {
+            let result = parse_color_name (name, false);
+            assert! (result.is_ok(), "parse_color_name('{}', false) failed", name);
+            assert_eq! (result.unwrap(), *expected, "Foreground color '{}' mismatch", name);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_name_all_background_colors
+    //
+    //  Port of: ParseColorName_AllBackgroundColors_ReturnsCorrectValues
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_color_name_all_background_colors () {
+        use crate::color::*;
+
+        let cases: &[(&str, u16)] = &[
+            ("Black",        BC_BLACK),
+            ("Blue",         BC_BLUE),
+            ("Green",        BC_GREEN),
+            ("Cyan",         BC_CYAN),
+            ("Red",          BC_RED),
+            ("Magenta",      BC_MAGENTA),
+            ("Brown",        BC_BROWN),
+            ("LightGrey",    BC_LIGHT_GREY),
+            ("DarkGrey",     BC_DARK_GREY),
+            ("LightBlue",    BC_LIGHT_BLUE),
+            ("LightGreen",   BC_LIGHT_GREEN),
+            ("LightCyan",    BC_LIGHT_CYAN),
+            ("LightRed",     BC_LIGHT_RED),
+            ("LightMagenta", BC_LIGHT_MAGENTA),
+            ("Yellow",       BC_YELLOW),
+            ("White",        BC_WHITE),
+        ];
+
+        for (name, expected) in cases {
+            let result = parse_color_name (name, true);
+            assert! (result.is_ok(), "parse_color_name('{}', true) failed", name);
+            assert_eq! (result.unwrap(), *expected, "Background color '{}' mismatch", name);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_name_case_insensitive
+    //
+    //  Port of: ParseColorName_CaseInsensitive_ReturnsCorrectValues
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_color_name_case_insensitive () {
+        use crate::color::*;
+
+        assert_eq! (parse_color_name ("red",       false).unwrap(), FC_RED);
+        assert_eq! (parse_color_name ("RED",       false).unwrap(), FC_RED);
+        assert_eq! (parse_color_name ("Red",       false).unwrap(), FC_RED);
+        assert_eq! (parse_color_name ("lightblue", false).unwrap(), FC_LIGHT_BLUE);
+        assert_eq! (parse_color_name ("LIGHTBLUE", false).unwrap(), FC_LIGHT_BLUE);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_name_invalid_returns_error
+    //
+    //  Port of: ParseColorName_InvalidColor_ReturnsZero
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_color_name_invalid_returns_error () {
+        use crate::color::parse_color_name;
+
+        assert! (parse_color_name ("NotAColor", false).is_err());
+        assert! (parse_color_name ("", false).is_err());
+        assert! (parse_color_name ("123", false).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_spec_foreground_only
+    //
+    //  Port of: ParseColorSpec_ForegroundOnly_NoWhitespace_ReturnsCorrectValue
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_color_spec_foreground_only () {
+        use crate::color::*;
+
+        assert_eq! (parse_color_spec ("Yellow").unwrap(), FC_YELLOW);
+        assert_eq! (parse_color_spec ("Red").unwrap(), FC_RED);
+        assert_eq! (parse_color_spec (" Yellow ").unwrap(), FC_YELLOW);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_spec_foreground_and_background
+    //
+    //  Port of: ParseColorSpec_ForegroundAndBackground variants
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_color_spec_foreground_and_background () {
+        use crate::color::*;
+
+        let result = parse_color_spec ("LightCyan on Blue").unwrap();
+        assert_eq! (result, FC_LIGHT_CYAN | BC_BLUE);
+
+        let result2 = parse_color_spec ("  LightCyan  on  Blue  ").unwrap();
+        assert_eq! (result2, FC_LIGHT_CYAN | BC_BLUE);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_color_spec_case_insensitive
+    //
+    //  Port of: ParseColorSpec_CaseInsensitiveOn variants
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_color_spec_case_insensitive () {
+        use crate::color::*;
+
+        assert_eq! (parse_color_spec ("lightcyan on blue").unwrap(), FC_LIGHT_CYAN | BC_BLUE);
+        assert_eq! (parse_color_spec ("LIGHTCYAN ON BLUE").unwrap(), FC_LIGHT_CYAN | BC_BLUE);
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Display attribute override tests — individual attribute chars
+    //  Port of: ProcessDisplayAttributeOverride_*
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_attribute_override_all_valid_chars
+    //
+    //  Port of: ProcessDisplayAttributeOverride_AllValidChars_AllWork
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_attribute_override_all_valid_chars () {
+        use crate::color::*;
+
+        // Each display attribute char maps to an Attribute index
+        let cases: &[(&str, Attribute)] = &[
+            ("D=Yellow",  Attribute::Date),
+            ("T=Yellow",  Attribute::Time),
+            ("S=Yellow",  Attribute::Size),
+            ("R=Yellow",  Attribute::Directory),
+            ("A=Yellow",  Attribute::FileAttributePresent),
+            ("I=Yellow",  Attribute::Information),
+            ("H=Yellow",  Attribute::InformationHighlight),
+            ("E=Yellow",  Attribute::Error),
+            ("F=Yellow",  Attribute::Default),
+            ("O=Yellow",  Attribute::Owner),
+            ("M=Yellow",  Attribute::Stream),
+            ("C=Yellow",  Attribute::TreeConnector),
+        ];
+
+        for (entry, expected_attr) in cases {
+            let config = make_config (Some (entry));
+            assert_eq! (config.attributes[*expected_attr as usize], FC_YELLOW,
+                "Display attribute override for '{}' should set {:?} to Yellow", entry, expected_attr);
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_attribute_override_lowercase_works
+    //
+    //  Port of: ProcessDisplayAttributeOverride_LowercaseChar_WorksCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_attribute_override_lowercase_works () {
+        use crate::color::*;
+
+        let config = make_config (Some ("d=Yellow"));
+        assert_eq! (config.attributes[Attribute::Date as usize], FC_YELLOW);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_attribute_override_with_background
+    //
+    //  Port of: ProcessDisplayAttributeOverride_WithBackground_StoresComplete
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_attribute_override_with_background () {
+        use crate::color::*;
+
+        let config = make_config (Some ("D=LightCyan on Blue"));
+        assert_eq! (config.attributes[Attribute::Date as usize], FC_LIGHT_CYAN | BC_BLUE);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_attribute_override_invalid_char_does_nothing
+    //
+    //  Port of: ProcessDisplayAttributeOverride_InvalidChar_DoesNothing
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_attribute_override_invalid_char_does_nothing () {
+        let config = make_config (Some ("Q=Yellow"));
+        // Q is not a valid display attribute — should be reported as error
+        assert! (!config.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Switch override tests — individual switches
+    //  Port of: ConfigSwitchOverrideTests
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_override_w_variants
+    //
+    //  Port of: ProcessSwitchOverride_W/WUppercase/wLowercase/WMinus
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn switch_override_w_variants () {
+        let cfg_w  = make_config (Some ("W"));
+        assert_eq! (cfg_w.wide_listing, Some (true));
+
+        let cfg_wc = make_config (Some ("w"));
+        assert_eq! (cfg_wc.wide_listing, Some (true));
+
+        let cfg_wd = make_config (Some ("W-"));
+        assert_eq! (cfg_wd.wide_listing, Some (false));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_override_s_sets_recurse
+    //
+    //  Port of: ProcessSwitchOverride_S_SetsRecurse
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn switch_override_s_sets_recurse () {
+        let config = make_config (Some ("S"));
+        assert_eq! (config.recurse, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_override_p_sets_perf_timer
+    //
+    //  Port of: ProcessSwitchOverride_P_SetsPerfTimer
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn switch_override_p_sets_perf_timer () {
+        let config = make_config (Some ("P"));
+        assert_eq! (config.perf_timer, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_override_m_variants
+    //
+    //  Port of: ProcessSwitchOverride_M/MMinus
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn switch_override_m_variants () {
+        let cfg_m  = make_config (Some ("M"));
+        assert_eq! (cfg_m.multi_threaded, Some (true));
+
+        let cfg_md = make_config (Some ("M-"));
+        assert_eq! (cfg_md.multi_threaded, Some (false));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_override_icons_variants
+    //
+    //  Port of: EnvVar_Icons_SetsIconsTrue / EnvVar_IconsDisable_SetsIconsFalse
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn switch_override_icons_variants () {
+        let cfg_on  = make_config (Some ("Icons"));
+        assert_eq! (cfg_on.icons, Some (true));
+
+        let cfg_off = make_config (Some ("Icons-"));
+        assert_eq! (cfg_off.icons, Some (false));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_override_invalid_adds_error
+    //
+    //  Port of: ProcessSwitchOverride_InvalidSwitch_AddsError
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn switch_override_invalid_adds_error () {
+        let config = make_config (Some ("Bogus"));
+        assert! (!config.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  switch_override_slash_dash_prefix_rejected
+    //
+    //  Port of: ProcessColorOverrideEntry_SwitchWithSlash/Dash_RejectsPrefix
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn switch_override_slash_dash_prefix_rejected () {
+        let config_slash = make_config (Some ("/W"));
+        assert! (!config_slash.last_parse_result.errors.is_empty());
+
+        let config_dash = make_config (Some ("-W"));
+        assert! (!config_dash.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  default_switch_values_are_not_set
+    //
+    //  Port of: DefaultSwitchValues_AreNotSet
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn default_switch_values_are_not_set () {
+        let config = make_config (None);
+
+        assert! (config.wide_listing.is_none());
+        assert! (config.bare_listing.is_none());
+        assert! (config.recurse.is_none());
+        assert! (config.perf_timer.is_none());
+        assert! (config.multi_threaded.is_none());
+        assert! (config.show_owner.is_none());
+        assert! (config.show_streams.is_none());
+        assert! (config.icons.is_none());
+        assert! (config.tree.is_none());
+    }
+
+
+
+
+
+    // =========================================================================
+    //  File extension override tests
+    //  Port of: ProcessFileExtensionOverride_*
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  file_extension_override_stores_correctly
+    //
+    //  Port of: ProcessFileExtensionOverride_LowercaseExtension
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn file_extension_override_stores_correctly () {
+        use crate::color::*;
+
+        let config = make_config (Some (".txt=LightGreen"));
+        assert_eq! (config.extension_colors.get (".txt"), Some (&FC_LIGHT_GREEN));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  file_extension_override_uppercase_converts_to_lowercase
+    //
+    //  Port of: ProcessFileExtensionOverride_UppercaseExtension
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn file_extension_override_uppercase_converts_to_lowercase () {
+        use crate::color::*;
+
+        let config = make_config (Some (".TXT=LightGreen"));
+        assert_eq! (config.extension_colors.get (".txt"), Some (&FC_LIGHT_GREEN));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  file_extension_override_multiple_extensions
+    //
+    //  Port of: ProcessFileExtensionOverride_MultipleExtensions_AllStored
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn file_extension_override_multiple_extensions () {
+        use crate::color::*;
+
+        let config = make_config (Some (".txt=LightGreen;.log=Yellow;.md=LightCyan"));
+        assert_eq! (config.extension_colors.get (".txt"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_colors.get (".log"), Some (&FC_YELLOW));
+        assert_eq! (config.extension_colors.get (".md"),  Some (&FC_LIGHT_CYAN));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  file_extension_override_with_background
+    //
+    //  Port of: ProcessFileExtensionOverride_WithBackground_StoresComplete
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn file_extension_override_with_background () {
+        use crate::color::*;
+
+        let config = make_config (Some (".log=Red on Blue"));
+        assert_eq! (config.extension_colors.get (".log"), Some (&(FC_RED | BC_BLUE)));
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Integration scenarios
+    //  Port of: IntegrationTest_*
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  integration_complex_env_string_all_processed
+    //
+    //  Port of: IntegrationTest_ComplexEnvironmentString_AllEntriesProcessed
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn integration_complex_env_string_all_processed () {
+        use crate::color::*;
+
+        let config = make_config (Some (
+            ".py=LightGreen;D=Yellow;W;.rs=LightCyan;Owner"
+        ));
+
+        assert_eq! (config.extension_colors.get (".py"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_colors.get (".rs"), Some (&FC_LIGHT_CYAN));
+        assert_eq! (config.attributes[Attribute::Date as usize], FC_YELLOW);
+        assert_eq! (config.wide_listing, Some (true));
+        assert_eq! (config.show_owner, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  integration_empty_env_var_no_error
+    //
+    //  Port of: IntegrationTest_EmptyEnvironmentVariable_NoError
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn integration_empty_env_var_no_error () {
+        let config = make_config (Some (""));
+        assert! (config.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  integration_trailing_semicolon_handled
+    //
+    //  Port of: IntegrationTest_TrailingSemicolon_HandledCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn integration_trailing_semicolon_handled () {
+        use crate::color::*;
+
+        let config = make_config (Some (".py=LightGreen;"));
+        assert_eq! (config.extension_colors.get (".py"), Some (&FC_LIGHT_GREEN));
+        assert! (config.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  integration_multiple_semicolons_parsed
+    //
+    //  Port of: ApplyUserColorOverrides_MultipleSemicolons_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn integration_multiple_semicolons_parsed () {
+        use crate::color::*;
+
+        let config = make_config (Some (".py=LightGreen;;.rs=Yellow"));
+        assert_eq! (config.extension_colors.get (".py"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_colors.get (".rs"), Some (&FC_YELLOW));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  integration_mixed_attributes_and_extensions
+    //
+    //  Port of: IntegrationTest_MixedExtensionsAndAttributes_AllProcessed
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn integration_mixed_attributes_and_extensions () {
+        use crate::color::*;
+
+        let config = make_config (Some (
+            ".cpp=LightCyan;D=Yellow;.h=LightGreen;T=Red;S=White"
+        ));
+
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_CYAN));
+        assert_eq! (config.extension_colors.get (".h"),   Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.attributes[Attribute::Date as usize], FC_YELLOW);
+        assert_eq! (config.attributes[Attribute::Time as usize], FC_RED);
+        assert_eq! (config.attributes[Attribute::Size as usize], FC_WHITE);
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Icon parsing tests
+    //  Port of: ConfigIconParsingTests
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  icon_hex_four_digits_parses_correctly
+    //
+    //  Port of: ParseIconValue_HexFourDigits_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn icon_hex_four_digits_parses_correctly () {
+        let config = make_config (Some (".cpp=LightCyan,U+E61D"));
+        let icon = config.extension_icons.get (".cpp");
+        assert! (icon.is_some(), "Extension icon should be set");
+        assert_eq! (*icon.unwrap(), '\u{E61D}');
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  icon_hex_five_digits_parses_correctly
+    //
+    //  Port of: ParseIconValue_HexFiveDigits_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn icon_hex_five_digits_parses_correctly () {
+        let config = make_config (Some (".cpp=LightCyan,U+1F4C2"));
+        let icon = config.extension_icons.get (".cpp");
+        assert! (icon.is_some(), "5-digit hex icon should be set");
+        assert_eq! (*icon.unwrap(), '\u{1F4C2}');
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  icon_surrogate_range_rejected
+    //
+    //  Port of: ParseIconValue_SurrogateRange_RejectsD800 / RejectsDFFF
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn icon_surrogate_range_rejected () {
+        let config_d800 = make_config (Some (".cpp=LightCyan,U+D800"));
+        assert! (!config_d800.last_parse_result.errors.is_empty(), "D800 should be rejected");
+
+        let config_dfff = make_config (Some (".cpp=LightCyan,U+DFFF"));
+        assert! (!config_dfff.last_parse_result.errors.is_empty(), "DFFF should be rejected");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  icon_zero_code_point_rejected
+    //
+    //  Port of: ParseIconValue_ZeroCodePoint_Rejects
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn icon_zero_code_point_rejected () {
+        let config = make_config (Some (".cpp=LightCyan,U+0000"));
+        assert! (!config.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  icon_empty_suppressed
+    //
+    //  Port of: ParseIconValue_Empty_Suppressed
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn icon_empty_suppressed () {
+        // Trailing comma with nothing after it → icon suppressed
+        let config = make_config (Some (".cpp=LightCyan,"));
+        let icon = config.extension_icons.get (".cpp");
+        // Icon suppressed means icon is '\0'
+        if let Some (ch) = icon {
+            assert_eq! (*ch, '\0', "Empty icon spec should suppress icon");
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  icon_literal_bmp_glyph_parses_correctly
+    //
+    //  Port of: ParseIconValue_LiteralBmpGlyph_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn icon_literal_bmp_glyph_parses_correctly () {
+        // Single char literal
+        let config = make_config (Some (".py=LightGreen,\u{E606}"));
+        let icon = config.extension_icons.get (".py");
+        assert! (icon.is_some());
+        assert_eq! (*icon.unwrap(), '\u{E606}');
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Display style / icon precedence tests
+    //  Port of: ConfigIconPrecedenceTests
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_plain_directory_returns_directory_color
+    //
+    //  Port of: GetDisplayStyle_PlainDirectory_ReturnsDirectoryColor
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_plain_directory_returns_directory_color () {
+        use crate::color::*;
+        use crate::file_info::FileInfo;
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from ("mydir"),
+            file_attributes: FILE_ATTRIBUTE_DIRECTORY,
+            file_size:       0,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     0,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        assert_eq! (style.text_attr & FC_MASK, FC_LIGHT_BLUE);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_unknown_extension_returns_default_file_icon
+    //
+    //  Port of: GetDisplayStyle_UnknownExtension_ReturnsFileDefault
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_unknown_extension_returns_default_file_icon () {
+        use crate::file_info::FileInfo;
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from ("data.xyz123"),
+            file_attributes: 0x20, // FILE_ATTRIBUTE_ARCHIVE
+            file_size:       100,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     0,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        assert_eq! (style.icon_code_point, Some (crate::icon_mapping::NF_FA_FILE));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_cpp_file_returns_cpp_icon
+    //
+    //  Port of: GetDisplayStyle_NormalMode_CppFileReturnsIcon
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_cpp_file_returns_cpp_icon () {
+        use crate::file_info::FileInfo;
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from ("main.cpp"),
+            file_attributes: 0x20,
+            file_size:       1000,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     0,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        assert! (style.icon_code_point.is_some(), "C++ file should have an icon");
+        assert! (!style.icon_suppressed, "Icon should not be suppressed");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_directory_returns_folder_icon
+    //
+    //  Port of: GetDisplayStyle_DirectoryReturnsDirectoryIcon
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_directory_returns_folder_icon () {
+        use crate::file_info::FileInfo;
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from ("mydir"),
+            file_attributes: FILE_ATTRIBUTE_DIRECTORY,
+            file_size:       0,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     0,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        assert_eq! (style.icon_code_point, Some (crate::icon_mapping::NF_CUSTOM_FOLDER));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_symlink_dir_returns_symlink_icon
+    //
+    //  Port of: GetDisplayStyle_SymlinkDir_ReturnsSymlinkIcon
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_symlink_dir_returns_symlink_icon () {
+        use crate::file_info::{FileInfo, FILE_ATTRIBUTE_REPARSE_POINT, IO_REPARSE_TAG_SYMLINK};
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from ("link"),
+            file_attributes: FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT,
+            file_size:       0,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     IO_REPARSE_TAG_SYMLINK,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        assert_eq! (style.icon_code_point, Some (crate::icon_mapping::NF_COD_FILE_SYMLINK_DIR));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_junction_dir_returns_junction_icon
+    //
+    //  Port of: GetDisplayStyle_JunctionDir_ReturnsJunctionIcon
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_junction_dir_returns_junction_icon () {
+        use crate::file_info::{FileInfo, FILE_ATTRIBUTE_REPARSE_POINT, IO_REPARSE_TAG_MOUNT_POINT};
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from ("mount"),
+            file_attributes: FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT,
+            file_size:       0,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     IO_REPARSE_TAG_MOUNT_POINT,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        assert_eq! (style.icon_code_point, Some (crate::icon_mapping::NF_FA_EXTERNAL_LINK));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_well_known_dir_returns_specific_icon
+    //
+    //  Port of: GetDisplayStyle_WellKnownDir_ReturnsSpecificIcon
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_well_known_dir_returns_specific_icon () {
+        use crate::file_info::FileInfo;
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from (".git"),
+            file_attributes: FILE_ATTRIBUTE_DIRECTORY,
+            file_size:       0,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     0,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        // .git should get a specific (non-default) folder icon
+        assert! (style.icon_code_point.is_some());
+        assert_ne! (style.icon_code_point, Some (crate::icon_mapping::NF_CUSTOM_FOLDER),
+            ".git should get a specific icon, not the default folder icon");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  display_style_hidden_file_attribute_wins_over_extension
+    //
+    //  Port of: GetDisplayStyle_HiddenCppFile_HiddenColorLocks
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn display_style_hidden_file_attribute_wins_over_extension () {
+        use crate::file_info::FileInfo;
+
+        let config = make_config (None);
+        let fi = FileInfo {
+            file_name:       std::ffi::OsString::from ("hidden.cpp"),
+            file_attributes: 0x22, // ARCHIVE | HIDDEN
+            file_size:       1000,
+            creation_time:   0,
+            last_write_time: 0,
+            last_access_time: 0,
+            reparse_tag:     0,
+            streams:         Vec::new(),
+        };
+
+        let style = config.get_display_style_for_file (&fi);
+        // Hidden file attribute color should override the .cpp extension color
+        // (the exact colors don't matter — what matters is the precedence)
+        let fi_normal = FileInfo {
+            file_name:       std::ffi::OsString::from ("normal.cpp"),
+            file_attributes: 0x20, // ARCHIVE only
+            streams:         Vec::new(),
+            ..fi
+        };
+        let style_normal = config.get_display_style_for_file (&fi_normal);
+
+        // Hidden file should have a different color than non-hidden
+        if config.file_attr_colors.contains_key (&0x02) {
+            assert_ne! (style.text_attr, style_normal.text_attr,
+                "Hidden file should have different color than normal .cpp file");
+        }
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Error reporting tests
+    //  Port of: ErrorInfo_*
+    // =========================================================================
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  error_invalid_entry_format_populates
+    //
+    //  Port of: ErrorInfo_InvalidEntryFormat_PopulatesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn error_invalid_entry_format_populates () {
+        let config = make_config (Some ("NoEqualsSign"));
+        assert! (!config.last_parse_result.errors.is_empty());
+        let err = &config.last_parse_result.errors[0];
+        assert! (!err.entry.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  error_invalid_foreground_color_populates
+    //
+    //  Port of: ErrorInfo_InvalidForegroundColor_PopulatesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn error_invalid_foreground_color_populates () {
+        let config = make_config (Some (".txt=NotAColor"));
+        assert! (!config.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  error_invalid_background_populates
+    //
+    //  Port of: ErrorInfo_InvalidBackgroundColor_PopulatesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn error_invalid_background_populates () {
+        let config = make_config (Some (".txt=Red on NotAColor"));
+        assert! (!config.last_parse_result.errors.is_empty());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  format_number_concurrent_calls_independent
+    //
+    //  Port of: FormatNumberWithSeparators_MultipleConcurrentCalls
+    //  Rust strings are independent — no static buffer corruption issue.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn format_number_concurrent_calls_independent () {
+        use crate::results_displayer::format_number_with_separators;
+
+        let s1 = format_number_with_separators (1000);
+        let s2 = format_number_with_separators (2000);
+        let s3 = format_number_with_separators (3000);
+
+        assert_eq! (s1, "1,000");
+        assert_eq! (s2, "2,000");
+        assert_eq! (s3, "3,000");
+    }
 }

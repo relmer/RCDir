@@ -94,6 +94,10 @@ pub struct CommandLine {
     pub max_depth:        i32,
     pub tree_indent:      i32,
     pub size_format:      SizeFormat,
+    pub set_aliases:      bool,
+    pub get_aliases:      bool,
+    pub remove_aliases:   bool,
+    pub what_if:          bool,
 }
 
 
@@ -141,6 +145,10 @@ impl Default for CommandLine {
             max_depth:       0,
             tree_indent:     4,
             size_format:     SizeFormat::Default,
+            set_aliases:     false,
+            get_aliases:     false,
+            remove_aliases:  false,
+            what_if:         false,
         }
     }
 }
@@ -302,6 +310,10 @@ impl CommandLine {
             "depth",
             "treeindent",
             "size",
+            "set-aliases",
+            "get-aliases",
+            "remove-aliases",
+            "whatif",
         ];
 
 
@@ -324,6 +336,38 @@ impl CommandLine {
 
     fn validate_switch_combinations(&self) -> Result<(), AppError> {
         let tree = self.tree.unwrap_or (false);
+
+        //
+        // Alias switches are mutually exclusive with each other
+        // and with all directory listing switches.
+        //
+
+        let alias_count = self.set_aliases as u8
+                        + self.get_aliases as u8
+                        + self.remove_aliases as u8;
+
+        if alias_count > 1 {
+            return Err (AppError::InvalidArg (
+                "--set-aliases, --get-aliases, and --remove-aliases are mutually exclusive".into()
+            ));
+        }
+
+        if alias_count == 1 {
+            if tree || self.wide_listing || self.bare_listing || self.recurse
+                || self.show_owner || self.show_streams || self.sort_order != SortOrder::Default
+                || self.attrs_required != 0 || self.attrs_excluded != 0
+            {
+                return Err (AppError::InvalidArg (
+                    "Alias switches cannot be combined with directory listing switches".into()
+                ));
+            }
+        }
+
+        if self.what_if && !self.set_aliases && !self.remove_aliases {
+            return Err (AppError::InvalidArg (
+                "--whatif is only valid with --set-aliases or --remove-aliases".into()
+            ));
+        }
 
         if tree {
             if self.wide_listing {
@@ -532,6 +576,10 @@ impl CommandLine {
             ("icons-",  |cmd| cmd.icons = Some (false)),
             ("tree",    |cmd| cmd.tree = Some (true)),
             ("tree-",   |cmd| cmd.tree = Some (false)),
+            ("set-aliases",    |cmd| cmd.set_aliases    = true),
+            ("get-aliases",    |cmd| cmd.get_aliases    = true),
+            ("remove-aliases", |cmd| cmd.remove_aliases = true),
+            ("whatif",         |cmd| cmd.what_if        = true),
             #[cfg(debug_assertions)]
             ("debug",   |cmd| cmd.debug = true),
         ];
@@ -1470,6 +1518,114 @@ mod tests {
 
         let cmd2 = CommandLine::parse_from (["--TREE"]).unwrap();
         assert_eq! (cmd2.tree, Some (true));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_alias_switches
+    //
+    //  Verify parsing of --set-aliases, --get-aliases, --remove-aliases.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_alias_switches () {
+        let cmd = CommandLine::parse_from (["--set-aliases"]).unwrap();
+        assert! (cmd.set_aliases);
+        assert! (!cmd.get_aliases);
+        assert! (!cmd.remove_aliases);
+
+        let cmd = CommandLine::parse_from (["--get-aliases"]).unwrap();
+        assert! (cmd.get_aliases);
+        assert! (!cmd.set_aliases);
+
+        let cmd = CommandLine::parse_from (["--remove-aliases"]).unwrap();
+        assert! (cmd.remove_aliases);
+        assert! (!cmd.set_aliases);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_whatif_with_alias_switch
+    //
+    //  Verify --whatif works with --set-aliases and --remove-aliases.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_whatif_with_alias_switch () {
+        let cmd = CommandLine::parse_from (["--set-aliases", "--whatif"]).unwrap();
+        assert! (cmd.set_aliases);
+        assert! (cmd.what_if);
+
+        let cmd = CommandLine::parse_from (["--remove-aliases", "--whatif"]).unwrap();
+        assert! (cmd.remove_aliases);
+        assert! (cmd.what_if);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  alias_switches_mutually_exclusive
+    //
+    //  Verify --set-aliases, --get-aliases, --remove-aliases are mutually
+    //  exclusive.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn alias_switches_mutually_exclusive () {
+        assert! (CommandLine::parse_from (["--set-aliases", "--get-aliases"]).is_err());
+        assert! (CommandLine::parse_from (["--set-aliases", "--remove-aliases"]).is_err());
+        assert! (CommandLine::parse_from (["--get-aliases", "--remove-aliases"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  whatif_without_alias_switch_errors
+    //
+    //  Verify --whatif without an alias switch produces an error.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn whatif_without_alias_switch_errors () {
+        assert! (CommandLine::parse_from (["--whatif"]).is_err());
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  alias_switches_reject_listing_switches
+    //
+    //  Verify alias switches cannot be combined with directory listing
+    //  switches.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn alias_switches_reject_listing_switches () {
+        assert! (CommandLine::parse_from (["--set-aliases", "/w"]).is_err());
+        assert! (CommandLine::parse_from (["--get-aliases", "/s"]).is_err());
+        assert! (CommandLine::parse_from (["--remove-aliases", "--tree"]).is_err());
     }
 
 

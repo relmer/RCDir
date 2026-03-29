@@ -527,6 +527,50 @@ impl Console {
 
     ////////////////////////////////////////////////////////////////////////////
     //
+    //  new_for_testing
+    //
+    //  Create a Console suitable for unit tests — no Win32 handle, no real
+    //  output.  Buffer contents can be inspected via take_test_buffer().
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[cfg(test)]
+    pub(crate) fn new_for_testing (config: Arc<Config>) -> Console {
+        Console {
+            buffer:        String::with_capacity (4096),
+            stdout_handle: windows::Win32::Foundation::HANDLE(std::ptr::null_mut()),
+            is_redirected: true,
+            console_width: 120,
+            config,
+            prev_attr:     None,
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  take_test_buffer
+    //
+    //  Move the current buffer contents out, leaving the buffer empty.
+    //  This prevents the Drop impl from trying to flush stale content.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[cfg(test)]
+    pub(crate) fn take_test_buffer (&mut self) -> String {
+        self.prev_attr = None;
+        std::mem::take (&mut self.buffer)
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
     //  process_multiline_string
     //
     //  Helper: process text with proper color handling for embedded
@@ -589,10 +633,37 @@ impl Drop for Console {
 
 #[cfg(test)]
 mod tests {
-    // Console tests require a real stdout handle (Win32 API calls),
-    // so unit tests here are limited. Integration tests validate output parity.
-
     use super::*;
+
+    /// Helper: create a Console for testing with default-initialized Config.
+    fn make_test_console() -> Console {
+        let mut cfg = Config::new();
+        cfg.initialize (0x07); // LightGrey on Black default
+        Console::new_for_testing (Arc::new (cfg))
+    }
+
+    /// Helper: strip all ANSI SGR escape sequences from text, leaving only
+    /// visible characters.  Used to verify text content independently of
+    /// color changes.
+    fn strip_ansi (s: &str) -> String {
+        let mut result = String::with_capacity (s.len());
+        let mut chars = s.chars().peekable();
+        while let Some (ch) = chars.next() {
+            if ch == '\x1b' {
+                // Skip ESC [ ... m sequence
+                if chars.peek() == Some (&'[') {
+                    chars.next(); // consume '['
+                    while let Some (&c) = chars.peek() {
+                        chars.next();
+                        if c == 'm' { break; }
+                    }
+                }
+            } else {
+                result.push (ch);
+            }
+        }
+        result
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -605,5 +676,440 @@ mod tests {
     #[test]
     fn initial_buffer_size_is_10mb() {
         assert_eq!(INITIAL_BUFFER_SIZE, 10 * 1024 * 1024);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_no_markers_outputs_entire_string
+    //
+    //  Port of: ColorPuts_NoMarkers_OutputsEntireString
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_no_markers_outputs_entire_string() {
+        let mut con = make_test_console();
+        con.color_puts ("Hello, World!");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Hello, World!"));
+        assert! (plain.ends_with ('\n'));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_single_marker_switches_color
+    //
+    //  Port of: ColorPuts_SingleMarker_SwitchesColor
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_single_marker_switches_color() {
+        let mut con = make_test_console();
+        con.color_puts ("Normal {InformationHighlight}Highlighted");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Normal "));
+        assert! (plain.contains ("Highlighted"));
+        // The marker itself must not appear in output
+        assert! (!plain.contains ("{InformationHighlight}"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_multiple_markers_switches_correctly
+    //
+    //  Port of: ColorPuts_MultipleMarkers_SwitchesColorsCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_multiple_markers_switches_correctly() {
+        let mut con = make_test_console();
+        con.color_puts ("{InformationHighlight}-A{Information}  Displays files");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("-A"));
+        assert! (plain.contains ("Displays files"));
+        assert! (!plain.contains ("{InformationHighlight}"));
+        assert! (!plain.contains ("{Information}"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_all_attributes_parses_correctly
+    //
+    //  Port of: ColorPuts_AllAttributes_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_all_attributes_parses_correctly() {
+        let mut con = make_test_console();
+        con.color_puts (
+            "{Default}D\
+             {Date}Dt\
+             {Time}Tm\
+             {FileAttributePresent}Fa\
+             {FileAttributeNotPresent}Fn\
+             {Size}Sz\
+             {Directory}Dr\
+             {Information}In\
+             {InformationHighlight}Hl\
+             {SeparatorLine}Sl\
+             {Error}Er\
+             {Owner}Ow\
+             {Stream}St\
+             {CloudStatusCloudOnly}C1\
+             {CloudStatusLocallyAvailable}C2\
+             {CloudStatusAlwaysLocallyAvailable}C3"
+        );
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("DDtTmFaFnSzDrInHlSlErOwStC1C2C3"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_cloud_status_markers
+    //
+    //  Port of: ColorPuts_CloudStatusMarkers_ApplyCorrectColors
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_cloud_status_markers() {
+        let mut con = make_test_console();
+        con.color_puts (
+            "Cloud: {CloudStatusCloudOnly}\u{25CB}{Information} \
+             {CloudStatusLocallyAvailable}\u{25D0}{Information} \
+             {CloudStatusAlwaysLocallyAvailable}\u{25CF}{Information}"
+        );
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("\u{25CB}"));
+        assert! (plain.contains ("\u{25D0}"));
+        assert! (plain.contains ("\u{25CF}"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_marker_at_start
+    //
+    //  Port of: ColorPuts_MarkerAtStart_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_marker_at_start() {
+        let mut con = make_test_console();
+        con.color_puts ("{InformationHighlight}Highlighted text");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Highlighted text"));
+        assert! (!plain.contains ("{InformationHighlight}"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_marker_at_end
+    //
+    //  Port of: ColorPuts_MarkerAtEnd_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_marker_at_end() {
+        let mut con = make_test_console();
+        con.color_puts ("Text then marker{Default}");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Text then marker"));
+        assert! (!plain.contains ("{Default}"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_consecutive_markers
+    //
+    //  Port of: ColorPuts_ConsecutiveMarkers_ParsesCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_consecutive_markers() {
+        let mut con = make_test_console();
+        con.color_puts ("{Information}{InformationHighlight}Text");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Text"));
+        assert! (!plain.contains ("{Information}"));
+        assert! (!plain.contains ("{InformationHighlight}"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_empty_string_no_output
+    //
+    //  Port of: ColorPuts_EmptyString_NoOutput
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_empty_string_no_output() {
+        let mut con = make_test_console();
+        con.color_puts ("");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        // Only a newline from color_puts
+        assert_eq! (plain.trim(), "");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_only_markers_no_visible_output
+    //
+    //  Port of: ColorPuts_OnlyMarkers_NoVisibleOutput
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_only_markers_no_visible_output() {
+        let mut con = make_test_console();
+        con.color_puts ("{Information}{InformationHighlight}{Default}");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert_eq! (plain.trim(), "");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_multiline_with_markers
+    //
+    //  Port of: ColorPuts_MultilineWithMarkers_HandlesNewlines
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_multiline_with_markers() {
+        let mut con = make_test_console();
+        con.color_puts (
+            "Line 1 {InformationHighlight}highlighted\nLine 2 {Information}normal"
+        );
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Line 1 "));
+        assert! (plain.contains ("highlighted"));
+        assert! (plain.contains ("Line 2 "));
+        assert! (plain.contains ("normal"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_printf_formats_and_processes_markers
+    //
+    //  Port of: ColorPrintf_FormatsAndProcessesMarkers
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_printf_formats_and_processes_markers() {
+        let mut con = make_test_console();
+        con.color_printf (&format! ("{{InformationHighlight}}{}{{Information}} = {}", "Value", 42));
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Value"));
+        assert! (plain.contains ("= 42"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_printf_no_markers_formats_correctly
+    //
+    //  Port of: ColorPrintf_NoMarkers_FormatsCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_printf_no_markers_formats_correctly() {
+        let mut con = make_test_console();
+        con.color_printf (&format! ("Simple format: {}", 123));
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Simple format: 123"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_unclosed_brace_emits_literal
+    //
+    //  Port of: ColorPuts_UnclosedBrace_AssertsInDebug
+    //  In Rust, unclosed braces emit remaining text as literal (no panic).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_unclosed_brace_emits_literal() {
+        let mut con = make_test_console();
+        con.color_puts ("Text with {Information unclosed");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        // Unclosed brace: the remaining text is emitted as literal
+        assert! (plain.contains ("Text with "));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_unknown_marker_emits_literal
+    //
+    //  Port of: ColorPuts_UnknownMarkerName_AssertsInDebug
+    //  In Rust, unknown markers emit '{' as literal and continue parsing.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_unknown_marker_emits_literal() {
+        let mut con = make_test_console();
+        con.color_puts ("Text with {UnknownMarker} here");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Text with "));
+        assert! (plain.contains ("{UnknownMarker}"));
+        assert! (plain.contains ("here"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_puts_valid_marker_does_not_panic
+    //
+    //  Port of: ColorPuts_ValidMarker_DoesNotAssert
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_puts_valid_marker_does_not_panic() {
+        let mut con = make_test_console();
+        con.color_puts ("Text with {InformationHighlight}valid{Information} marker");
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("Text with "));
+        assert! (plain.contains ("valid"));
+        assert! (plain.contains (" marker"));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  color_printf_switch_style_usage
+    //
+    //  Port of: ColorPuts_SwitchStyleUsage_FormatsCorrectly
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn color_printf_switch_style_usage() {
+        let mut con = make_test_console();
+        con.color_puts (
+            "  {InformationHighlight}-A{Information}          Displays files with specified attributes."
+        );
+        let buf = con.take_test_buffer();
+        let plain = strip_ansi (&buf);
+        assert! (plain.contains ("-A"));
+        assert! (plain.contains ("Displays files with specified attributes."));
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_multiline_string_resets_color_at_newlines
+    //
+    //  Verify that process_multiline_string resets to default color before
+    //  each embedded newline and restores the desired color after.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn process_multiline_string_resets_color_at_newlines() {
+        let mut con = make_test_console();
+        // Use a non-default color (bright red = 0x0C)
+        con.process_multiline_string ("line1\nline2", 0x0C);
+        let buf = con.take_test_buffer();
+
+        // Should contain at least two color sequences (one for bright red, one for reset/default)
+        let sgr_count = buf.matches ("\x1b[").count();
+        assert! (sgr_count >= 3, "Expected at least 3 SGR sequences (color, reset at newline, restore), got {}", sgr_count);
+        let plain = strip_ansi (&buf);
+        assert_eq! (plain, "line1\nline2");
     }
 }

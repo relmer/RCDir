@@ -9,7 +9,7 @@
 // rust-analyzer from bumping the build number on every keystroke.
 //
 // Env vars injected:
-//   RCDIR_VERSION_STRING  e.g. "0.1.42"
+//   RCDIR_VERSION_STRING  e.g. "5.1.1134"
 //   RCDIR_VERSION_YEAR    e.g. "2026"
 //   RCDIR_BUILD_TIMESTAMP e.g. "Feb  9 2026 14:30"
 

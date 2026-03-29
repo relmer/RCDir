@@ -381,7 +381,10 @@ fn remove_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError>
         (label, false)
     }).collect();
 
-    for _ in 0..(check_items.len() * 3 + 1) { console.printf_attr (Attribute::Information, "\n"); } // +1 for guidance line
+    let pre_render_lines: usize = check_items.iter()
+        .map (|(label, _)| 1 + label.chars().filter (|&c| c == '\n').count())
+        .sum::<usize>() + 1; // +1 for guidance line
+    for _ in 0..pre_render_lines { console.printf_attr (Attribute::Information, "\n"); }
     console.flush()?;
 
     let no_locked = vec![false; check_items.len()];

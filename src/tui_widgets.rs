@@ -334,9 +334,13 @@ fn render_checkbox_list (
     locked:   &[bool],
     cursor:   usize,
 ) -> Result<(), AppError> {
-    // Count total display lines (items + conflict warning lines + guidance line)
+    // Count total display lines (including multi-line labels, locked warnings, and guidance)
     let total_lines: usize = items.iter().enumerate()
-        .map (|(i, _)| if locked.get (i).copied().unwrap_or (false) { 2 } else { 1 })
+        .map (|(i, (label, _))| {
+            let label_lines = 1 + label.chars().filter (|&c| c == '\n').count();
+            let locked_extra = if locked.get (i).copied().unwrap_or (false) { 1 } else { 0 };
+            label_lines + locked_extra
+        })
         .sum::<usize>() + 1; // +1 for guidance line
 
     // Move cursor up to overwrite previous render
@@ -361,7 +365,16 @@ fn render_checkbox_list (
         } else {
             console.printf_attr (crate::config::Attribute::Information, " ");
         }
-        console.printf_attr (crate::config::Attribute::Information, &format! ("] {}\n", label));
+        // Render label — clear each line for multi-line labels
+        let label_parts: Vec<&str> = label.split ('\n').collect();
+        for (j, part) in label_parts.iter().enumerate() {
+            if j == 0 {
+                console.printf_attr (crate::config::Attribute::Information, &format! ("] {}\n", part));
+            } else {
+                console.write_raw ("\x1b[2K");
+                console.printf_attr (crate::config::Attribute::Information, &format! ("{}\n", part));
+            }
+        }
 
         if is_locked {
             console.write_raw ("\x1b[2K");

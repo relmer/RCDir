@@ -322,9 +322,19 @@ fn render_checkbox_list (
     }
 
     for (i, (label, _)) in items.iter().enumerate() {
-        let focus = if i == cursor { "❯" } else { " " };
-        let check = if selected[i] { "✓" } else { " " };
-        console.write_raw (&format! ("\x1b[2K  {} [{}] {}\n", focus, check, label));
+        console.write_raw ("\x1b[2K");
+        if i == cursor {
+            console.printf_attr (crate::config::Attribute::InformationHighlight, "  \u{276f} ");
+        } else {
+            console.printf_attr (crate::config::Attribute::Information, "    ");
+        }
+        console.printf_attr (crate::config::Attribute::Information, "[");
+        if selected[i] {
+            console.printf_attr (crate::config::Attribute::InformationHighlight, "\u{2713}");
+        } else {
+            console.printf_attr (crate::config::Attribute::Information, " ");
+        }
+        console.printf_attr (crate::config::Attribute::Information, &format! ("] {}\n", label));
     }
 
     console.flush()?;
@@ -398,9 +408,19 @@ fn render_radio_list (
     }
 
     for (i, label) in items.iter().enumerate() {
-        let focus = if i == cursor { "❯" } else { " " };
-        let radio = if i == cursor { "●" } else { " " };
-        console.write_raw (&format! ("\x1b[2K  {} ({}) {}\n", focus, radio, label));
+        console.write_raw ("\x1b[2K");
+        if i == cursor {
+            console.printf_attr (crate::config::Attribute::InformationHighlight, "  \u{276f} ");
+        } else {
+            console.printf_attr (crate::config::Attribute::Information, "    ");
+        }
+        console.printf_attr (crate::config::Attribute::Information, "(");
+        if i == cursor {
+            console.printf_attr (crate::config::Attribute::InformationHighlight, "\u{25cf}");
+        } else {
+            console.printf_attr (crate::config::Attribute::Information, " ");
+        }
+        console.printf_attr (crate::config::Attribute::Information, &format! (") {}\n", label));
     }
 
     console.flush()?;

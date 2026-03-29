@@ -12,7 +12,7 @@ C:\Users\relmer\repos\relmer\TCDir\x64\Debug [master ≡]> .\TCDir.exe --set-ali
   Select sub-aliases:
     [✓] dt  = d --tree  (Tree view)
     [✓] dw  = d -w      (Wide format)
-    [✓] dd  = d -a:d    (Directories only)
+    [✓] dd  = d /a:d    (Directories only)
     [✓] ds  = d -s      (Recursive)
     [✓] dsb = d -s -b   (Recursive bare)
 
@@ -41,7 +41,7 @@ C:\Users\relmer\repos\relmer\TCDir\x64\Debug [master ≡]> .\TCDir.exe --set-ali
   function d   { tcdir @args    }
   function dt  { d --tree @args }
   function dw  { d -w @args     }
-  function dd  { d -a:d @args   }
+  function dd  { d /a:d @args   }
   function ds  { d -s @args     }
   function dsb { d -s -b @args  }
 

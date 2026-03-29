@@ -234,7 +234,7 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
         &format! ("\n  Aliases written to: {}\n\n", target_path.display()));
     console.printf_attr (Attribute::Information,
         "  To activate, open a new PowerShell window or paste this command:\n");
-    console.printf_attr (Attribute::Information,
+    console.printf_attr (Attribute::InformationHighlight,
         &format! ("    . \"{}\"\n", target_path.display()));
     console.printf_attr (Attribute::Information,
         "    ^--- the dot is required; paste the entire line exactly as shown\n");

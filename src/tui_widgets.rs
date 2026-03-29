@@ -452,19 +452,24 @@ pub fn confirmation_prompt (
     }
 
     let guard = TuiGuard::new()?;
+    show_cursor();
 
-    console.printf_attr (crate::config::Attribute::Information, &format! ("  {} [Y/n]: ", prompt));
+    console.printf_attr (crate::config::Attribute::Information, &format! ("  {} [", prompt));
+    console.printf_attr (crate::config::Attribute::InformationHighlight, "Y/n");
+    console.printf_attr (crate::config::Attribute::Information, "]: ");
     console.flush()?;
 
     loop {
         match guard.read_key()? {
             KeyEvent::Enter | KeyEvent::Char ('y') | KeyEvent::Char ('Y') => {
-                console.printf_attr (crate::config::Attribute::Information, "y\n");
+                console.printf_attr (crate::config::Attribute::InformationHighlight, "y");
+                console.printf_attr (crate::config::Attribute::Information, "\n");
                 console.flush()?;
                 return Ok (TuiResult::Confirmed (true));
             }
             KeyEvent::Char ('n') | KeyEvent::Char ('N') | KeyEvent::Escape | KeyEvent::CtrlC => {
-                console.printf_attr (crate::config::Attribute::Information, "n\n");
+                console.printf_attr (crate::config::Attribute::InformationHighlight, "n");
+                console.printf_attr (crate::config::Attribute::Information, "\n");
                 console.flush()?;
                 return Ok (TuiResult::Cancelled);
             }

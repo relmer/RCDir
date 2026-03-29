@@ -127,6 +127,28 @@ impl Drop for TuiGuard {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  show_cursor
+//
+//  Makes the console cursor visible.  Used during text_input so the user
+//  can see the blinking caret.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn show_cursor() {
+    if let Ok (stdout) = unsafe { GetStdHandle (STD_OUTPUT_HANDLE) } {
+        let cursor_info = CONSOLE_CURSOR_INFO { dwSize: 25, bVisible: true.into() };
+        let _ = unsafe { SetConsoleCursorInfo (stdout, &cursor_info) };
+    }
+}
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  KeyEvent
 //
 //  Simplified key event enum for TUI consumption.
@@ -191,6 +213,9 @@ pub fn text_input (
 
     let guard = TuiGuard::new()?;
     let mut value = String::new();
+
+    // Show cursor for text entry (TuiGuard hides it by default)
+    show_cursor();
 
     console.printf_attr (crate::config::Attribute::Information, &format! ("  {} [", prompt));
     console.printf_attr (crate::config::Attribute::InformationHighlight, default);

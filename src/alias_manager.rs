@@ -25,7 +25,7 @@ use crate::tui_widgets::{self, TuiResult};
 const SUB_ALIAS_DEFS: &[(&str, &str, &str)] = &[
     ("t",  "--tree",  "Tree view"),
     ("w",  "-w",      "Wide format"),
-    ("d",  "-a:d",    "Directories only"),
+    ("d",  "/a:d",    "Directories only"),
     ("s",  "-s",      "Recursive"),
     ("sb", "-s -b",   "Recursive bare"),
 ];

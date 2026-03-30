@@ -7,6 +7,7 @@ All notable changes to RCDir are documented in this file.
 ## [5.2.1398] - 2026-03-28
 
 ### Added
+
 - `--set-aliases`: interactive TUI wizard for configuring PowerShell aliases
   - Root alias name (1-4 chars, default `d`) with derived sub-aliases (`dt`, `dw`, `dd`, `ds`, `dsb`)
   - Sub-alias checkbox selection (tree view, wide, directories-only, recursive, recursive bare)
@@ -28,11 +29,13 @@ All notable changes to RCDir are documented in this file.
 - 392 unit tests (up from 288)
 
 ### Changed
+
 - Minor version bump from 5.1 to 5.2
 
 ## [5.1.1132] - 2026-02-28
 
 ### Added
+
 - `/Tree` switch: hierarchical directory tree view with Unicode box-drawing connectors (`├──`, `└──`, `│`)
 - `/Depth=N` switch: limit tree recursion depth (e.g., `/Depth=2` shows two levels)
 - `/TreeIndent=N` switch: configurable indent width per tree level (1–8, default 4)
@@ -47,9 +50,11 @@ All notable changes to RCDir are documented in this file.
 - Comprehensive test suite: 314 tests covering tree connectors, depth limiting, pruning, streams, icons, reparse points, and column alignment
 
 ### Changed
+
 - Minor version bump from 5.0 to 5.1
 
 ### Incompatibilities
+
 - `/Tree` cannot be combined with `/W` (wide), `/B` (bare), `/S` (recurse), or `/Owner`
 - `/Size=Bytes` cannot be used with `/Tree` (tree mode requires fixed-width sizes)
 - `/Depth` and `/TreeIndent` require `/Tree`
@@ -57,30 +62,37 @@ All notable changes to RCDir are documented in this file.
 ## [5.0.1131] - 2026-02-27
 
 ### Added
+
 - Application icon and VERSIONINFO resource block for Windows file properties
 - WinGet package manifest (`relmer.RCDir`) and automated publish step
 
 ### Changed
+
 - Statically link the C runtime (eliminates vcruntime140.dll dependency)
 
 ### Fixed
+
 - WinGet workflow: install wingetcreate before publish step
 - WinGet workflow: use `env` context for PAT secret in step conditions
 
 ## [5.0.1129] - 2026-02-19
+
 Minor fixes.
 
 ### Fixed
+
 - `/O:d-` (and similar trailing characters after the sort key) now correctly produces an error instead of being silently ignored
 - Mapped network drives could resolve UNC path information incorrectly
 - Cloud status help section now shows Nerd Font glyphs when a Nerd Font is active
 
 ## [5.0] - 2026-02-17
+
 Added Nerd Fonts icon support for file extensions and well-known directories.  Port of initial TCDir implementation of this feature.
 
 ### Added
 
 #### Core Listing
+
 - Initial release — complete Rust port of TCDir with full feature parity.
 - Colorized directory listing with headers and footers
 - File size, date/time, and attribute columns
@@ -90,24 +102,29 @@ Added Nerd Fonts icon support for file extensions and well-known directories.  P
 - Page-at-a-time display (`/P` switch)
 
 #### Recursive Listing
+
 - Recursive directory listing (`/S` switch)
 - Multi-threaded producer-consumer architecture with streaming output
 - Single-threaded fallback for single-file mask patterns
 
 #### Display Modes
+
 - Wide listing mode (`/W` switch) with dynamic column layout
 - Bare listing mode (`/B` switch) with full paths
 
 #### Cloud Status
+
 - Cloud sync status visualization for OneDrive, iCloud, etc.
 - Status symbols: ○ (cloud-only), ◐ (local), ● (pinned/always available)
 - Cloud attribute filters: `/A:O` (cloud-only), `/A:L` (local), `/A:V` (pinned)
 
 #### File Metadata
+
 - File owner display (`/Q` switch) via `GetNamedSecurityInfoW`/`LookupAccountSidW`
 - Alternate data streams display (`/R` switch) via `FindFirstStreamW`/`FindNextStreamW`
 
 #### Nerd Font Icons
+
 - ~187 file extension icon mappings aligned with Terminal-Icons default theme
 - ~65 well-known directory icon mappings (Terminal-Icons aligned with intentional deviations)
 - Auto-detection of Nerd Font availability via system font enumeration
@@ -121,6 +138,7 @@ Added Nerd Fonts icon support for file extensions and well-known directories.  P
 - Icon display in `/Config` and `/Env` diagnostics
 
 #### Configuration
+
 - `RCDIR` environment variable for persistent configuration
 - Extension color customization (e.g., `RCDIR=.rs=Cyan`)
 - Background color support (e.g., `RCDIR=.log=White on Blue`)
@@ -130,11 +148,13 @@ Added Nerd Fonts icon support for file extensions and well-known directories.  P
 - Foreground colors matching terminal background auto-corrected with contrasting background
 
 #### Help and Diagnostics
+
 - Colorized help output (`/?` switch)
 - Environment variable help (`/Env` switch) with syntax reference and active overrides
 - Performance timing (`/T` switch)
 
 #### Build and CI
+
 - Dual-target builds: x86_64-pc-windows-msvc and aarch64-pc-windows-msvc
 - Auto-increment build version via `build.rs` and `Version.toml`
 - Release profile: LTO, single codegen unit, symbol stripping

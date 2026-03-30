@@ -163,11 +163,13 @@ fn embed_windows_resources(version: &Version, year: &str) {
 
     let mut res = winres::WindowsResource::new();
     res.set_icon("Assets\\RCDir.ico");
-    res.set("CompanyName", "relmer");
+    res.set_version_info(winres::VersionInfo::FILEVERSION, (version.major as u64) << 48 | (version.minor as u64) << 32 | (version.build as u64) << 16);
+    res.set_version_info(winres::VersionInfo::PRODUCTVERSION, (version.major as u64) << 48 | (version.minor as u64) << 32 | (version.build as u64) << 16);
+    res.set("CompanyName", "Robert Elmer");
     res.set("FileDescription", "Rusticolor Directory");
     res.set("FileVersion", &version_string);
     res.set("InternalName", "RCDir");
-    res.set("LegalCopyright", &format!("Copyright (C) {year} relmer"));
+    res.set("LegalCopyright", &format!("Copyright (C) {year} Robert Elmer"));
     res.set("OriginalFilename", "RCDir.exe");
     res.set("ProductName", "RCDir");
     res.set("ProductVersion", &version_string);

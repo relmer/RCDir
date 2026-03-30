@@ -228,7 +228,7 @@
 
 ### User Story Dependencies
 
-```
+```text
 Phase 2 (Foundation) ──→ US1 (Set Aliases) ──→ US3 (Update Existing)
                      │                     └──→ US5 (WhatIf, set path)
                      │                     └──→ US6 (Conflict Detection)
@@ -250,6 +250,7 @@ Phase 2 (Foundation) ──→ US1 (Set Aliases) ──→ US3 (Update Existing)
 **MVP**: Phase 1 + Phase 2 + Phase 3 (User Story 1) = working `--set-aliases` wizard
 
 **Incremental delivery**:
+
 1. MVP: `--set-aliases` (new profile, first-time setup)
 2. Add `--get-aliases` for visibility (US2)
 3. Add `--remove-aliases` for clean uninstall (US4)

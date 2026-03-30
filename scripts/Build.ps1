@@ -190,8 +190,8 @@ function Invoke-CargoBuild {
 
     # Copy binary to architecture-specific output folder (e.g., ARM64\Release\rcdir.exe)
     if ($exitCode -eq 0) {
-        $profile   = if ($Configuration -eq 'Release') { 'release' } else { 'debug' }
-        $srcDir    = Join-Path $repoRoot 'target' $rustTarget $profile
+        $buildProfile = if ($Configuration -eq 'Release') { 'release' } else { 'debug' }
+        $srcDir    = Join-Path $repoRoot 'target' $rustTarget $buildProfile
         $destDir   = Join-Path $repoRoot $Platform $Configuration
         $srcExe    = Join-Path $srcDir 'rcdir.exe'
 

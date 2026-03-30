@@ -4,7 +4,7 @@
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/). Please format your commit messages as:
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -29,7 +29,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 
 ### Examples
 
-```
+```text
 feat(console): add colorized output support
 fix(display): correct column alignment for wide filenames
 docs: update README with new command-line options
@@ -38,7 +38,7 @@ chore(build): add ARM64 cross-compilation support
 
 ## Building
 
-Requires Rust toolchain. Install from https://rustup.rs/
+Requires Rust toolchain. Install from <https://rustup.rs/>
 
 ```powershell
 # One-time setup — installs Rust toolchain, targets, and components

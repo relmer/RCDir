@@ -17,6 +17,7 @@ It's designed as a practical `dir`-style command with useful defaults (color by 
 
 | Version | Highlights |
 |---------|------------|
+| **5.3** | Config file support (`.rcdirconfig`), `--config` diagnostics, `--settings` merged view |
 | **5.2** | Interactive PowerShell alias configuration (`--set-aliases`, `--get-aliases`, `--remove-aliases`) |
 | **5.1** | `--Tree` hierarchical directory view with depth control |
 | **5.0** | Nerd Font file/folder icons (~187 extensions, ~65 directories) |
@@ -39,6 +40,7 @@ Hat tip to [Chris Kirmse](https://github.com/ckirmse) whose excellent [ZDir](htt
 | ARM64 native binary | ✅ | ✅ | — | — |
 | NTFS alternate data streams | ✅ | ✅ | — | — |
 | Configurable via environment variable | — | ✅ | — | — |
+| Configurable via config file          | — | ✅ | ✅ | ✅ |
 
 ## Installation
 
@@ -111,7 +113,7 @@ Show help:
 
 Basic syntax:
 
-- `RCDIR [drive:][path][filename] [-A[[:]attributes]] [-O[[:]sortorder]] [-T[[:]timefield]] [-S] [-W] [-B] [-P] [-M] [--Env] [--Config] [--Owner] [--Streams] [--Icons] [--Tree] [--Depth=N] [--TreeIndent=N] [--Size=Auto|Bytes]`
+- `RCDIR [drive:][path][filename] [-A[[:]attributes]] [-O[[:]sortorder]] [-T[[:]timefield]] [-S] [-W] [-B] [-P] [-M] [--Env] [--Config] [--Settings] [--Owner] [--Streams] [--Icons] [--Tree] [--Depth=N] [--TreeIndent=N] [--Size=Auto|Bytes]`
 
 Common switches:
 
@@ -128,7 +130,8 @@ Common switches:
 - `-P`: show performance timing information
 - `-M`: enable multi-threaded enumeration (default); use `-M-` to disable
 - `--Env`: show `RCDIR` environment variable help/syntax/current value
-- `--Config`: show current color configuration
+- `--Config`: show config file diagnostics, syntax reference, and parse errors
+- `--Settings`: show current merged configuration for all items and extensions
 - `--Owner`: display file owner (DOMAIN\User format); not allowed with `--Tree`
 - `--Streams`: display NTFS alternate data streams
 - `--Icons`: enable Nerd Font file/folder icons; use `--Icons-` to disable
@@ -208,7 +211,41 @@ Examples:
 
 ## Configuration (RCDIR environment variable)
 
-RCDir supports customizing colors (and default switch behavior) via the `RCDIR` environment variable.
+RCDir supports customizing colors (and default switch behavior) via the `RCDIR` environment variable or a config file.
+
+### Config file (`.rcdirconfig`)
+
+Create `%USERPROFILE%\.rcdirconfig` with one setting per line, using the same syntax as the environment variable. Comments (`#`) and blank lines are supported:
+
+```ini
+# Switches
+Tree
+Icons
+
+# Extension colors
+.cpp = LightGreen
+.h   = Yellow on Blue
+.rs  = LightCyan
+
+# Display attribute colors
+D = LightBlue
+
+# File attribute overrides
+Attr:H = DarkGrey
+
+# Icon overrides
+.go = LightCyan, U+e627
+
+# Parameterized settings
+Depth = 3
+Size = Auto
+```
+
+Precedence: built-in defaults < config file < `RCDIR` env var < CLI flags.
+
+Use `rcdir --config` to see config file diagnostics, and `rcdir --settings` to see the merged configuration from all sources.
+
+### Environment variable
 
 Syntax:
 

@@ -4,6 +4,19 @@ All notable changes to RCDir are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Config file support: place settings in `%USERPROFILE%\.rcdirconfig` instead of the `RCDIR` environment variable
+  - Same entry syntax as the env var, one setting per line
+  - `#` comments (full-line and inline) and blank lines for organization
+  - Precedence: built-in defaults < config file < RCDIR env var < CLI flags
+  - Error reporting with file path, line number, and underline indicator
+  - UTF-8 encoding with BOM handling (UTF-16 rejected with clear error)
+- `--config` repurposed: config file diagnostics, syntax reference, file status, parse errors
+- `--settings` (new): merged configuration tables with three-source column (Default, Config file, Environment)
+- Config file and env var errors displayed in separate groups at end of run
+- 435 unit tests (up from 392)
+
 ## [5.2.1398] - 2026-03-28
 
 ### Added

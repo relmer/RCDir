@@ -3861,4 +3861,66 @@ mod tests {
         let config = make_config_with_file (&["w", "w-"], None);
         assert_eq! (config.wide_listing, Some (false));
     }
+
+
+
+    // =========================================================================
+    //  Phase 6: US4 — Error reporting tests
+    // =========================================================================
+
+    #[test]
+    fn config_file_error_has_line_number() {
+        let config = make_config_with_file (&[".cpp = LightGreen", ".h = InvalidColor"], None);
+        assert! (config.config_file_parse_result.has_issues());
+        let error = &config.config_file_parse_result.errors[0];
+        assert_eq! (error.line_number, 2);
+        assert! (error.message.contains ("Invalid"));
+    }
+
+
+
+    #[test]
+    fn config_file_valid_lines_apply_alongside_errors() {
+        let config = make_config_with_file (&[".cpp = LightGreen", ".h = BadColor", ".rs = Yellow"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_colors.get (".rs"), Some (&FC_YELLOW));
+        assert! (config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_errors_separate_from_env_var_errors() {
+        let config = make_config_with_file (&[".h = BadColor"], Some (".cpp=AlsoBad"));
+        assert! (config.config_file_parse_result.has_issues());
+        assert! (config.last_parse_result.has_issues());
+        // Config file error has line number
+        assert_eq! (config.config_file_parse_result.errors[0].line_number, 1);
+        // Env var error has no line number
+        assert_eq! (config.last_parse_result.errors[0].line_number, 0);
+    }
+
+
+
+    #[test]
+    fn config_file_error_has_source_file_path() {
+        let config = make_config_with_file (&[".h = BadColor"], None);
+        let error = &config.config_file_parse_result.errors[0];
+        assert! (error.source_file_path.contains (".rcdirconfig"));
+    }
+
+
+
+    #[test]
+    fn config_file_multiple_errors_each_has_line_number() {
+        let config = make_config_with_file (&[
+            ".cpp = LightGreen",
+            ".h = Blurple",
+            "D = Ugh",
+            ".rs = Red",
+        ], None);
+        assert_eq! (config.config_file_parse_result.errors.len(), 2);
+        assert_eq! (config.config_file_parse_result.errors[0].line_number, 2);
+        assert_eq! (config.config_file_parse_result.errors[1].line_number, 3);
+    }
 }

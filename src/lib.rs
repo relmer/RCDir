@@ -356,8 +356,8 @@ fn finalize(
     cmd: &command_line::CommandLine,
     timer: &mut perf_timer::PerfTimer,
 ) -> Result<(), AppError> {
-    // Display any RCDIR env var parsing errors at end of output
-    // Port of: TCDir.cpp → DisplayEnvVarIssues at end of wmain()
+    // Display any config file or RCDIR env var parsing errors at end of output
+    usage::display_config_file_issues (console, cmd.switch_prefix, true);
     usage::display_env_var_issues (console, cmd.switch_prefix, true);
     console.flush()?;
 

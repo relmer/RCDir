@@ -606,6 +606,63 @@ fn display_icon_status(console: &mut Console, icons_active: bool) {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  display_config_file_issues
+//
+//  Display validation errors from the config file.
+//  Parallel to display_env_var_issues for the env var.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn display_config_file_issues(console: &mut Console, prefix: char, show_hint: bool) {
+    let long = if prefix == '-' { "--" } else { "/" };
+
+    let config = console.config_arc();
+    let result = config.validate_config_file();
+
+    if !result.has_issues() {
+        return;
+    }
+
+    let hint = if show_hint {
+        format! (" (see {}config for help)", long)
+    } else {
+        String::new()
+    };
+
+    console.color_printf (&format! (
+        "{{Default}}\n{{Error}}There are some problems with your config file{}:\n",
+        hint
+    ));
+
+    for error in &result.errors {
+        if error.line_number > 0 {
+            let prefix_len = 2 + 5 + error.line_number.to_string().len() + 2
+                           + error.message.len() + 5 + error.invalid_text_offset;
+            let underline: String = std::iter::repeat_n (OVERLINE, error.invalid_text.len()).collect();
+
+            console.color_printf (&format! (
+                "{{Error}}  Line {}: {} in \"{}\"\n",
+                error.line_number, error.message, error.entry
+            ));
+            console.color_printf (&format! (
+                "{{Default}}{:>width$}{{Error}}{}\n\n", "", underline, width = prefix_len
+            ));
+        } else {
+            // File-level error (no line number)
+            console.color_printf (&format! (
+                "{{Error}}  {}: {}\n\n",
+                error.entry, error.message
+            ));
+        }
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  display_env_var_issues
 //
 //  Display validation errors from the RCDIR env var.

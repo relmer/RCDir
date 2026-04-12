@@ -206,6 +206,7 @@ impl Attribute {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttributeSource {
     Default,
+    ConfigFile,
     Environment,
 }
 
@@ -231,6 +232,21 @@ pub struct ErrorInfo {
     pub entry:                String,
     pub invalid_text:         String,
     pub invalid_text_offset:  usize,
+    pub source_file_path:     String,
+    pub line_number:          usize,
+}
+
+impl ErrorInfo {
+    pub fn new (message: String, entry: String, invalid_text: String, invalid_text_offset: usize) -> Self {
+        ErrorInfo {
+            message,
+            entry,
+            invalid_text,
+            invalid_text_offset,
+            source_file_path: String::new(),
+            line_number:      0,
+        }
+    }
 }
 
 
@@ -360,6 +376,23 @@ pub struct Config {
 
     /// Validation results from last env var parse
     pub last_parse_result: ValidationResult,
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Config file state
+    pub config_file_path:         String,
+    pub config_file_loaded:       bool,
+    pub config_file_parse_result: ValidationResult,
+
+    /// Switch source tracking (indexed same order as SWITCH_MEMBER_ORDER)
+    pub switch_sources:           [AttributeSource; Self::SWITCH_COUNT],
+    pub max_depth_source:         AttributeSource,
+    pub tree_indent_source:       AttributeSource,
+    pub size_format_source:       AttributeSource,
+
+    /// Active source for the current parse pass (ConfigFile or Environment).
+    /// Set before calling process_color_override_entry to tag all source maps.
+    current_source:               AttributeSource,
 }
 
 
@@ -393,6 +426,23 @@ impl Default for Config {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl Config {
+
+    pub const SWITCH_COUNT: usize = 9;
+
+    /// Ordered member accessors for switch source tracking.
+    /// Index 0..8 maps to: wide_listing, bare_listing, recurse, perf_timer,
+    /// multi_threaded, show_owner, show_streams, icons, tree
+    pub const SWITCH_MEMBER_ORDER: [fn(&Config) -> &Option<bool>; Self::SWITCH_COUNT] = [
+        |c| &c.wide_listing,
+        |c| &c.bare_listing,
+        |c| &c.recurse,
+        |c| &c.perf_timer,
+        |c| &c.multi_threaded,
+        |c| &c.show_owner,
+        |c| &c.show_streams,
+        |c| &c.icons,
+        |c| &c.tree,
+    ];
 
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -435,6 +485,14 @@ impl Config {
             tree_indent:       None,
             size_format:       None,
             last_parse_result: ValidationResult::default(),
+            config_file_path:         String::new(),
+            config_file_loaded:       false,
+            config_file_parse_result: ValidationResult::default(),
+            switch_sources:           [AttributeSource::Default; Self::SWITCH_COUNT],
+            max_depth_source:         AttributeSource::Default,
+            tree_indent_source:       AttributeSource::Default,
+            size_format_source:       AttributeSource::Default,
+            current_source:           AttributeSource::Environment,
         }
     }
 
@@ -455,7 +513,56 @@ impl Config {
     ////////////////////////////////////////////////////////////////////////////
 
     pub fn initialize(&mut self, default_attr: u16) {
-        self.initialize_with_provider(default_attr, &DefaultEnvironmentProvider);
+        self.initialize_with_provider (default_attr, &DefaultEnvironmentProvider);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  load_config_file
+    //
+    //  Read .rcdirconfig from USERPROFILE, parse lines, apply settings.
+    //  Silently skips if USERPROFILE not set or file not found.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn load_config_file (&mut self, _provider: &dyn EnvironmentProvider) {
+        // Stub — implemented in Phase 3
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  validate_config_file
+    //
+    //  Return config file parse errors.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn validate_config_file (&self) -> &ValidationResult {
+        &self.config_file_parse_result
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_config_file_loaded
+    //
+    //  Whether config file was found and loaded successfully.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn is_config_file_loaded (&self) -> bool {
+        self.config_file_loaded
     }
 
 

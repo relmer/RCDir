@@ -3923,4 +3923,75 @@ mod tests {
         assert_eq! (config.config_file_parse_result.errors[0].line_number, 2);
         assert_eq! (config.config_file_parse_result.errors[1].line_number, 3);
     }
+
+
+
+    // =========================================================================
+    //  Phase 8: Edge case tests
+    // =========================================================================
+
+    #[test]
+    fn config_file_empty_file_no_errors() {
+        let config = make_config_with_file (&[], None);
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_only_comments_no_errors() {
+        let config = make_config_with_file (&["# comment 1", "# comment 2", "# comment 3"], None);
+        assert! (!config.config_file_parse_result.has_issues());
+        assert_eq! (config.wide_listing, None);  // No settings applied
+    }
+
+
+
+    #[test]
+    fn config_file_only_blank_lines_no_errors() {
+        let config = make_config_with_file (&["", "  ", "\t", "   \t   "], None);
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_twenty_plus_settings() {
+        let lines = &[
+            ".cpp = LightGreen", ".h = Yellow", ".rs = LightCyan", ".py = LightGreen",
+            ".js = Yellow", ".ts = LightCyan", ".go = LightGreen", ".rb = Red",
+            ".java = Brown", ".cs = LightGreen", ".c = LightCyan", ".sh = Green",
+            ".md = White", ".txt = LightGrey", ".json = Yellow", ".xml = LightRed",
+            ".html = LightRed", ".css = LightBlue", ".sql = LightMagenta", ".yaml = LightGreen",
+            "D = LightCyan", "w",
+        ];
+        let config = make_config_with_file (lines, None);
+        assert! (!config.config_file_parse_result.has_issues());
+        assert_eq! (config.extension_colors.len() >= 20, true);
+        assert_eq! (config.wide_listing, Some (true));
+    }
+
+
+
+    #[test]
+    fn config_file_userprofile_not_set_silent_skip() {
+        let mut config = Config::new();
+        let mock = MockEnvironmentProvider::new();  // No USERPROFILE set
+        config.load_config_file (&mock);
+        assert! (!config.config_file_loaded);
+        assert! (config.config_file_path.is_empty());
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_not_found_silent_skip() {
+        let mut config = Config::new();
+        let mut mock = MockEnvironmentProvider::new();
+        mock.set ("USERPROFILE", "C:\\nonexistent\\path");
+        config.load_config_file (&mock);
+        assert! (!config.config_file_loaded);
+        assert! (!config.config_file_parse_result.has_issues());
+    }
 }

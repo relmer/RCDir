@@ -33,8 +33,10 @@ fn get_tcdir_exe() -> Option<PathBuf> {
         }
     }
 
-    // Default locations based on architecture
+    // Default locations based on architecture (prefer Release for performance)
     let candidates = [
+        r"c:\Users\relmer\source\repos\relmer\TCDir\ARM64\Release\TCDir.exe",
+        r"c:\Users\relmer\source\repos\relmer\TCDir\x64\Release\TCDir.exe",
         r"c:\Users\relmer\source\repos\relmer\TCDir\ARM64\Debug\TCDir.exe",
         r"c:\Users\relmer\source\repos\relmer\TCDir\x64\Debug\TCDir.exe",
     ];

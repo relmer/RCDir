@@ -380,7 +380,7 @@ impl Config {
     ////////////////////////////////////////////////////////////////////////////
 
     fn process_switch_override(&mut self, entry: &str) {
-        for (_idx, &(name, value, accessor)) in SWITCH_MAPPINGS.iter().enumerate() {
+        for &(name, value, accessor) in SWITCH_MAPPINGS {
             if entry.eq_ignore_ascii_case (name) {
                 *accessor (self) = Some (value);
                 // Track switch source — map switch name to source index

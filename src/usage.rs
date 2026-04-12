@@ -48,6 +48,26 @@ fn architecture() -> &'static str {
 
 
 ////////////////////////////////////////////////////////////////////////////////
+//
+//  source_label
+//
+//  Map an AttributeSource to its display label for the source column.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn source_label (source: AttributeSource) -> &'static str {
+    match source {
+        AttributeSource::Default     => "Default",
+        AttributeSource::ConfigFile  => "Config file",
+        AttributeSource::Environment => "Environment",
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub const LINE_HORIZONTAL:    char = '\u{2500}';  // ─ Horizontal line
 pub const COPYRIGHT:          char = '\u{00A9}';  // ©
@@ -401,7 +421,8 @@ Copyright {copy} 2004-{year} by Robert Elmer
   {{InformationHighlight}}{short}P{{Information}}                Displays performance timing information.
   {{InformationHighlight}}{short}M{{Information}}                Enables multi-threaded enumeration (default). Use{{InformationHighlight}}{m_dis}{{Information}} to disable.
   {{InformationHighlight}}{long}Env{{Information}}             {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.
-  {{InformationHighlight}}{long}Config{{Information}}          {lpad}Displays current color configuration for all items and extensions.
+  {{InformationHighlight}}{long}Config{{Information}}          {lpad}Displays config file diagnostics, syntax reference, and parse errors.
+  {{InformationHighlight}}{long}Settings{{Information}}        {lpad}Displays current merged configuration for all items and extensions.
   {{InformationHighlight}}{long}Owner{{Information}}           {lpad}Displays the owner of each file and directory. Not allowed with {{InformationHighlight}}{long}Tree{{Information}}.
   {{InformationHighlight}}{long}Streams{{Information}}         {lpad}Displays alternate data streams (NTFS only).
   {{InformationHighlight}}{long}Icons{{Information}}           {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable.
@@ -537,26 +558,112 @@ display items, file attributes, or file extensions:
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  display_current_configuration
+//  display_config_file_help
 //
-//  Display current color configuration with source tracking.
-//  Port of: CUsage::DisplayCurrentConfiguration
+//  Config file syntax reference, color/icon format reference, example file,
+//  env var override note, file path with load status, parse errors.
+//
+//  Port of: CUsage::DisplayConfigFileHelp
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-pub fn display_current_configuration(console: &mut Console, prefix: char, icons_active: bool) {
-    if !is_env_var_set (RCDIR_ENV_VAR_NAME) {
+pub fn display_config_file_help (console: &mut Console, prefix: char) {
+    let config = console.config_arc();
+    let file_path = config.config_file_path.clone();
+    let display_path = if file_path.is_empty() { "~\\.rcdirconfig".to_string() } else { file_path.clone() };
+
+    console.color_puts (&format! (
+        "\n{{Information}}Create a file at {{InformationHighlight}}{display_path}{{Information}} to set default colors \
+         for display items, file attributes, or file extensions:\n\
+         \x20 One setting per line.  Lines beginning with {{InformationHighlight}}#{{Information}} are comments.\n"
+    ));
+
+    console.color_puts (
+        "  {InformationHighlight}<Switch>{Information}    A command-line switch:\n\
+         \x20                 {InformationHighlight}W{Information}        Wide listing format\n\
+         \x20                 {InformationHighlight}P{Information}        Display performance timing information\n\
+         \x20                 {InformationHighlight}S{Information}        Recurse into subdirectories\n\
+         \x20                 {InformationHighlight}M{Information}        Enables multi-threaded enumeration (default); use {InformationHighlight}M-{Information} to disable\n\
+         \x20                 {InformationHighlight}Owner{Information}    Display file ownership\n\
+         \x20                 {InformationHighlight}Streams{Information}  Display alternate data streams (NTFS)\n\
+         \x20                 {InformationHighlight}Icons{Information}    Enable file-type icons; use {InformationHighlight}Icons-{Information} to disable\n"
+    );
+
+    console.color_puts (
+        "  {InformationHighlight}<Item>{Information}      A display item:\n\
+         \x20                 {InformationHighlight}D{Information}  Date                     {InformationHighlight}T{Information}  Time\n\
+         \x20                 {InformationHighlight}S{Information}  Size                     {InformationHighlight}R{Information}  Directory name\n\
+         \x20                 {InformationHighlight}I{Information}  Information              {InformationHighlight}H{Information}  Information highlight\n\
+         \x20                 {InformationHighlight}E{Information}  Error                    {InformationHighlight}F{Information}  File (default)\n\
+         \x20                 {InformationHighlight}O{Information}  Owner                    {InformationHighlight}M{Information}  Stream\n"
+    );
+
+    display_color_chart (console);
+
+    console.color_puts (
+        "  {InformationHighlight}<Icon>{Information}      An icon code point (requires Nerd Font):\n\
+         \x20                 {InformationHighlight}U+XXXX{Information}   Hex code point (e.g., {InformationHighlight}U+E61D{Information})\n\
+         \x20                 {InformationHighlight}<glyph>{Information}  A literal Nerd Font glyph character\n\
+         \x20                 (empty)  Suppresses the icon for that entry\n"
+    );
+
+    console.color_puts (
+        "  {Information}Example {Default}.rcdirconfig{Information} file:\n\n\
+         \x20 {Default}  # Enable tree view with icons\n\
+         \x20   Tree\n\
+         \x20   Icons\n\n\
+         \x20   # Set colors\n\
+         \x20   D = LightGreen\n\
+         \x20   .cpp = White on Blue,U+E61D\n\
+         \x20   Attr:H = DarkGrey\n"
+    );
+
+    console.color_puts ("  {Information}Environment variable settings override config file settings.");
+    console.puts (Attribute::Default, "");
+
+    // File status
+    if file_path.is_empty() {
+        console.color_puts ("  {Information}Config file: {Default}(not resolved \u{2014} USERPROFILE not set)");
+    } else if config.is_config_file_loaded() {
+        console.color_printf (&format! ("  {{Information}}Config file: {{InformationHighlight}}{} {{Information}}found\n", file_path));
+    } else {
+        console.color_printf (&format! ("  {{Information}}Config file: {{Default}}{} {{Information}}not found\n", file_path));
+    }
+
+    display_config_file_issues (console, prefix, false);
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  display_settings
+//
+//  Display merged configuration tables with three-source column.
+//  Shows "No config file or RCDIR..." when neither source is set.
+//
+//  Port of: CUsage::DisplaySettings
+//
+////////////////////////////////////////////////////////////////////////////////
+
+pub fn display_settings(console: &mut Console, prefix: char, icons_active: bool) {
+    let config = console.config_arc();
+    let has_config = config.is_config_file_loaded();
+    let has_env    = is_env_var_set (RCDIR_ENV_VAR_NAME);
+
+    if !has_config && !has_env {
         console.color_puts (&format! (
-            "\n  {{Information}}{RCDIR_ENV_VAR_NAME}{{Default}} environment variable is not set; showing default configuration."
+            "\n  {{Information}}No config file or {RCDIR_ENV_VAR_NAME} environment variable set; showing defaults."
         ));
     }
 
-    display_icon_status(console, icons_active);
-    display_configuration_table(console, icons_active);
+    display_icon_status (console, icons_active);
+    display_configuration_table (console, icons_active);
 
-    if is_env_var_set(RCDIR_ENV_VAR_NAME) {
-        display_env_var_issues(console, prefix, true);
-    }
+    display_config_file_issues (console, prefix, false);
+    display_env_var_issues (console, prefix, false);
 }
 
 
@@ -748,14 +855,14 @@ fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_s
 
     for info in DISPLAY_ITEM_INFOS {
         let attr = config.attributes[info.attr as usize];
-        let is_env = config.attribute_sources[info.attr as usize] == AttributeSource::Environment;
+        let attr_source = config.attribute_sources[info.attr as usize];
 
-        display_item_and_source(console, info.name, attr, is_env, col_attr, col_source, "", false);
+        display_item_and_source(console, info.name, attr, attr_source, col_attr, col_source, "", false);
     }
 
     for info in CLOUD_STATUS_INFOS {
         let attr = config.attributes[info.attr as usize];
-        let is_env = config.attribute_sources[info.attr as usize] == AttributeSource::Environment;
+        let attr_source = config.attribute_sources[info.attr as usize];
 
         // When icons active, show the NF glyph; otherwise the Unicode circle
         let symbol = if icons_active {
@@ -765,7 +872,7 @@ fn display_attribute_configuration(console: &mut Console, col_attr: usize, col_s
         };
         let display = format!("{} ({})", info.base_name, symbol);
 
-        display_item_and_source(console, &display, attr, is_env, col_attr, col_source, "", false);
+        display_item_and_source(console, &display, attr, attr_source, col_attr, col_source, "", false);
     }
 }
 
@@ -788,10 +895,9 @@ fn display_file_attribute_configuration(console: &mut Console, col_attr: usize, 
 
     for info in FILE_ATTR_INFOS {
         if let Some(style) = config.file_attr_colors.get(&info.attribute) {
-            let is_env = style.source == AttributeSource::Environment;
             let label = format!("{} {}", info.letter, info.name);
 
-            display_item_and_source(console, &label, style.attr, is_env, col_attr, col_source, "", false);
+            display_item_and_source(console, &label, style.attr, style.source, col_attr, col_source, "", false);
         }
     }
 }
@@ -838,8 +944,8 @@ fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col
 
     if columns == 1 {
         for (ext, color) in &extensions {
-            let is_env = config.extension_sources.get(*ext)
-                .is_some_and(|s| *s == AttributeSource::Environment);
+            let ext_source = config.extension_sources.get(*ext)
+                .copied().unwrap_or (AttributeSource::Default);
             let icon_str = if icons_active {
                 config.extension_icons.get(*ext)
                     .filter(|&&c| c != '\0')
@@ -848,7 +954,7 @@ fn display_extension_configuration(console: &mut Console, _col_attr: usize, _col
             } else {
                 String::new()
             };
-            display_item_and_source(console, ext, **color, is_env, max_ext_len, source_width, &icon_str, icons_active);
+            display_item_and_source(console, ext, **color, ext_source, max_ext_len, source_width, &icon_str, icons_active);
         }
     } else {
         display_extension_multi_column(console, &extensions, max_ext_len, source_width, available, columns, icons_active);
@@ -907,12 +1013,12 @@ fn display_extension_multi_column(
             }
 
             let (ext, color) = extensions[idx];
-            let is_env = config.extension_sources.get(ext)
-                .is_some_and(|s| *s == AttributeSource::Environment);
+            let ext_source = config.extension_sources.get(ext)
+                .copied().unwrap_or (AttributeSource::Default);
 
             let bg_attr = config.attributes[Attribute::Default as usize] & BC_MASK;
-            let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
-            let source = if is_env { "Environment" } else { "Default" };
+            let source_attr = bg_attr | if ext_source != AttributeSource::Default { FC_CYAN } else { FC_DARK_GREY };
+            let source = source_label (ext_source);
             let pad = if max_ext_len > ext.len() { max_ext_len - ext.len() } else { 0 };
             let used = icon_width + max_ext_len + 2 + source_width;
 
@@ -1012,12 +1118,12 @@ fn display_well_known_dir_configuration(console: &mut Console, _icons_active: bo
             }
 
             let (name, icon) = entries[idx];
-            let is_env = config.well_known_dir_icon_sources.get (name)
-                .is_some_and (|s| *s == AttributeSource::Environment);
+            let dir_source = config.well_known_dir_icon_sources.get (name)
+                .copied().unwrap_or (AttributeSource::Default);
 
             let bg_attr = config.attributes[Attribute::Default as usize] & BC_MASK;
-            let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
-            let source = if is_env { "Environment" } else { "Default" };
+            let source_attr = bg_attr | if dir_source != AttributeSource::Default { FC_CYAN } else { FC_DARK_GREY };
+            let source = source_label (dir_source);
             let pad = if max_name_len > name.len() { max_name_len - name.len() } else { 0 };
             let used = icon_col_width + max_name_len + 2 + source_width;
 
@@ -1113,12 +1219,12 @@ fn char_display_width(c: char) -> usize {
 ////////////////////////////////////////////////////////////////////////////////
 
 #[allow (clippy::too_many_arguments)]
-fn display_item_and_source(console: &mut Console, item: &str, attr: u16, is_env: bool, col_item: usize, col_source: usize, icon_prefix: &str, show_icons: bool) {
+fn display_item_and_source(console: &mut Console, item: &str, attr: u16, item_source: AttributeSource, col_item: usize, col_source: usize, icon_prefix: &str, show_icons: bool) {
     let config = console.config_arc();
     let default_attr = config.attributes[Attribute::Default as usize];
     let bg_attr = default_attr & BC_MASK;
-    let source_attr = bg_attr | if is_env { FC_CYAN } else { FC_DARK_GREY };
-    let source = if is_env { "Environment" } else { "Default" };
+    let source_attr = bg_attr | if item_source != AttributeSource::Default { FC_CYAN } else { FC_DARK_GREY };
+    let source = source_label (item_source);
     let item_width = display_width(item);
     let pad = col_item.saturating_sub(item_width);
     let visible_attr = ensure_visible_color_attr (attr, default_attr);

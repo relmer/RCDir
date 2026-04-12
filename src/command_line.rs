@@ -83,6 +83,7 @@ pub struct CommandLine {
     pub multi_threaded:   bool,
     pub show_env_help:    bool,
     pub show_config:      bool,
+    pub show_settings:    bool,
     pub show_help:        bool,
     pub switch_prefix:    char,
     pub time_field:       TimeField,
@@ -134,6 +135,7 @@ impl Default for CommandLine {
             multi_threaded:  true,
             show_env_help:   false,
             show_config:     false,
+            show_settings:   false,
             show_help:       false,
             switch_prefix:   '-',
             time_field:      TimeField::Written,
@@ -354,7 +356,9 @@ impl CommandLine {
 
         if alias_count == 1
             && (tree || self.wide_listing || self.bare_listing || self.recurse
-                || self.show_owner || self.show_streams || self.sort_order != SortOrder::Default
+                || self.show_owner || self.show_streams || self.show_env_help
+                || self.show_config || self.show_settings
+                || self.sort_order != SortOrder::Default
                 || self.attrs_required != 0 || self.attrs_excluded != 0)
             {
                 return Err (AppError::InvalidArg (
@@ -567,9 +571,10 @@ impl CommandLine {
         type Setter = fn(&mut CommandLine);
 
         let bool_switches: &[(&str, Setter)] = &[
-            ("env",     |cmd| cmd.show_env_help = true),
-            ("config",  |cmd| cmd.show_config   = true),
-            ("owner",   |cmd| cmd.show_owner    = true),
+            ("env",      |cmd| cmd.show_env_help = true),
+            ("config",   |cmd| cmd.show_config   = true),
+            ("settings", |cmd| cmd.show_settings = true),
+            ("owner",    |cmd| cmd.show_owner    = true),
             ("streams", |cmd| cmd.show_streams  = true),
             ("icons",   |cmd| cmd.icons = Some (true)),
             ("icons-",  |cmd| cmd.icons = Some (false)),
@@ -2219,5 +2224,37 @@ mod tests {
         cmd.apply_config_defaults (&config);
 
         assert_eq! (cmd.size_format, SizeFormat::Bytes);
+    }
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  parse_long_switch_settings_double_dash
+    //
+    //  Verify --settings enables show_settings.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn parse_long_switch_settings_double_dash () {
+        let cmd = CommandLine::parse_from (["--settings"]).unwrap();
+        assert! (cmd.show_settings);
+    }
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  alias_switch_rejects_settings
+    //
+    //  Verify alias switches cannot be combined with --settings.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn alias_switch_rejects_settings () {
+        let result = CommandLine::parse_from (["--set-aliases", "--settings"]);
+        assert! (result.is_err());
     }
 }

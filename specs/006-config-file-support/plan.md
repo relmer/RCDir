@@ -57,18 +57,10 @@ src/
 ├── command_line.rs          # Extended: show_settings bool
 ├── usage.rs                 # Extended: --config repurposed, --settings new, error grouping
 ├── lib.rs                   # Extended: --settings dispatch, config file loaded in initialize()
-
-tests/
-├── config_file_tests.rs     # NEW: config file loading, parsing, precedence, error tests
 ```
 
-**Structure Decision**: No new crates or modules beyond `config/file_reader.rs`. All changes are within the existing `src/` tree. The new file reader module parallels the existing `env_overrides.rs` pattern — a focused module for one config source.
+**Structure Decision**: No new crates or modules beyond `config/file_reader.rs`. All changes are within the existing `src/` tree. The new file reader module parallels the existing `env_overrides.rs` pattern — a focused module for one config source. All tests are inline `#[cfg(test)]` modules within their respective source files.
 
 ## Complexity Tracking
 
 No constitution violations. No complexity justifications needed.
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

@@ -112,7 +112,7 @@
 - [ ] T030 [US4] Update end-of-run error display in `src/lib.rs` `finalize()` — call `display_config_file_issues` before `display_env_var_issues`, skip group if no errors
 - [ ] T031 [US4] Implement file-level I/O error reporting in `Config::load_config_file` — single `ErrorInfo` for open/read/encoding failures in `src/config/mod.rs`
 - [ ] T032 [US4] Write error reporting unit tests in `src/config/mod.rs` — invalid color name shows line number, malformed entry shows line number, valid lines still apply alongside errors
-- [ ] T033 [US4] Write error grouping tests in `src/config/mod.rs` — config file errors separate from env var errors, config file errors listed first
+- [ ] T033 [US4] Write error grouping tests in `src/config/mod.rs` — config file errors separate from env var errors, config file errors listed first, verify `show_hint=true` includes `(see --config for help)` text and `show_hint=false` omits it
 - [ ] T034 [US4] Write I/O error tests in `src/config/file_reader.rs` — file not found returns `NotFound`, permission error returns `IoError`
 - [ ] T035 [US4] Build and run all tests
 

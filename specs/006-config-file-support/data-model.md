@@ -54,7 +54,7 @@ Used in: `attribute_sources`, `extension_sources`, `extension_icon_sources`, `we
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `switch_sources` | `[AttributeSource; SWITCH_COUNT]` | Source tracking for boolean switches (wide, bare, recurse, perf, multi_threaded, owner, streams, icons, tree) |
+| `switch_sources` | `[AttributeSource; SWITCH_COUNT]` | Source tracking for boolean switches. `SWITCH_COUNT = 9`. Indexed in order: wide_listing, bare_listing, recurse, perf_timer, multi_threaded, show_owner, show_streams, icons, tree |
 | `max_depth_source` | `AttributeSource` | Source tracking for the Depth parameter |
 | `tree_indent_source` | `AttributeSource` | Source tracking for the TreeIndent parameter |
 | `size_format_source` | `AttributeSource` | Source tracking for the Size parameter |

@@ -3759,4 +3759,106 @@ mod tests {
         let config = make_config_with_file (&["w"], None);
         assert_eq! (config.switch_sources[0], AttributeSource::ConfigFile);  // index 0 = wide_listing
     }
+
+
+
+    // =========================================================================
+    //  Phase 4: US2 — Precedence tests
+    // =========================================================================
+
+    #[test]
+    fn env_var_overrides_config_file_color() {
+        let config = make_config_with_file (&[".cpp = LightGreen"], Some (".cpp=Yellow"));
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_YELLOW));
+        assert_eq! (config.extension_sources.get (".cpp"), Some (&AttributeSource::Environment));
+    }
+
+
+
+    #[test]
+    fn env_var_overrides_config_file_switch() {
+        let config = make_config_with_file (&["w"], Some ("w-"));
+        assert_eq! (config.wide_listing, Some (false));
+    }
+
+
+
+    #[test]
+    fn non_conflicting_settings_merge() {
+        let config = make_config_with_file (&[".cpp = LightGreen"], Some (".h=Yellow"));
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_colors.get (".h"), Some (&FC_YELLOW));
+        assert_eq! (config.extension_sources.get (".cpp"), Some (&AttributeSource::ConfigFile));
+        assert_eq! (config.extension_sources.get (".h"), Some (&AttributeSource::Environment));
+    }
+
+
+
+    #[test]
+    fn config_file_source_preserved_when_no_env_override() {
+        let config = make_config_with_file (&["D = LightCyan"], None);
+        assert_eq! (config.attribute_sources[Attribute::Date as usize], AttributeSource::ConfigFile);
+    }
+
+
+
+    #[test]
+    fn env_var_source_overwrites_config_file_source() {
+        let config = make_config_with_file (&["D = LightCyan"], Some ("D=Yellow"));
+        assert_eq! (config.attributes[Attribute::Date as usize], FC_YELLOW);
+        assert_eq! (config.attribute_sources[Attribute::Date as usize], AttributeSource::Environment);
+    }
+
+
+
+    // =========================================================================
+    //  Phase 5: US3 — Format rules tests
+    // =========================================================================
+
+    #[test]
+    fn config_file_inline_comment_with_hash_in_middle() {
+        let config = make_config_with_file (&[".cpp = Red # this is green # not this"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+    }
+
+
+
+    #[test]
+    fn config_file_comment_only_line_with_leading_whitespace() {
+        let config = make_config_with_file (&["   # comment", ".cpp = Red"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_whitespace_around_equals() {
+        let config = make_config_with_file (&[".cpp   =   LightGreen"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+    }
+
+
+
+    #[test]
+    fn config_file_tabs_as_whitespace() {
+        let config = make_config_with_file (&["\t.cpp = Red\t"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+    }
+
+
+
+    #[test]
+    fn config_file_duplicate_last_wins() {
+        let config = make_config_with_file (&[".cpp = LightGreen", ".cpp = Yellow"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_YELLOW));
+    }
+
+
+
+    #[test]
+    fn config_file_duplicate_switch_last_wins() {
+        let config = make_config_with_file (&["w", "w-"], None);
+        assert_eq! (config.wide_listing, Some (false));
+    }
 }

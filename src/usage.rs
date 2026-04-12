@@ -308,6 +308,10 @@ fn display_synopsis(console: &mut Console, prefix: char) {
         format!("[{{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}] "),
         format!("[{{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}}]"),
+        format!(" [{{InformationHighlight}}{long}Set-Aliases{{Information}}]"),
+        format!(" [{{InformationHighlight}}{long}Get-Aliases{{Information}}]"),
+        format!(" [{{InformationHighlight}}{long}Remove-Aliases{{Information}}]"),
+        format!(" [{{InformationHighlight}}{long}WhatIf{{Information}}]"),
     ];
 
     #[cfg(debug_assertions)]
@@ -430,7 +434,12 @@ Copyright {copy} 2004-{year} by Robert Elmer
   {{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}         {lpad}Limits tree depth to N levels (requires {{InformationHighlight}}{long}Tree{{Information}}).
   {{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}    {lpad}Sets tree indent width (1-8, default 4; requires {{InformationHighlight}}{long}Tree{{Information}}).
   {{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}} {lpad}File size format: {{InformationHighlight}}Auto{{Information}} = abbreviated (KB/MB/GB), {{InformationHighlight}}Bytes{{Information}} = exact with commas.
-  {lpad}                   Default: {{InformationHighlight}}Auto{{Information}} in tree mode, {{InformationHighlight}}Bytes{{Information}} otherwise."
+  {lpad}                   Default: {{InformationHighlight}}Auto{{Information}} in tree mode, {{InformationHighlight}}Bytes{{Information}} otherwise.
+
+  {{InformationHighlight}}{long}Set-Aliases{{Information}}     {lpad}Interactive wizard to configure PowerShell aliases for rcdir.
+  {{InformationHighlight}}{long}Get-Aliases{{Information}}     {lpad}Display currently configured rcdir aliases and their source locations.
+  {{InformationHighlight}}{long}Remove-Aliases{{Information}}  {lpad}Interactive wizard to remove rcdir aliases from a profile.
+  {{InformationHighlight}}{long}WhatIf{{Information}}          {lpad}Preview changes without modifying files (use with {{InformationHighlight}}{long}Set-Aliases{{Information}} or {{InformationHighlight}}{long}Remove-Aliases{{Information}})."
     ));
 
     #[cfg(debug_assertions)]

@@ -218,7 +218,7 @@ fn display_file_results(
         display_attributes(console, config, file_info.file_attributes);
 
         // File size or <DIR>
-        display_file_size (console, file_info, max_size_width, SizeFormat::Bytes);
+        display_file_size (console, file_info, max_size_width, cmd.resolved_size_format());
 
         // Cloud status symbol
         let cloud = cloud_status::get_cloud_status(file_info.file_attributes, in_sync_root);

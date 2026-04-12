@@ -101,12 +101,28 @@ pub fn run() -> Result<(), AppError> {
 
 fn initialize() -> Result<(command_line::CommandLine, Arc<config::Config>, bool), AppError> {
     let args: Vec<String> = std::env::args().collect();
-    let cmd = command_line::CommandLine::parse_from (args.iter().skip (1))?;
+    let cmd = command_line::CommandLine::parse_from (args.iter().skip (1));
 
+    // Initialize config regardless of parse result — needed for help display
     let mut cfg = config::Config::new();
     cfg.initialize (0x07); // default: LightGrey on Black
 
-    let mut cmd = cmd;
+    let mut cmd = match cmd {
+        Ok (c) => c,
+        Err (e) => {
+            // Show help + error through the console (like TCDir does)
+            let cfg_arc = Arc::new (cfg);
+            let mut console = console::Console::initialize (Arc::clone (&cfg_arc))?;
+            usage::display_usage (&mut console, '-', false);
+            let msg = e.to_string();
+            if !msg.is_empty() {
+                console.printf_attr (config::Attribute::Error, &format! ("\n  {}\n", msg));
+            }
+            console.flush()?;
+            return Err (e);
+        }
+    };
+
     cmd.apply_config_defaults (&cfg);
 
     let icons_active = resolve_icons (&cmd, &cfg);

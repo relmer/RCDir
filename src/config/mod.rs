@@ -5,6 +5,7 @@
 // and switch defaults from the RCDIR environment variable.
 
 mod env_overrides;
+pub mod file_reader;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -205,6 +206,7 @@ impl Attribute {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttributeSource {
     Default,
+    ConfigFile,
     Environment,
 }
 
@@ -230,6 +232,21 @@ pub struct ErrorInfo {
     pub entry:                String,
     pub invalid_text:         String,
     pub invalid_text_offset:  usize,
+    pub source_file_path:     String,
+    pub line_number:          usize,
+}
+
+impl ErrorInfo {
+    pub fn new (message: String, entry: String, invalid_text: String, invalid_text_offset: usize) -> Self {
+        ErrorInfo {
+            message,
+            entry,
+            invalid_text,
+            invalid_text_offset,
+            source_file_path: String::new(),
+            line_number:      0,
+        }
+    }
 }
 
 
@@ -359,6 +376,23 @@ pub struct Config {
 
     /// Validation results from last env var parse
     pub last_parse_result: ValidationResult,
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Config file state
+    pub config_file_path:         String,
+    pub config_file_loaded:       bool,
+    pub config_file_parse_result: ValidationResult,
+
+    /// Switch source tracking (indexed same order as SWITCH_MEMBER_ORDER)
+    pub switch_sources:           [AttributeSource; Self::SWITCH_COUNT],
+    pub max_depth_source:         AttributeSource,
+    pub tree_indent_source:       AttributeSource,
+    pub size_format_source:       AttributeSource,
+
+    /// Active source for the current parse pass (ConfigFile or Environment).
+    /// Set before calling process_color_override_entry to tag all source maps.
+    current_source:               AttributeSource,
 }
 
 
@@ -392,6 +426,23 @@ impl Default for Config {
 ////////////////////////////////////////////////////////////////////////////////
 
 impl Config {
+
+    pub const SWITCH_COUNT: usize = 9;
+
+    /// Ordered member accessors for switch source tracking.
+    /// Index 0..8 maps to: wide_listing, bare_listing, recurse, perf_timer,
+    /// multi_threaded, show_owner, show_streams, icons, tree
+    pub const SWITCH_MEMBER_ORDER: [fn(&Config) -> &Option<bool>; Self::SWITCH_COUNT] = [
+        |c| &c.wide_listing,
+        |c| &c.bare_listing,
+        |c| &c.recurse,
+        |c| &c.perf_timer,
+        |c| &c.multi_threaded,
+        |c| &c.show_owner,
+        |c| &c.show_streams,
+        |c| &c.icons,
+        |c| &c.tree,
+    ];
 
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -434,6 +485,14 @@ impl Config {
             tree_indent:       None,
             size_format:       None,
             last_parse_result: ValidationResult::default(),
+            config_file_path:         String::new(),
+            config_file_loaded:       false,
+            config_file_parse_result: ValidationResult::default(),
+            switch_sources:           [AttributeSource::Default; Self::SWITCH_COUNT],
+            max_depth_source:         AttributeSource::Default,
+            tree_indent_source:       AttributeSource::Default,
+            size_format_source:       AttributeSource::Default,
+            current_source:           AttributeSource::Environment,
         }
     }
 
@@ -454,7 +513,147 @@ impl Config {
     ////////////////////////////////////////////////////////////////////////////
 
     pub fn initialize(&mut self, default_attr: u16) {
-        self.initialize_with_provider(default_attr, &DefaultEnvironmentProvider);
+        self.initialize_with_provider (default_attr, &DefaultEnvironmentProvider);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  load_config_file
+    //
+    //  Read .rcdirconfig from USERPROFILE, parse lines, apply settings.
+    //  Silently skips if USERPROFILE not set or file not found.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn load_config_file (&mut self, provider: &dyn EnvironmentProvider) {
+        self.config_file_parse_result.errors.clear();
+        self.config_file_loaded = false;
+        self.config_file_path.clear();
+
+        // Resolve config file path from USERPROFILE
+        let user_profile = match provider.get_env_var ("USERPROFILE") {
+            Some (v) => v,
+            None => return,
+        };
+
+        self.config_file_path = format! ("{}\\.rcdirconfig", user_profile);
+
+        // Read the file
+        let lines = match file_reader::read_config_file (&self.config_file_path) {
+            Ok (lines) => lines,
+            Err (file_reader::ConfigFileError::NotFound) => return,
+            Err (file_reader::ConfigFileError::IoError (msg)) => {
+                self.config_file_parse_result.errors.push (ErrorInfo::new (
+                    msg,
+                    self.config_file_path.clone(),
+                    String::new(),
+                    0,
+                ));
+                return;
+            }
+            Err (file_reader::ConfigFileError::EncodingError (msg)) => {
+                self.config_file_parse_result.errors.push (ErrorInfo::new (
+                    msg,
+                    self.config_file_path.clone(),
+                    String::new(),
+                    0,
+                ));
+                return;
+            }
+        };
+
+        self.config_file_loaded = true;
+        self.process_config_lines (&lines);
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  process_config_lines
+    //
+    //  Process parsed config file lines: skip blanks/comments, strip inline
+    //  comments, apply settings with ConfigFile source, tag errors with line
+    //  numbers.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn process_config_lines (&mut self, lines: &[String]) {
+        self.current_source = AttributeSource::ConfigFile;
+
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+
+            // Skip empty and whitespace-only lines
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            // Skip full-line comments
+            if trimmed.starts_with ('#') {
+                continue;
+            }
+
+            // Strip inline comment
+            let entry = if let Some (hash_pos) = trimmed.find ('#') {
+                let before = trimmed[..hash_pos].trim();
+                if before.is_empty() {
+                    continue;
+                }
+                before
+            } else {
+                trimmed
+            };
+
+            // Track error count before processing to tag new errors with line number
+            let error_count_before = self.config_file_parse_result.errors.len();
+
+            self.process_color_override_entry (entry);
+
+            // Tag any new errors with config file source and line number
+            for e in error_count_before..self.config_file_parse_result.errors.len() {
+                self.config_file_parse_result.errors[e].source_file_path = self.config_file_path.clone();
+                self.config_file_parse_result.errors[e].line_number = i + 1;  // 1-based
+            }
+        }
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  validate_config_file
+    //
+    //  Return config file parse errors.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn validate_config_file (&self) -> &ValidationResult {
+        &self.config_file_parse_result
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  is_config_file_loaded
+    //
+    //  Whether config file was found and loaded successfully.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn is_config_file_loaded (&self) -> bool {
+        self.config_file_loaded
     }
 
 
@@ -494,6 +693,7 @@ impl Config {
         self.initialize_file_attr_colors();
         self.initialize_extension_icons();
         self.initialize_well_known_dir_icons();
+        self.load_config_file (provider);
         self.apply_user_color_overrides(provider);
     }
 
@@ -3392,5 +3592,406 @@ mod tests {
         assert_eq! (s1, "1,000");
         assert_eq! (s2, "2,000");
         assert_eq! (s3, "3,000");
+    }
+
+
+
+
+
+    // =========================================================================
+    //  Config file tests (Phase 3+)
+    // =========================================================================
+
+    /// Test helper: create a Config with config file lines and optional RCDIR env var.
+    fn make_config_with_file (file_lines: &[&str], env_value: Option<&str>) -> Config {
+        let mut config = Config::new();
+        let mut mock = MockEnvironmentProvider::new();
+        mock.set ("USERPROFILE", "C:\\Users\\test");
+        if let Some (val) = env_value {
+            mock.set (RCDIR_ENV_VAR_NAME, val);
+        }
+
+        // Initialize defaults
+        config.attributes[Attribute::Default as usize] = FC_LIGHT_GREY;
+        config.attributes[Attribute::Date as usize] = FC_RED;
+        config.attributes[Attribute::Time as usize] = FC_BROWN;
+        config.attributes[Attribute::FileAttributePresent as usize] = FC_CYAN;
+        config.attributes[Attribute::FileAttributeNotPresent as usize] = FC_DARK_GREY;
+        config.attributes[Attribute::Size as usize] = FC_YELLOW;
+        config.attributes[Attribute::Directory as usize] = FC_LIGHT_BLUE;
+        config.attributes[Attribute::Information as usize] = FC_CYAN;
+        config.attributes[Attribute::InformationHighlight as usize] = FC_WHITE;
+        config.attributes[Attribute::SeparatorLine as usize] = FC_LIGHT_BLUE;
+        config.attributes[Attribute::Error as usize] = FC_LIGHT_RED;
+        config.attributes[Attribute::Owner as usize] = FC_GREEN;
+        config.attributes[Attribute::Stream as usize] = FC_DARK_GREY;
+        config.attributes[Attribute::CloudStatusCloudOnly as usize] = FC_LIGHT_BLUE;
+        config.attributes[Attribute::CloudStatusLocallyAvailable as usize] = FC_LIGHT_GREEN;
+        config.attributes[Attribute::CloudStatusAlwaysLocallyAvailable as usize] = FC_LIGHT_GREEN;
+        config.attributes[Attribute::TreeConnector as usize] = FC_DARK_GREY;
+        config.initialize_extension_colors();
+        config.initialize_file_attr_colors();
+        config.initialize_extension_icons();
+        config.initialize_well_known_dir_icons();
+
+        // Process config file lines
+        let lines: Vec<String> = file_lines.iter().map (|s| s.to_string()).collect();
+        config.config_file_path = "C:\\Users\\test\\.rcdirconfig".into();
+        config.config_file_loaded = true;
+        config.process_config_lines (&lines);
+
+        // Then env var
+        config.apply_user_color_overrides (&mock);
+
+        config
+    }
+
+
+
+    // --- T019: Config file loading: switches, colors, icons, params ---
+
+    #[test]
+    fn config_file_switch_wide_applied() {
+        let config = make_config_with_file (&["w"], None);
+        assert_eq! (config.wide_listing, Some (true));
+    }
+
+
+
+    #[test]
+    fn config_file_switch_tree_applied() {
+        let config = make_config_with_file (&["tree"], None);
+        assert_eq! (config.tree, Some (true));
+    }
+
+
+
+    #[test]
+    fn config_file_switch_icons_applied() {
+        let config = make_config_with_file (&["icons"], None);
+        assert_eq! (config.icons, Some (true));
+    }
+
+
+
+    #[test]
+    fn config_file_switch_disabled() {
+        let config = make_config_with_file (&["w-"], None);
+        assert_eq! (config.wide_listing, Some (false));
+    }
+
+
+
+    #[test]
+    fn config_file_extension_color_applied() {
+        let config = make_config_with_file (&[".cpp = LightGreen"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_sources.get (".cpp"), Some (&AttributeSource::ConfigFile));
+    }
+
+
+
+    #[test]
+    fn config_file_display_attribute_color_applied() {
+        let config = make_config_with_file (&["D = LightCyan"], None);
+        assert_eq! (config.attributes[Attribute::Date as usize], FC_LIGHT_CYAN);
+        assert_eq! (config.attribute_sources[Attribute::Date as usize], AttributeSource::ConfigFile);
+    }
+
+
+
+    #[test]
+    fn config_file_depth_parameter_applied() {
+        let config = make_config_with_file (&["Depth = 3"], None);
+        assert_eq! (config.max_depth, Some (3));
+        assert_eq! (config.max_depth_source, AttributeSource::ConfigFile);
+    }
+
+
+
+    #[test]
+    fn config_file_size_auto_applied() {
+        let config = make_config_with_file (&["Size = Auto"], None);
+        assert_eq! (config.size_format, Some (SizeFormat::Auto));
+        assert_eq! (config.size_format_source, AttributeSource::ConfigFile);
+    }
+
+
+
+    // --- T020: Comment and blank line tests ---
+
+    #[test]
+    fn config_file_comment_lines_skipped() {
+        let config = make_config_with_file (&["# This is a comment", ".cpp = Red"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_inline_comment_stripped() {
+        let config = make_config_with_file (&[".cpp = LightGreen # my favorite"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+    }
+
+
+
+    #[test]
+    fn config_file_blank_lines_skipped() {
+        let config = make_config_with_file (&["", "  ", ".cpp = Red", "", ".h = Yellow"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+        assert_eq! (config.extension_colors.get (".h"), Some (&FC_YELLOW));
+    }
+
+
+
+    #[test]
+    fn config_file_whitespace_trimmed() {
+        let config = make_config_with_file (&["   .cpp = Red   "], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+    }
+
+
+
+    #[test]
+    fn config_file_switch_source_tracked() {
+        let config = make_config_with_file (&["w"], None);
+        assert_eq! (config.switch_sources[0], AttributeSource::ConfigFile);  // index 0 = wide_listing
+    }
+
+
+
+    // =========================================================================
+    //  Phase 4: US2 — Precedence tests
+    // =========================================================================
+
+    #[test]
+    fn env_var_overrides_config_file_color() {
+        let config = make_config_with_file (&[".cpp = LightGreen"], Some (".cpp=Yellow"));
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_YELLOW));
+        assert_eq! (config.extension_sources.get (".cpp"), Some (&AttributeSource::Environment));
+    }
+
+
+
+    #[test]
+    fn env_var_overrides_config_file_switch() {
+        let config = make_config_with_file (&["w"], Some ("w-"));
+        assert_eq! (config.wide_listing, Some (false));
+    }
+
+
+
+    #[test]
+    fn non_conflicting_settings_merge() {
+        let config = make_config_with_file (&[".cpp = LightGreen"], Some (".h=Yellow"));
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_colors.get (".h"), Some (&FC_YELLOW));
+        assert_eq! (config.extension_sources.get (".cpp"), Some (&AttributeSource::ConfigFile));
+        assert_eq! (config.extension_sources.get (".h"), Some (&AttributeSource::Environment));
+    }
+
+
+
+    #[test]
+    fn config_file_source_preserved_when_no_env_override() {
+        let config = make_config_with_file (&["D = LightCyan"], None);
+        assert_eq! (config.attribute_sources[Attribute::Date as usize], AttributeSource::ConfigFile);
+    }
+
+
+
+    #[test]
+    fn env_var_source_overwrites_config_file_source() {
+        let config = make_config_with_file (&["D = LightCyan"], Some ("D=Yellow"));
+        assert_eq! (config.attributes[Attribute::Date as usize], FC_YELLOW);
+        assert_eq! (config.attribute_sources[Attribute::Date as usize], AttributeSource::Environment);
+    }
+
+
+
+    // =========================================================================
+    //  Phase 5: US3 — Format rules tests
+    // =========================================================================
+
+    #[test]
+    fn config_file_inline_comment_with_hash_in_middle() {
+        let config = make_config_with_file (&[".cpp = Red # this is green # not this"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+    }
+
+
+
+    #[test]
+    fn config_file_comment_only_line_with_leading_whitespace() {
+        let config = make_config_with_file (&["   # comment", ".cpp = Red"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_whitespace_around_equals() {
+        let config = make_config_with_file (&[".cpp   =   LightGreen"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+    }
+
+
+
+    #[test]
+    fn config_file_tabs_as_whitespace() {
+        let config = make_config_with_file (&["\t.cpp = Red\t"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_RED));
+    }
+
+
+
+    #[test]
+    fn config_file_duplicate_last_wins() {
+        let config = make_config_with_file (&[".cpp = LightGreen", ".cpp = Yellow"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_YELLOW));
+    }
+
+
+
+    #[test]
+    fn config_file_duplicate_switch_last_wins() {
+        let config = make_config_with_file (&["w", "w-"], None);
+        assert_eq! (config.wide_listing, Some (false));
+    }
+
+
+
+    // =========================================================================
+    //  Phase 6: US4 — Error reporting tests
+    // =========================================================================
+
+    #[test]
+    fn config_file_error_has_line_number() {
+        let config = make_config_with_file (&[".cpp = LightGreen", ".h = InvalidColor"], None);
+        assert! (config.config_file_parse_result.has_issues());
+        let error = &config.config_file_parse_result.errors[0];
+        assert_eq! (error.line_number, 2);
+        assert! (error.message.contains ("Invalid"));
+    }
+
+
+
+    #[test]
+    fn config_file_valid_lines_apply_alongside_errors() {
+        let config = make_config_with_file (&[".cpp = LightGreen", ".h = BadColor", ".rs = Yellow"], None);
+        assert_eq! (config.extension_colors.get (".cpp"), Some (&FC_LIGHT_GREEN));
+        assert_eq! (config.extension_colors.get (".rs"), Some (&FC_YELLOW));
+        assert! (config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_errors_separate_from_env_var_errors() {
+        let config = make_config_with_file (&[".h = BadColor"], Some (".cpp=AlsoBad"));
+        assert! (config.config_file_parse_result.has_issues());
+        assert! (config.last_parse_result.has_issues());
+        // Config file error has line number
+        assert_eq! (config.config_file_parse_result.errors[0].line_number, 1);
+        // Env var error has no line number
+        assert_eq! (config.last_parse_result.errors[0].line_number, 0);
+    }
+
+
+
+    #[test]
+    fn config_file_error_has_source_file_path() {
+        let config = make_config_with_file (&[".h = BadColor"], None);
+        let error = &config.config_file_parse_result.errors[0];
+        assert! (error.source_file_path.contains (".rcdirconfig"));
+    }
+
+
+
+    #[test]
+    fn config_file_multiple_errors_each_has_line_number() {
+        let config = make_config_with_file (&[
+            ".cpp = LightGreen",
+            ".h = Blurple",
+            "D = Ugh",
+            ".rs = Red",
+        ], None);
+        assert_eq! (config.config_file_parse_result.errors.len(), 2);
+        assert_eq! (config.config_file_parse_result.errors[0].line_number, 2);
+        assert_eq! (config.config_file_parse_result.errors[1].line_number, 3);
+    }
+
+
+
+    // =========================================================================
+    //  Phase 8: Edge case tests
+    // =========================================================================
+
+    #[test]
+    fn config_file_empty_file_no_errors() {
+        let config = make_config_with_file (&[], None);
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_only_comments_no_errors() {
+        let config = make_config_with_file (&["# comment 1", "# comment 2", "# comment 3"], None);
+        assert! (!config.config_file_parse_result.has_issues());
+        assert_eq! (config.wide_listing, None);  // No settings applied
+    }
+
+
+
+    #[test]
+    fn config_file_only_blank_lines_no_errors() {
+        let config = make_config_with_file (&["", "  ", "\t", "   \t   "], None);
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_twenty_plus_settings() {
+        let lines = &[
+            ".cpp = LightGreen", ".h = Yellow", ".rs = LightCyan", ".py = LightGreen",
+            ".js = Yellow", ".ts = LightCyan", ".go = LightGreen", ".rb = Red",
+            ".java = Brown", ".cs = LightGreen", ".c = LightCyan", ".sh = Green",
+            ".md = White", ".txt = LightGrey", ".json = Yellow", ".xml = LightRed",
+            ".html = LightRed", ".css = LightBlue", ".sql = LightMagenta", ".yaml = LightGreen",
+            "D = LightCyan", "w",
+        ];
+        let config = make_config_with_file (lines, None);
+        assert! (!config.config_file_parse_result.has_issues());
+        assert_eq! (config.extension_colors.len() >= 20, true);
+        assert_eq! (config.wide_listing, Some (true));
+    }
+
+
+
+    #[test]
+    fn config_file_userprofile_not_set_silent_skip() {
+        let mut config = Config::new();
+        let mock = MockEnvironmentProvider::new();  // No USERPROFILE set
+        config.load_config_file (&mock);
+        assert! (!config.config_file_loaded);
+        assert! (config.config_file_path.is_empty());
+        assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+
+    #[test]
+    fn config_file_not_found_silent_skip() {
+        let mut config = Config::new();
+        let mut mock = MockEnvironmentProvider::new();
+        mock.set ("USERPROFILE", "C:\\nonexistent\\path");
+        config.load_config_file (&mock);
+        assert! (!config.config_file_loaded);
+        assert! (!config.config_file_parse_result.has_issues());
     }
 }

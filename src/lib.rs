@@ -146,7 +146,13 @@ fn process_info_switches(
     }
 
     if cmd.show_config {
-        usage::display_current_configuration (console, cmd.switch_prefix, icons_active);
+        usage::display_config_file_help (console, cmd.switch_prefix);
+        console.flush()?;
+        return Ok (true);
+    }
+
+    if cmd.show_settings {
+        usage::display_settings (console, cmd.switch_prefix, icons_active);
         console.flush()?;
         return Ok (true);
     }
@@ -356,8 +362,8 @@ fn finalize(
     cmd: &command_line::CommandLine,
     timer: &mut perf_timer::PerfTimer,
 ) -> Result<(), AppError> {
-    // Display any RCDIR env var parsing errors at end of output
-    // Port of: TCDir.cpp → DisplayEnvVarIssues at end of wmain()
+    // Display any config file or RCDIR env var parsing errors at end of output
+    usage::display_config_file_issues (console, cmd.switch_prefix, true);
     usage::display_env_var_issues (console, cmd.switch_prefix, true);
     console.flush()?;
 

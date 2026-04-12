@@ -52,6 +52,7 @@ impl Config {
 
     pub(super) fn apply_user_color_overrides(&mut self, provider: &dyn EnvironmentProvider) {
         self.last_parse_result.errors.clear();
+        self.current_source = AttributeSource::Environment;
 
         let env_value = match provider.get_env_var (RCDIR_ENV_VAR_NAME) {
             Some (v) => v,
@@ -122,12 +123,7 @@ impl Config {
         let cp = c as u32;
 
         if (0xD800..=0xDFFF).contains (&cp) {
-            errors.push (ErrorInfo {
-                message:             "Invalid icon: lone surrogate".into(),
-                entry:               entry.into(),
-                invalid_text:        trimmed.into(),
-                invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-            });
+            errors.push (ErrorInfo::new ("Invalid icon: lone surrogate".into(), entry.into(), trimmed.into(), entry.find (trimmed).unwrap_or (0)));
             return None;
         }
 
@@ -178,12 +174,7 @@ impl Config {
         match try_parse (trimmed) {
             Ok (result) => Some (result),
             Err (message) => {
-                errors.push (ErrorInfo {
-                    message:             message.into(),
-                    entry:               entry.into(),
-                    invalid_text:        trimmed.into(),
-                    invalid_text_offset: entry.find (trimmed).unwrap_or (0),
-                });
+                errors.push (ErrorInfo::new (message.into(), entry.into(), trimmed.into(), entry.find (trimmed).unwrap_or (0)));
                 None
             }
         }
@@ -203,16 +194,11 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn process_color_override_entry(&mut self, entry: &str) {
+    pub(super) fn process_color_override_entry(&mut self, entry: &str) {
         // Check for switch prefixes (/, -, --) — not allowed in env var
         if entry.starts_with('/') || entry.starts_with('-') {
             let prefix_len = if entry.starts_with("--") { 2 } else { 1 };
-            self.last_parse_result.errors.push (ErrorInfo {
-                message:             "Switch prefixes (/, -, --) are not allowed in env var".into(),
-                entry:               entry.into(),
-                invalid_text:        entry[..prefix_len].into(),
-                invalid_text_offset: 0,
-            });
+            self.active_errors().push (ErrorInfo::new ("Switch prefixes (/, -, --) are not allowed in env var".into(), entry.into(), entry[..prefix_len].into(), 0));
             return;
         }
 
@@ -231,12 +217,7 @@ impl Config {
         let (key, value) = match parse_key_and_value (entry) {
             Some (kv) => kv,
             None => {
-                self.last_parse_result.errors.push (ErrorInfo {
-                    message:             "Invalid entry format (expected key = value)".into(),
-                    entry:               entry.into(),
-                    invalid_text:        entry.into(),
-                    invalid_text_offset: 0,
-                });
+                self.active_errors().push (ErrorInfo::new ("Invalid entry format (expected key = value)".into(), entry.into(), entry.into(), 0));
                 return;
             }
         };
@@ -289,7 +270,7 @@ impl Config {
         let mut icon_result: Option<IconParseResult> = None;
         if has_comma {
             let icon_spec = icon_view.unwrap_or ("");
-            icon_result = Self::parse_icon_value (icon_spec, entry, &mut self.last_parse_result.errors);
+            icon_result = Self::parse_icon_value (icon_spec, entry, self.active_errors());
         }
 
         Some ((color_attr, icon_result))
@@ -320,12 +301,7 @@ impl Config {
             KeyType::FileAttribute  => (Some (Config::process_file_attribute_override),    Some (Config::apply_file_attribute_icon_override)),
             KeyType::DisplayAttr    => (Some (Config::process_display_attribute_override), None),
             KeyType::Invalid => {
-                self.last_parse_result.errors.push (ErrorInfo {
-                    message:             "Invalid key (expected single character, .extension, dir:name, or attr:x)".into(),
-                    entry:               entry.into(),
-                    invalid_text:        key.into(),
-                    invalid_text_offset: entry.find (key).unwrap_or (0),
-                });
+                self.active_errors().push (ErrorInfo::new ("Invalid key (expected single character, .extension, dir:name, or attr:x)".into(), entry.into(), key.into(), entry.find (key).unwrap_or (0)));
                 return;
             }
         };
@@ -381,12 +357,7 @@ impl Config {
         match try_parse (value) {
             Ok (attr) => Some (attr),
             Err ((message, bad_text)) => {
-                self.last_parse_result.errors.push (ErrorInfo {
-                    message:             message.into(),
-                    entry:               entry.into(),
-                    invalid_text:        bad_text.into(),
-                    invalid_text_offset: entry.find (bad_text).unwrap_or (0),
-                });
+                self.active_errors().push (ErrorInfo::new (message.into(), entry.into(), bad_text.into(), entry.find (bad_text).unwrap_or (0)));
                 None
             }
         }
@@ -412,16 +383,16 @@ impl Config {
         for &(name, value, accessor) in SWITCH_MAPPINGS {
             if entry.eq_ignore_ascii_case (name) {
                 *accessor (self) = Some (value);
+                // Track switch source — map switch name to source index
+                let source_idx = switch_name_to_source_index (name);
+                if let Some (si) = source_idx {
+                    self.switch_sources[si] = self.current_source;
+                }
                 return;
             }
         }
 
-        self.last_parse_result.errors.push (ErrorInfo {
-            message:             "Invalid switch (expected W, S, P, M, B, Owner, Streams, Tree, or Icons)".into(),
-            entry:               entry.into(),
-            invalid_text:        entry.into(),
-            invalid_text_offset: 0,
-        });
+        self.active_errors().push (ErrorInfo::new ("Invalid switch (expected W, S, P, M, B, Owner, Streams, Tree, or Icons)".into(), entry.into(), entry.into(), 0));
     }
 
 
@@ -453,14 +424,10 @@ impl Config {
                 match value.parse::<i32>() {
                     Ok (n) if n > 0 => {
                         self.max_depth = Some (n);
+                        self.max_depth_source = self.current_source;
                     }
                     _ => {
-                        self.last_parse_result.errors.push (ErrorInfo {
-                            message:             "Invalid Depth value (must be positive integer)".into(),
-                            entry:               entry.into(),
-                            invalid_text:        value.into(),
-                            invalid_text_offset: eq_pos + 1,
-                        });
+                        self.active_errors().push (ErrorInfo::new ("Invalid Depth value (must be positive integer)".into(), entry.into(), value.into(), eq_pos + 1));
                     }
                 }
                 true
@@ -469,14 +436,10 @@ impl Config {
                 match value.parse::<i32>() {
                     Ok (n) if (1..=8).contains (&n) => {
                         self.tree_indent = Some (n);
+                        self.tree_indent_source = self.current_source;
                     }
                     _ => {
-                        self.last_parse_result.errors.push (ErrorInfo {
-                            message:             "Invalid TreeIndent value (must be 1-8)".into(),
-                            entry:               entry.into(),
-                            invalid_text:        value.into(),
-                            invalid_text_offset: eq_pos + 1,
-                        });
+                        self.active_errors().push (ErrorInfo::new ("Invalid TreeIndent value (must be 1-8)".into(), entry.into(), value.into(), eq_pos + 1));
                     }
                 }
                 true
@@ -484,15 +447,12 @@ impl Config {
             "size" => {
                 if value.eq_ignore_ascii_case ("auto") {
                     self.size_format = Some (SizeFormat::Auto);
+                    self.size_format_source = self.current_source;
                 } else if value.eq_ignore_ascii_case ("bytes") {
                     self.size_format = Some (SizeFormat::Bytes);
+                    self.size_format_source = self.current_source;
                 } else {
-                    self.last_parse_result.errors.push (ErrorInfo {
-                        message:             "Invalid Size value (expected Auto or Bytes)".into(),
-                        entry:               entry.into(),
-                        invalid_text:        value.into(),
-                        invalid_text_offset: eq_pos + 1,
-                    });
+                    self.active_errors().push (ErrorInfo::new ("Invalid Size value (expected Auto or Bytes)".into(), entry.into(), value.into(), eq_pos + 1));
                 }
                 true
             }
@@ -515,7 +475,7 @@ impl Config {
     fn process_file_extension_override(&mut self, key: &str, color_attr: u16, _entry: &str) {
         let lower_key = key.to_ascii_lowercase();
         self.extension_colors.insert (lower_key.clone(), color_attr);
-        self.extension_sources.insert (lower_key, AttributeSource::Environment);
+        self.extension_sources.insert (lower_key, self.current_source);
     }
 
 
@@ -538,17 +498,12 @@ impl Config {
         for attr in &Attribute::ALL {
             if attr.env_key() == Some(ch_upper) {
                 self.attributes[*attr as usize] = color_attr;
-                self.attribute_sources[*attr as usize] = AttributeSource::Environment;
+                self.attribute_sources[*attr as usize] = self.current_source;
                 return;
             }
         }
 
-        self.last_parse_result.errors.push(ErrorInfo {
-            message:             "Invalid display attribute character (valid: D,T,A,-,S,R,I,H,E,F,O)".into(),
-            entry:               entry.into(),
-            invalid_text:        ch.to_string(),
-            invalid_text_offset: 0,
-        });
+        self.active_errors().push(ErrorInfo::new ("Invalid display attribute character (valid: D,T,A,-,S,R,I,H,E,F,O)".into(), entry.into(), ch.to_string(), 0));
     }
 
 
@@ -566,12 +521,7 @@ impl Config {
     fn process_file_attribute_override(&mut self, key: &str, color_attr: u16, entry: &str) {
         // Format: attr:X where X is the attribute char
         if key.len() != 6 || !key[..5].eq_ignore_ascii_case("attr:") {
-            self.last_parse_result.errors.push(ErrorInfo {
-                message:             "Invalid file attribute key (expected attr:<x>)".into(),
-                entry:               entry.into(),
-                invalid_text:        key.into(),
-                invalid_text_offset: entry.find(key).unwrap_or(0),
-            });
+            self.active_errors().push(ErrorInfo::new ("Invalid file attribute key (expected attr:<x>)".into(), entry.into(), key.into(), entry.find(key).unwrap_or(0)));
             return;
         }
 
@@ -582,19 +532,14 @@ impl Config {
             if map_char == attr_char {
                 self.file_attr_colors.insert(flag, FileAttrStyle {
                     attr:   color_attr,
-                    source: AttributeSource::Environment,
+                    source: self.current_source,
                 });
                 return;
             }
         }
 
         let key_pos = entry.find(key).unwrap_or(0);
-        self.last_parse_result.errors.push(ErrorInfo {
-            message:             "Invalid file attribute character (expected R, H, S, A, T, E, C, P or 0)".into(),
-            entry:               entry.into(),
-            invalid_text:        attr_char.to_string(),
-            invalid_text_offset: key_pos + 5,
-        });
+        self.active_errors().push(ErrorInfo::new ("Invalid file attribute character (expected R, H, S, A, T, E, C, P or 0)".into(), entry.into(), attr_char.to_string(), key_pos + 5));
     }
 
 
@@ -615,20 +560,15 @@ impl Config {
     fn apply_extension_icon_override(&mut self, key: &str, icon_cp: char, suppressed: bool, _entry: &str) {
         let lower_key = key.to_ascii_lowercase();
 
-        // First-write-wins: if already set by environment, report duplicate
-        if let Some (&AttributeSource::Environment) = self.extension_icon_sources.get (&lower_key) {
-            self.last_parse_result.errors.push (ErrorInfo {
-                message:             "Duplicate extension icon override (first value wins)".into(),
-                entry:               String::new(),
-                invalid_text:        lower_key.clone(),
-                invalid_text_offset: 0,
-            });
+        // First-write-wins: if already set by current source, report duplicate
+        if self.extension_icon_sources.get (&lower_key) == Some (&self.current_source) {
+            self.active_errors().push (ErrorInfo::new ("Duplicate extension icon override (first value wins)".into(), String::new(), lower_key.clone(), 0));
             return;
         }
 
         let glyph = if suppressed { '\0' } else { icon_cp };
         self.extension_icons.insert (lower_key.clone(), glyph);
-        self.extension_icon_sources.insert (lower_key, AttributeSource::Environment);
+        self.extension_icon_sources.insert (lower_key, self.current_source);
     }
 
 
@@ -650,19 +590,14 @@ impl Config {
         let dir_name = &key[4..];
         let lower_key = dir_name.to_ascii_lowercase();
 
-        if let Some (&AttributeSource::Environment) = self.well_known_dir_icon_sources.get (&lower_key) {
-            self.last_parse_result.errors.push (ErrorInfo {
-                message:             "Duplicate well-known dir icon override (first value wins)".into(),
-                entry:               String::new(),
-                invalid_text:        lower_key.clone(),
-                invalid_text_offset: 0,
-            });
+        if self.well_known_dir_icon_sources.get (&lower_key) == Some (&self.current_source) {
+            self.active_errors().push (ErrorInfo::new ("Duplicate well-known dir icon override (first value wins)".into(), String::new(), lower_key.clone(), 0));
             return;
         }
 
         let glyph = if suppressed { '\0' } else { icon_cp };
         self.well_known_dir_icons.insert (lower_key.clone(), glyph);
-        self.well_known_dir_icon_sources.insert (lower_key, AttributeSource::Environment);
+        self.well_known_dir_icon_sources.insert (lower_key, self.current_source);
     }
 
 
@@ -691,6 +626,27 @@ impl Config {
             }
         }
         // Invalid attr char — error already handled by color override path
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  active_errors
+    //
+    //  Returns a mutable reference to the error list for the current parse
+    //  source — config_file_parse_result for ConfigFile, last_parse_result
+    //  for Environment.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub(super) fn active_errors(&mut self) -> &mut Vec<ErrorInfo> {
+        match self.current_source {
+            AttributeSource::ConfigFile => &mut self.config_file_parse_result.errors,
+            _                           => &mut self.last_parse_result.errors,
+        }
     }
 }
 
@@ -790,6 +746,35 @@ const SWITCH_MAPPINGS: &[(&str, bool, SwitchAccessor)] = &[
 
 fn is_switch_name(entry: &str) -> bool {
     SWITCH_MAPPINGS.iter().any (|&(name, _, _)| entry.eq_ignore_ascii_case (name))
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  switch_name_to_source_index
+//
+//  Map a switch name to its index in Config::switch_sources[].
+//  Matches the order defined by Config::SWITCH_MEMBER_ORDER.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn switch_name_to_source_index(name: &str) -> Option<usize> {
+    let base = name.trim_end_matches ('-').to_ascii_lowercase();
+    match base.as_str() {
+        "w"       => Some (0),
+        "b"       => Some (1),
+        "s"       => Some (2),
+        "p"       => Some (3),
+        "m"       => Some (4),
+        "owner"   => Some (5),
+        "streams" => Some (6),
+        "icons"   => Some (7),
+        "tree"    => Some (8),
+        _         => None,
+    }
 }
 
 

@@ -194,7 +194,7 @@ impl Config {
     //
     ////////////////////////////////////////////////////////////////////////////
 
-    fn process_color_override_entry(&mut self, entry: &str) {
+    pub(super) fn process_color_override_entry(&mut self, entry: &str) {
         // Check for switch prefixes (/, -, --) — not allowed in env var
         if entry.starts_with('/') || entry.starts_with('-') {
             let prefix_len = if entry.starts_with("--") { 2 } else { 1 };

@@ -5,6 +5,7 @@
 // and switch defaults from the RCDIR environment variable.
 
 mod env_overrides;
+pub mod file_reader;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;

@@ -164,6 +164,20 @@ console.print_error(&format!("Error: {}", msg));
 - Avoid unnecessary allocations in hot paths
 - Profile before optimizing
 
+### Unit Testing — Isolation Rules
+- Unit tests **MUST NEVER** rely on or alter real system state
+- **ALL** system services **MUST** be mocked or abstracted behind interfaces:
+  - **File system**: No reading/writing actual files on disk — use in-memory data or mock I/O
+  - **Process execution**: No running real binaries via `Command::new` — mock the output
+  - **Registry/environment**: No reading real environment variables — use `MockEnvironmentProvider` or equivalent
+  - **Network**: No real HTTP/socket calls — mock network layers
+  - **Console/terminal**: No real console API calls — use mock console
+  - **Current directory**: No depending on `std::env::current_dir()` — use explicit test paths
+- Tests must be **deterministic** and **repeatable** regardless of the machine, directory, or user running them
+- If a module uses system APIs, inject its dependencies through a trait so tests can substitute mocks
+- **No test may run the real `rcdir` binary** — test the library functions directly with mocked dependencies
+- Temp files are acceptable **only** in explicitly marked integration tests, never in unit tests
+
 ---
 
 ## Communication Rules

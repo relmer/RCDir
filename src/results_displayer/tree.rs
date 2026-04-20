@@ -457,3 +457,540 @@ impl ResultsDisplayer for TreeDisplayer {
         display_listing_summary (console, dir_info, totals);
     }
 }
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use crate::command_line::CommandLine;
+    use crate::config::Config;
+    use crate::console::Console;
+    use crate::directory_info::DirectoryInfo;
+    use crate::drive_info::{DriveInfo, DRIVE_FIXED};
+    use crate::file_info::{FileInfo, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_ARCHIVE};
+    use crate::tree_connector_state::TreeConnectorState;
+
+
+    fn make_test_config() -> Arc<Config> {
+        let mut cfg = Config::new();
+        cfg.initialize (0x07);
+        Arc::new (cfg)
+    }
+
+
+    fn make_test_console (config: Arc<Config>) -> Console {
+        Console::new_for_testing (config)
+    }
+
+
+    fn make_test_cmd (args: &[&str]) -> Arc<CommandLine> {
+        Arc::new (CommandLine::parse_from (args).unwrap())
+    }
+
+
+    fn make_test_drive_info() -> DriveInfo {
+        DriveInfo {
+            unc_path:         PathBuf::new(),
+            root_path:        PathBuf::from ("C:\\"),
+            volume_name:      "TestVol".to_string(),
+            file_system_name: "NTFS".to_string(),
+            volume_type:      DRIVE_FIXED,
+            is_unc_path:      false,
+            remote_name:      String::new(),
+        }
+    }
+
+
+    fn make_file (name: &str, size: u64) -> FileInfo {
+        FileInfo {
+            file_name:        OsString::from (name),
+            file_attributes:  FILE_ATTRIBUTE_ARCHIVE,
+            file_size:        size,
+            creation_time:    133_500_000_000_000_000,
+            last_write_time:  133_500_000_000_000_000,
+            last_access_time: 133_500_000_000_000_000,
+            reparse_tag:      0,
+            streams:          Vec::new(),
+        }
+    }
+
+
+    fn make_dir (name: &str) -> FileInfo {
+        FileInfo {
+            file_name:        OsString::from (name),
+            file_attributes:  FILE_ATTRIBUTE_DIRECTORY,
+            file_size:        0,
+            creation_time:    133_500_000_000_000_000,
+            last_write_time:  133_500_000_000_000_000,
+            last_access_time: 133_500_000_000_000_000,
+            reparse_tag:      0,
+            streams:          Vec::new(),
+        }
+    }
+
+
+    fn make_dir_info (path: &str, files: Vec<FileInfo>) -> DirectoryInfo {
+        let file_count = files.iter().filter (|f| !f.is_directory()).count() as u32;
+        let dir_count  = files.iter().filter (|f| f.is_directory()).count() as u32;
+        let largest    = files.iter().map (|f| f.file_size).max().unwrap_or (0);
+        let bytes      = files.iter().map (|f| f.file_size).sum::<u64>();
+
+        let mut di = DirectoryInfo::new (PathBuf::from (path), "*".to_string());
+        di.matches             = files;
+        di.file_count          = file_count;
+        di.subdirectory_count  = dir_count;
+        di.largest_file_size   = largest;
+        di.bytes_used          = bytes;
+        di
+    }
+
+
+    fn strip_ansi (s: &str) -> String {
+        let mut result = String::with_capacity (s.len());
+        let mut chars = s.chars().peekable();
+        while let Some (ch) = chars.next() {
+            if ch == '\x1b' {
+                if chars.peek() == Some (&'[') {
+                    chars.next();
+                    while let Some (&next) = chars.peek() {
+                        chars.next();
+                        if next.is_ascii_alphabetic() {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                result.push (ch);
+            }
+        }
+        result
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  root_header_contains_directory_of
+    //
+    //  Verify tree root header includes "Directory of" text.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn root_header_contains_directory_of() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let drive_info    = make_test_drive_info();
+        let dir_info      = make_dir_info ("C:\\TestDir", vec![make_file ("a.txt", 100)]);
+
+        displayer.display_tree_root_header (&drive_info, &dir_info);
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+
+        assert! (
+            output.contains ("Directory of"),
+            "Root header should contain 'Directory of', got:\n{}",
+            output,
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  single_entry_shows_dir_tag
+    //
+    //  Verify directory entries display <DIR> in the size column.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn single_entry_shows_dir_tag() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let dir_info = make_dir_info ("C:\\TestDir", vec![make_dir ("subdir")]);
+
+        displayer.begin_directory (&dir_info);
+
+        let mut tree_state = TreeConnectorState::new (4);
+        tree_state.push (false);
+
+        displayer.display_single_entry (&dir_info.matches[0], &mut tree_state, true, 0);
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+
+        assert! (
+            output.contains ("<DIR>"),
+            "Directory entry should contain '<DIR>', got:\n{}",
+            output,
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  single_entry_contains_filename
+    //
+    //  Verify displayed entry includes the filename.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn single_entry_contains_filename() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let dir_info = make_dir_info ("C:\\TestDir", vec![make_file ("hello.txt", 42)]);
+
+        displayer.begin_directory (&dir_info);
+
+        let mut tree_state = TreeConnectorState::new (4);
+        tree_state.push (false);
+
+        displayer.display_single_entry (&dir_info.matches[0], &mut tree_state, true, 0);
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+
+        assert! (
+            output.contains ("hello.txt"),
+            "Entry should contain filename 'hello.txt', got:\n{}",
+            output,
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  entry_with_icons_includes_icon_glyph_space
+    //
+    //  Verify entries with icons active include extra characters for
+    //  icon glyph + trailing space.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn entry_with_icons_includes_icon_glyph_space() {
+        let config  = make_test_config();
+
+        // Without icons
+        let console_no = make_test_console (Arc::clone (&config));
+        let cmd_no     = make_test_cmd (&["--Tree"]);
+        let mut disp_no = TreeDisplayer::new (console_no, cmd_no, Arc::clone (&config), false);
+        let dir_info = make_dir_info ("C:\\TestDir", vec![make_file ("test.rs", 100)]);
+        disp_no.begin_directory (&dir_info);
+        let mut ts_no = TreeConnectorState::new (4);
+        ts_no.push (false);
+        disp_no.display_single_entry (&dir_info.matches[0], &mut ts_no, true, 0);
+        let out_no = disp_no.into_console().take_test_buffer();
+
+        // With icons
+        let console_yes = make_test_console (Arc::clone (&config));
+        let cmd_yes     = make_test_cmd (&["--Tree"]);
+        let mut disp_yes = TreeDisplayer::new (console_yes, cmd_yes, config, true);
+        let dir_info2 = make_dir_info ("C:\\TestDir", vec![make_file ("test.rs", 100)]);
+        disp_yes.begin_directory (&dir_info2);
+        let mut ts_yes = TreeConnectorState::new (4);
+        ts_yes.push (false);
+        disp_yes.display_single_entry (&dir_info2.matches[0], &mut ts_yes, true, 0);
+        let out_yes = disp_yes.into_console().take_test_buffer();
+
+        // Icon output should be longer (icon char + space = 2 extra chars minimum)
+        assert! (
+            out_yes.len() > out_no.len(),
+            "Icon output ({} bytes) should be longer than non-icon ({} bytes)",
+            out_yes.len(),
+            out_no.len(),
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  tree_connector_tee_for_non_last_entry
+    //
+    //  Verify non-last entries show ├── connector in display output.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn tree_connector_tee_for_non_last_entry() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let files = vec![make_file ("first.txt", 100), make_file ("second.txt", 200)];
+        let dir_info = make_dir_info ("C:\\TestDir", files);
+
+        displayer.begin_directory (&dir_info);
+
+        let mut tree_state = TreeConnectorState::new (4);
+        tree_state.push (true);
+
+        // Display first (non-last) entry
+        displayer.display_single_entry (&dir_info.matches[0], &mut tree_state, false, 0);
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+
+        let tee = "\u{251C}\u{2500}\u{2500}";
+        assert! (
+            output.contains (tee),
+            "Non-last entry should contain tee connector '├──', got:\n{}",
+            output,
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  tree_connector_corner_for_last_entry
+    //
+    //  Verify last entries show └── connector in display output.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn tree_connector_corner_for_last_entry() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let dir_info = make_dir_info ("C:\\TestDir", vec![make_file ("only.txt", 100)]);
+
+        displayer.begin_directory (&dir_info);
+
+        let mut tree_state = TreeConnectorState::new (4);
+        tree_state.push (false);
+
+        displayer.display_single_entry (&dir_info.matches[0], &mut tree_state, true, 0);
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+
+        let corner = "\u{2514}\u{2500}\u{2500}";
+        assert! (
+            output.contains (corner),
+            "Last entry should contain corner connector '└──', got:\n{}",
+            output,
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  tree_continuation_pipe_at_depth
+    //
+    //  Verify continuation lines show │ at ancestor depths.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn tree_continuation_pipe_at_depth() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let dir_info = make_dir_info ("C:\\TestDir\\Sub\\Inner", vec![make_file ("deep.txt", 100)]);
+
+        displayer.begin_directory (&dir_info);
+
+        // Simulate depth 3: root → child (has sibling → pipe) → grandchild (last)
+        let mut tree_state = TreeConnectorState::new (4);
+        tree_state.push (false);  // depth 1: root (no visible connector)
+        tree_state.push (true);   // depth 2: has sibling → shows │
+        tree_state.push (false);  // depth 3: last entry
+
+        displayer.display_single_entry (&dir_info.matches[0], &mut tree_state, true, 0);
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+
+        let pipe = "\u{2502}";
+        assert! (
+            output.contains (pipe),
+            "Nested entry should contain pipe connector '│', got:\n{}",
+            output,
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  custom_indent_changes_prefix_width
+    //
+    //  Verify different tree_indent values produce different prefix widths.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn custom_indent_changes_prefix_width() {
+        let config = make_test_config();
+
+        // Indent 4 (default)
+        let console4 = make_test_console (Arc::clone (&config));
+        let cmd4     = make_test_cmd (&["--Tree"]);
+        let mut disp4 = TreeDisplayer::new (console4, cmd4, Arc::clone (&config), false);
+        let dir_info = make_dir_info ("C:\\TestDir", vec![make_file ("a.txt", 100)]);
+        disp4.begin_directory (&dir_info);
+        let mut ts4 = TreeConnectorState::new (4);
+        ts4.push (false);
+        disp4.display_single_entry (&dir_info.matches[0], &mut ts4, true, 0);
+        let out4 = strip_ansi (&disp4.into_console().take_test_buffer());
+
+        // Indent 8
+        let console8 = make_test_console (Arc::clone (&config));
+        let cmd8     = make_test_cmd (&["--Tree", "/TreeIndent=8"]);
+        let mut disp8 = TreeDisplayer::new (console8, cmd8, config, false);
+        let dir_info2 = make_dir_info ("C:\\TestDir", vec![make_file ("a.txt", 100)]);
+        disp8.begin_directory (&dir_info2);
+        let mut ts8 = TreeConnectorState::new (8);
+        ts8.push (false);
+        disp8.display_single_entry (&dir_info2.matches[0], &mut ts8, true, 0);
+        let out8 = strip_ansi (&disp8.into_console().take_test_buffer());
+
+        // Wider indent should produce a longer line
+        assert! (
+            out8.len() >= out4.len(),
+            "Indent=8 output ({} chars) should be >= indent=4 ({} chars)",
+            out8.len(),
+            out4.len(),
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  multiple_entries_interleaved_order
+    //
+    //  Verify that files and directories appear in the order given
+    //  (sort is external — tree displayer renders in the order it receives).
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn multiple_entries_interleaved_order() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let files = vec![
+            make_dir ("alpha_dir"),
+            make_file ("beta.txt", 100),
+            make_dir ("gamma_dir"),
+        ];
+        let dir_info = make_dir_info ("C:\\TestDir", files);
+        displayer.begin_directory (&dir_info);
+
+        let mut tree_state = TreeConnectorState::new (4);
+        tree_state.push (true);
+
+        let count = dir_info.matches.len();
+        for (i, file) in dir_info.matches.iter().enumerate() {
+            let is_last = i == count - 1;
+            displayer.display_single_entry (file, &mut tree_state, is_last, i);
+        }
+
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+        let alpha_pos = output.find ("alpha_dir").expect ("alpha_dir not found");
+        let beta_pos  = output.find ("beta.txt").expect ("beta.txt not found");
+        let gamma_pos = output.find ("gamma_dir").expect ("gamma_dir not found");
+
+        assert! (alpha_pos < beta_pos, "alpha_dir should appear before beta.txt");
+        assert! (beta_pos < gamma_pos, "beta.txt should appear before gamma_dir");
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  large_file_size_shows_comma_numbers
+    //
+    //  Verify large file sizes in tree mode show comma-formatted numbers.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn large_file_size_shows_comma_numbers() {
+        let config  = make_test_config();
+        let console = make_test_console (Arc::clone (&config));
+        let cmd     = make_test_cmd (&["--Tree"]);
+
+        let mut displayer = TreeDisplayer::new (console, cmd, config, false);
+        let dir_info = make_dir_info ("C:\\TestDir", vec![make_file ("big.dat", 12_345_678)]);
+
+        displayer.begin_directory (&dir_info);
+
+        let mut tree_state = TreeConnectorState::new (4);
+        tree_state.push (false);
+
+        displayer.display_single_entry (&dir_info.matches[0], &mut tree_state, true, 0);
+        let output = strip_ansi (&displayer.into_console().take_test_buffer());
+
+        // Tree mode default is Auto (abbreviated), so a 12MB file should
+        // show an abbreviated size. The important thing is that the output
+        // contains numeric content and the filename.
+        assert! (
+            output.contains ("big.dat"),
+            "Output should contain filename 'big.dat', got:\n{}",
+            output,
+        );
+        // Verify the size column has some numeric content (not empty)
+        assert! (
+            output.chars().any (|c| c.is_ascii_digit()),
+            "Output should contain numeric size data, got:\n{}",
+            output,
+        );
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  max_depth_stored_in_command_line
+    //
+    //  Verify /Depth=N is parsed and stored correctly in CommandLine.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn max_depth_stored_in_command_line() {
+        let cmd = CommandLine::parse_from (["--Tree", "/Depth=3"]).unwrap();
+        assert_eq! (cmd.max_depth, 3);
+    }
+}

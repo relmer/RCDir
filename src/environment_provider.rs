@@ -148,17 +148,17 @@ mod tests {
 
     ////////////////////////////////////////////////////////////////////////////
     //
-    //  default_provider_reads_path
+    //  mock_provider_returns_set_value
     //
-    //  Verifies DefaultEnvironmentProvider reads the PATH variable.
+    //  Verifies MockEnvironmentProvider returns a value that was set.
     //
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
-    fn default_provider_reads_path() {
-        let provider = DefaultEnvironmentProvider;
-        // PATH should always exist on Windows
-        assert!(provider.get_env_var("PATH").is_some());
+    fn mock_provider_returns_set_value() {
+        let mut mock = MockEnvironmentProvider::new();
+        mock.set ("PATH", "C:\\Windows;C:\\Windows\\System32");
+        assert_eq! (mock.get_env_var ("PATH"), Some ("C:\\Windows;C:\\Windows\\System32".into()));
     }
 
 
@@ -167,16 +167,16 @@ mod tests {
 
     ////////////////////////////////////////////////////////////////////////////
     //
-    //  default_provider_returns_none_for_missing
+    //  mock_provider_returns_none_for_missing
     //
-    //  Verifies DefaultEnvironmentProvider returns None for missing vars.
+    //  Verifies MockEnvironmentProvider returns None for vars not set.
     //
     ////////////////////////////////////////////////////////////////////////////
 
     #[test]
-    fn default_provider_returns_none_for_missing() {
-        let provider = DefaultEnvironmentProvider;
-        assert!(provider.get_env_var("RCDIR_NONEXISTENT_VAR_12345").is_none());
+    fn mock_provider_returns_none_for_missing() {
+        let mock = MockEnvironmentProvider::new();
+        assert! (mock.get_env_var ("RCDIR_NONEXISTENT_VAR_12345").is_none());
     }
 
 

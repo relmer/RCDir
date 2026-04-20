@@ -240,6 +240,16 @@ console.print_error(&format!("Error: {}", msg));
 - **ALWAYS** run `cargo test` and verify all tests pass before pushing
 - If clippy introduces new warnings after a toolchain update, fix them before pushing
 
+### Pre-Commit Gates
+- **ALL** tests MUST pass before committing (`cargo test`)
+- Clippy MUST be clean (`cargo clippy -- -D warnings`) before committing
+- Build MUST succeed with no errors before committing
+
+### Commit Frequency
+- During spec implementation, commit **at least once per completed phase**
+- Each commit must leave the codebase in a compilable, tests-passing, clippy-clean state
+- Do not batch an entire feature into a single commit
+
 ### Build Integration
 - Always build after making changes using the build task or `Build.ps1`
 - Fix all clippy warnings before considering task complete
@@ -273,7 +283,7 @@ console.print_error(&format!("Error: {}", msg));
 
 ---
 
-*Last Updated: 2026-02-16*
+*Last Updated: 2026-04-20*
 *These rules apply globally to all RCDir work*
 
 ````

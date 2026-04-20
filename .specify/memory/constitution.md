@@ -42,10 +42,18 @@ All production code MUST have corresponding tests:
 - **Test Framework**: Use Rust's built-in test framework (`#[test]`, `#[cfg(test)]`)
 - **Test Coverage**: Every public function and significant code path MUST be covered by tests
 - **Test Independence**: Each test MUST be independently runnable and MUST NOT depend on execution order
+- **Test Isolation (NON-NEGOTIABLE)**: Tests MUST NEVER rely on or alter real system state:
+  - **File system**: No reading/writing actual files on disk — use in-memory data or mock I/O
+  - **Process execution**: No running real binaries via `Command::new` — mock the output
+  - **Registry/environment**: No reading real environment variables — use `MockEnvironmentProvider` or equivalent
+  - **Console/terminal**: No real console API calls — use mock console
+  - **Current directory**: No depending on `std::env::current_dir()` — use explicit test paths
+  - Tests must be **deterministic** and **repeatable** regardless of machine, directory, or user
+  - If a module uses system APIs, inject dependencies through a trait so tests can substitute mocks
 - **Build Verification**: Tests MUST pass before any merge or release; use `cargo test`
 - **Test Organization**: Tests reside in `tests/` for integration tests, inline `#[cfg(test)]` modules for unit tests
 
-**Rationale**: Automated tests catch regressions early and serve as living documentation of expected behavior.
+**Rationale**: Automated tests catch regressions early and serve as living documentation of expected behavior. Non-deterministic tests that depend on system state are worse than no tests — they create false confidence and break unpredictably in CI.
 
 ### III. User Experience Consistency
 
@@ -109,10 +117,12 @@ When automation tooling exists, prefer it over raw terminal commands:
 
 ### Quality Gates
 
+0. **Toolchain Currency**: Run `rustup update stable` before starting work. CI always uses the latest stable Rust; local toolchain MUST match to avoid lint surprises.
 1. **Pre-Commit**: Code MUST compile without errors or warnings (`cargo clippy -- -D warnings`)
-2. **Build Verification**: Run `cargo test` to ensure all tests pass before considering work complete
-3. **Formatting**: Manually verify formatting follows rules in `.github/copilot-instructions.md`
-4. **Architecture Coverage**: Verify changes work on both x64 and ARM64 when touching platform-sensitive code
+2. **Pre-Push**: Run `cargo clippy -- -D warnings` and `cargo test` — both MUST pass with zero errors before pushing
+3. **Build Verification**: Run `cargo test` to ensure all tests pass before considering work complete
+4. **Formatting**: Manually verify formatting follows rules in `.github/copilot-instructions.md`
+5. **Architecture Coverage**: Verify changes work on both x64 and ARM64 when touching platform-sensitive code
 
 ### Change Process
 
@@ -139,6 +149,6 @@ This constitution supersedes all ad-hoc practices. All code changes MUST verify 
 
 **Guidance Reference**: See `.github/copilot-instructions.md` for detailed runtime development guidance and code style rules.
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-02-07
+**Version**: 1.2.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-04-20
 
 ```

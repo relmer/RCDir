@@ -42,7 +42,7 @@
 - [ ] T011 Add test helper `build_junction_buffer(print_name, substitute_name) -> Vec<u8>` in src/reparse_resolver.rs tests
 - [ ] T012 Add unit tests for `parse_junction_buffer` in src/reparse_resolver.rs — PrintName extraction, SubstituteName fallback, prefix stripping, truncated buffer, empty names (SC-006)
 - [ ] T013 Add test helper `build_symlink_buffer(print_name, substitute_name, flags) -> Vec<u8>` in src/reparse_resolver.rs tests
-- [ ] T014 Add unit tests for `parse_symlink_buffer` in src/reparse_resolver.rs — absolute symlinks, relative symlinks (SYMLINK_FLAG_RELATIVE), conditional prefix stripping, truncated buffer (SC-006)
+- [ ] T014 Add unit tests for `parse_symlink_buffer` in src/reparse_resolver.rs — absolute symlinks, relative symlinks (SYMLINK_FLAG_RELATIVE), conditional prefix stripping, truncated buffer, verify relative paths preserved as-stored without resolution (FR-004, SC-006)
 - [ ] T015 Add test helper `build_app_exec_link_buffer(version, pkg_id, app_id, target_exe) -> Vec<u8>` in src/reparse_resolver.rs tests
 - [ ] T016 Add unit tests for `parse_app_exec_link_buffer` in src/reparse_resolver.rs — version 3 parsing, version mismatch returns empty, truncated buffer, bounds checks (SC-006)
 
@@ -58,7 +58,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Implement `resolve_reparse_target(dir_path: &Path, file_info: &FileInfo) -> String` in src/reparse_resolver.rs — Win32 I/O wrapper: check attribute flag, check tag, CreateFileW + DeviceIoControl, dispatch to parser (FR-001, FR-002, FR-002a, FR-011, FR-014)
+- [ ] T017 [US1] Implement `resolve_reparse_target(dir_path: &Path, file_info: &FileInfo) -> String` in src/reparse_resolver.rs — Win32 I/O wrapper: check attribute flag, check tag, build full path from `dir_path` + `file_info.file_name`, CreateFileW + DeviceIoControl, dispatch to parser (FR-001, FR-002, FR-002a, FR-011, FR-014)
 - [ ] T018 [US1] Call `resolve_reparse_target()` in `add_match_to_list()` in src/directory_lister.rs — store result in `file_info.reparse_target` (Research Decision 2)
 - [ ] T019 [US1] Call `resolve_reparse_target()` in multi-threaded enumeration path in src/multi_threaded_lister.rs — same integration as T018
 - [ ] T020 [US1] Append `→ target` display in src/results_displayer/normal.rs — if `reparse_target` is non-empty: print ` → ` with Information color, then target with filename color (FR-003, FR-006, FR-007, FR-009)
@@ -92,7 +92,7 @@
 ### Implementation for User Story 3
 
 - [ ] T024 [US3] Verify color implementation in normal.rs (T020) and tree.rs (T022) already uses correct attributes — Information for arrow, `text_attr` for target (FR-006, FR-007)
-- [ ] T025 [P] [US3] Add unit test verifying Information attribute is used for arrow character in display output (SC-006)
+- [ ] T025 [P] [US3] Add unit test verifying Information color ANSI escape sequence appears before arrow character in mock console buffered output (SC-006)
 
 **Checkpoint**: Colors verified correct. If T020/T022 already implemented colors correctly, this phase is validation only.
 
@@ -106,8 +106,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T026 [US4] Verify `strip_device_prefix` is already called in `parse_junction_buffer` (T007) and `parse_symlink_buffer` (T008) for SubstituteName fallback — confirm FR-005 is satisfied
-- [ ] T027 [US4] Add unit test: junction with SubstituteName `\??\C:\Users\Dev` → displayed target `C:\Users\Dev` (SC-006)
+- [ ] T026 [US4] Verify `strip_device_prefix` is already called in `parse_junction_buffer` (T007) and `parse_symlink_buffer` (T008) for SubstituteName fallback — confirm FR-005 is satisfied (T012 already covers this test case)
 
 **Checkpoint**: Prefix stripping verified. If T007/T008 already handle this, phase is validation only.
 
@@ -122,6 +121,8 @@
 - [ ] T030 Verify recursive mode (`-S`) shows targets but does not recurse into links (FR-010)
 - [ ] T031 Verify access-denied edge case: unreadable reparse point displays filename without target, no error (FR-011)
 - [ ] T032 Verify non-reparse files are completely unaffected — no performance regression (SC-003)
+- [ ] T033 Verify no new command-line switches or config keys were introduced (FR-012)
+- [ ] T034 Verify hardlink information is not resolved or displayed (FR-013)
 
 **Checkpoint**: Feature complete, all tests pass, clippy clean.
 
@@ -163,13 +164,13 @@ Phase 1 (Setup) → Phase 2 (Parsers) → Phase 3 (US1: Normal) → Phase 4 (US2
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 32 |
+| Total tasks | 34 |
 | Phase 1 (Setup) | 4 tasks |
 | Phase 2 (Foundational) | 12 tasks |
 | Phase 3 (US1: Normal) | 5 tasks |
 | Phase 4 (US2: Tree) | 2 tasks |
 | Phase 5 (US3: Colors) | 2 tasks |
-| Phase 6 (US4: Prefix) | 2 tasks |
-| Phase 7 (Polish) | 5 tasks |
+| Phase 6 (US4: Prefix) | 1 task |
+| Phase 7 (Polish) | 7 tasks |
 | Parallel opportunities | 4 groups |
 | MVP scope | Phases 1–3 (21 tasks) |

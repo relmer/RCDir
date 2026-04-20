@@ -73,7 +73,7 @@ Junction target paths stored internally with the `\??\` device prefix are displa
 ### Edge Cases
 
 - **Access denied on link**: If the reparse data cannot be read (e.g., permission-restricted link), display the filename without a target — graceful degradation, no error shown
-- **Very long target paths**: Target paths near MAX_PATH or using extended-length (`\\?\`) syntax are displayed in full (no truncation)
+- **Very long target paths**: Target paths near MAX_PATH or using extended-length (`\\?\`) syntax are displayed in full (no truncation in this spec; future spec 008 — Ellipsize Long Targets — will add optional middle-truncation)
 - **Recursive mode (`-S`)**: Junctions and symlinks show their targets but are not recursed into (existing behavior preserved)
 - **Wide mode**: No target display — wide mode is explicitly out of scope
 - **Bare mode**: No target display — bare mode output stays clean for scripting
@@ -91,7 +91,7 @@ Junction target paths stored internally with the `\??\` device prefix are displa
 - **FR-002a**: System MUST display `→ target_exe_path` after the filename for AppExecLink reparse points (`IO_REPARSE_TAG_APPEXECLINK`) in normal mode and tree mode
 - **FR-003**: System MUST use the Unicode arrow character `→` (U+2192) as the link indicator, formatted as `filename → target` with exactly one space before and after the arrow
 - **FR-004**: System MUST display target paths as-stored in the reparse data (relative paths stay relative, absolute paths stay absolute)
-- **FR-005**: System MUST strip the `\??\` device prefix from junction target paths before display
+- **FR-005**: System MUST strip the `\??\` device prefix from junction target paths and absolute symlink SubstituteName fallback paths before display
 - **FR-006**: System MUST render the `→` arrow using the existing `Information` color attribute
 - **FR-007**: System MUST render the target path using the same color as the source filename (the link entry's resolved color attribute)
 - **FR-009**: System MUST NOT display target paths in wide mode or bare mode

@@ -238,20 +238,16 @@ pub fn text_input (
                 console.flush()?;
                 return Ok (TuiResult::Cancelled);
             }
-            KeyEvent::Backspace => {
-                if !value.is_empty() {
-                    value.pop();
-                    // Erase character: move back, space, move back
-                    console.write_raw ("\x08 \x08");
-                    console.flush()?;
-                }
+            KeyEvent::Backspace if !value.is_empty() => {
+                value.pop();
+                // Erase character: move back, space, move back
+                console.write_raw ("\x08 \x08");
+                console.flush()?;
             }
-            KeyEvent::Char (ch) => {
-                if ch.is_alphanumeric() && value.len() < 4 {
-                    value.push (ch);
-                    console.printf_attr (crate::config::Attribute::InformationHighlight, &ch.to_string());
-                    console.flush()?;
-                }
+            KeyEvent::Char (ch) if ch.is_alphanumeric() && value.len() < 4 => {
+                value.push (ch);
+                console.printf_attr (crate::config::Attribute::InformationHighlight, &ch.to_string());
+                console.flush()?;
             }
             _ => {}
         }

@@ -33,7 +33,7 @@ Rust stable (1.93.0), Edition 2024: Follow standard conventions
 ## Recent Changes
 - 007-symlink-junction-targets: Added Rust stable (latest stable release, per rust-toolchain.toml) + `windows` crate (Win32 API: `CreateFileW`, `DeviceIoControl`, `FSCTL_GET_REPARSE_POINT`)
 - 006-config-file-support: Added Rust stable (latest stable release) + `windows` crate for Win32 console API; standard library for file I/O (`std::fs::read`)
-- 004-tree-view: Added Rust stable (edition 2024) + `windows` crate (Win32 API), `widestring` crate, Rust std library only (no third-party libraries)
+Fix- 004-tree-view: Added Rust stable (edition 2024) + `windows` crate (Win32 API), `widestring` crate, Rust std library only (no third-party libraries)
 
 
 <!-- MANUAL ADDITIONS START -->

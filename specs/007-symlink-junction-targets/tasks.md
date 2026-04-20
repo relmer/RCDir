@@ -123,6 +123,9 @@
 - [ ] T032 Verify non-reparse files are completely unaffected — no performance regression (SC-003)
 - [ ] T033 Verify no new command-line switches or config keys were introduced (FR-012)
 - [ ] T034 Verify hardlink information is not resolved or displayed (FR-013)
+- [ ] T035 Add output parity test in tests/output_parity.rs — normal mode listing of directory with junctions/symlinks, compare rcdir vs tcdir output
+- [ ] T036 Add output parity test in tests/output_parity.rs — tree mode listing of directory with junctions/symlinks, compare rcdir vs tcdir output
+- [ ] T037 Add output parity test in tests/output_parity.rs — AppExecLink display (e.g., WindowsApps directory), compare rcdir vs tcdir output
 
 **Checkpoint**: Feature complete, all tests pass, clippy clean.
 
@@ -164,13 +167,13 @@ Phase 1 (Setup) → Phase 2 (Parsers) → Phase 3 (US1: Normal) → Phase 4 (US2
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 34 |
+| Total tasks | 37 |
 | Phase 1 (Setup) | 4 tasks |
 | Phase 2 (Foundational) | 12 tasks |
 | Phase 3 (US1: Normal) | 5 tasks |
 | Phase 4 (US2: Tree) | 2 tasks |
 | Phase 5 (US3: Colors) | 2 tasks |
 | Phase 6 (US4: Prefix) | 1 task |
-| Phase 7 (Polish) | 7 tasks |
+| Phase 7 (Polish) | 10 tasks |
 | Parallel opportunities | 4 groups |
 | MVP scope | Phases 1–3 (21 tasks) |

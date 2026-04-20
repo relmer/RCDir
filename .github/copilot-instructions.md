@@ -178,6 +178,13 @@ console.print_error(&format!("Error: {}", msg));
 - **No test may run the real `rcdir` binary** — test the library functions directly with mocked dependencies
 - Temp files are acceptable **only** in explicitly marked integration tests, never in unit tests
 
+### Output Parity Tests — Required for All Features
+- Every user-visible feature or bug fix MUST include output parity tests in `tests/output_parity.rs`
+- Parity tests run both `rcdir` and `tcdir` with the same arguments and assert byte-identical output
+- These are an **allowed exception** to the unit test isolation rules above — they run real binaries
+- Parity tests gracefully skip when `tcdir.exe` is not available (CI environments)
+- When adding a new feature, add parity test cases covering all affected display modes (normal, tree, wide, bare as applicable)
+
 ---
 
 ## Communication Rules

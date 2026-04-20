@@ -517,6 +517,7 @@ mod tests {
             last_write_time:  133_500_000_000_000_000,
             last_access_time: 133_500_000_000_000_000,
             reparse_tag:      0,
+            reparse_target:   String::new(),
             streams:          Vec::new(),
         }
     }
@@ -531,6 +532,7 @@ mod tests {
             last_write_time:  133_500_000_000_000_000,
             last_access_time: 133_500_000_000_000_000,
             reparse_tag:      0,
+            reparse_target:   String::new(),
             streams:          Vec::new(),
         }
     }

@@ -2035,6 +2035,7 @@ mod tests {
             last_write_time:  0,
             last_access_time: 0,
             reparse_tag:      0,
+            reparse_target:  String::new(),
             streams:          Vec::new(),
         };
         let style = cfg.get_display_style_for_file (&fi_git);
@@ -2050,6 +2051,7 @@ mod tests {
             last_write_time:  0,
             last_access_time: 0,
             reparse_tag:      0,
+            reparse_target:  String::new(),
             streams:          Vec::new(),
         };
         let style_upper = cfg.get_display_style_for_file (&fi_git_upper);
@@ -2084,6 +2086,7 @@ mod tests {
             last_write_time:  0,
             last_access_time: 0,
             reparse_tag:      0,
+            reparse_target:  String::new(),
             streams:          Vec::new(),
         };
         let style = cfg.get_display_style_for_file (&fi_git);
@@ -3258,6 +3261,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 
@@ -3290,6 +3294,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 
@@ -3322,6 +3327,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 
@@ -3355,6 +3361,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 
@@ -3387,6 +3394,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     IO_REPARSE_TAG_SYMLINK,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 
@@ -3419,6 +3427,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     IO_REPARSE_TAG_MOUNT_POINT,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 
@@ -3451,6 +3460,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 
@@ -3486,6 +3496,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
 

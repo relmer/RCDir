@@ -1184,3 +1184,102 @@ fn parity_help_output() {
         );
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_reparse_normal_mode
+//
+//  Verifies output parity for a directory containing junctions/symlinks
+//  in normal mode.  Uses %USERPROFILE% which typically has Application Data
+//  junction and other reparse points.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_reparse_normal_mode() {
+    if let Ok (profile) = std::env::var ("USERPROFILE") {
+        let pattern = format! ("{}\\*", profile);
+        let (matching, total, diffs) = compare_output (&[&pattern]);
+        if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+            let pct = (matching as f64 / total as f64) * 100.0;
+            assert!(
+                pct >= 95.0,
+                "Reparse normal parity too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+                pct,
+                matching,
+                total,
+                diffs.join ("\n"),
+            );
+        }
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_reparse_tree_mode
+//
+//  Verifies output parity for a directory containing junctions/symlinks
+//  in tree mode with depth limiting.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_reparse_tree_mode() {
+    if let Ok (profile) = std::env::var ("USERPROFILE") {
+        let pattern = format! ("{}\\*", profile);
+        let (matching, total, diffs) = compare_output (&["/Tree", "/Depth=1", &pattern]);
+        if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+            let pct = (matching as f64 / total as f64) * 100.0;
+            assert!(
+                pct >= 95.0,
+                "Reparse tree parity too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+                pct,
+                matching,
+                total,
+                diffs.join ("\n"),
+            );
+        }
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_reparse_appexeclink
+//
+//  Verifies output parity for the WindowsApps directory which contains
+//  AppExecLink reparse points (python.exe, winget.exe, etc.).
+//  Skips if the directory does not exist.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_reparse_appexeclink() {
+    let apps_dir = r"C:\Users\relmer\AppData\Local\Microsoft\WindowsApps";
+    if std::path::Path::new (apps_dir).exists() {
+        let pattern = format! ("{}\\*", apps_dir);
+        let (matching, total, diffs) = compare_output (&[&pattern]);
+        if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+            let pct = (matching as f64 / total as f64) * 100.0;
+            assert!(
+                pct >= 95.0,
+                "AppExecLink parity too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+                pct,
+                matching,
+                total,
+                diffs.join ("\n"),
+            );
+        }
+    }
+}

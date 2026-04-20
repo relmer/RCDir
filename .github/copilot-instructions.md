@@ -208,6 +208,17 @@ console.print_error(&format!("Error: {}", msg));
 - `cargo check` — quick compilation verification
 - `cargo clippy` — lint checking
 
+### Toolchain Currency
+- **ALWAYS** run `rustup update stable` before starting work to ensure the local toolchain matches CI
+- CI uses `dtolnay/rust-toolchain@stable` which installs the latest stable Rust on every run
+- New stable releases (every 6 weeks) can introduce new clippy lints that break `-D warnings`
+- A toolchain mismatch between local and CI is the most common cause of "works locally, fails in CI"
+
+### Pre-Push Checklist
+- **ALWAYS** run `cargo clippy -- -D warnings` and verify zero errors before pushing
+- **ALWAYS** run `cargo test` and verify all tests pass before pushing
+- If clippy introduces new warnings after a toolchain update, fix them before pushing
+
 ### Build Integration
 - Always build after making changes using the build task or `Build.ps1`
 - Fix all clippy warnings before considering task complete

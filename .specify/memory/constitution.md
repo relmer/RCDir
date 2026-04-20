@@ -109,10 +109,12 @@ When automation tooling exists, prefer it over raw terminal commands:
 
 ### Quality Gates
 
+0. **Toolchain Currency**: Run `rustup update stable` before starting work. CI always uses the latest stable Rust; local toolchain MUST match to avoid lint surprises.
 1. **Pre-Commit**: Code MUST compile without errors or warnings (`cargo clippy -- -D warnings`)
-2. **Build Verification**: Run `cargo test` to ensure all tests pass before considering work complete
-3. **Formatting**: Manually verify formatting follows rules in `.github/copilot-instructions.md`
-4. **Architecture Coverage**: Verify changes work on both x64 and ARM64 when touching platform-sensitive code
+2. **Pre-Push**: Run `cargo clippy -- -D warnings` and `cargo test` — both MUST pass with zero errors before pushing
+3. **Build Verification**: Run `cargo test` to ensure all tests pass before considering work complete
+4. **Formatting**: Manually verify formatting follows rules in `.github/copilot-instructions.md`
+5. **Architecture Coverage**: Verify changes work on both x64 and ARM64 when touching platform-sensitive code
 
 ### Change Process
 
@@ -139,6 +141,6 @@ This constitution supersedes all ad-hoc practices. All code changes MUST verify 
 
 **Guidance Reference**: See `.github/copilot-instructions.md` for detailed runtime development guidance and code style rules.
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-02-07
+**Version**: 1.1.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-04-20
 
 ```

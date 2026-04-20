@@ -113,7 +113,10 @@ fn add_match_to_list(
     totals: &mut ListingTotals,
     cmd: &CommandLine,
 ) {
-    let file_entry = FileInfo::from_find_data(wfd);
+    let mut file_entry = FileInfo::from_find_data(wfd);
+
+    // Resolve reparse target (symlink/junction/AppExecLink) — empty string if not applicable
+    file_entry.reparse_target = crate::reparse_resolver::resolve_reparse_target (&di.dir_path, &file_entry);
 
     // Track filename length for wide listing
     let file_name_len = if cmd.wide_listing {

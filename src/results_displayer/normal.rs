@@ -250,7 +250,15 @@ fn display_file_results(
 
         // Filename
         let name_str = file_info.file_name.to_string_lossy();
-        console.writef_line (text_attr, format_args! ("{}", name_str));
+
+        if !file_info.reparse_target.is_empty() {
+            // Reparse point: filename → target (FR-003, FR-006, FR-007)
+            console.writef (text_attr, format_args! ("{}", name_str));
+            console.printf (config.attributes[Attribute::Information as usize], " \u{2192} ");
+            console.writef_line (text_attr, format_args! ("{}", file_info.reparse_target));
+        } else {
+            console.writef_line (text_attr, format_args! ("{}", name_str));
+        }
 
         // Streams (if --streams and this is a file, not a directory)
         if cmd.show_streams && !file_info.streams.is_empty() {

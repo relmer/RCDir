@@ -50,7 +50,7 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T008 [P] [US1] Write unit tests for `ellipsize_path()` in `src/path_ellipsis.rs` (inside `#[cfg(test)] mod tests`). Test cases MUST include all 7 real filename/target pairs from spec.md Test Data table at width 120, plus:
+- [X] T008 [P] [US1] Write unit tests for `ellipsize_path()` in `src/path_ellipsis.rs` (inside `#[cfg(test)] mod tests`). Test cases MUST include all 7 real filename/target pairs from spec.md Test Data table at width 120, plus:
   - Short path that fits (no truncation)
   - Path with exactly 2 components (never truncated — nothing to elide)
   - Path with 3 components (minimal truncation case)
@@ -61,12 +61,12 @@
   - Edge case: `available_width` of 0 or 1
   - Edge case: truncated form is not shorter than original (should return original)
   - FR-004 guard: verify that only the target path is passed to `ellipsize_path()` — source filename is never modified by the truncation logic
-- [ ] T009 [P] [US1] Write unit test verifying `EllipsizedPath` struct fields: when `truncated` is false, `prefix` is full path and `suffix` is empty; when `truncated` is true, `prefix` + `…` + `suffix` fits within `available_width`
+- [X] T009 [P] [US1] Write unit test verifying `EllipsizedPath` struct fields: when `truncated` is false, `prefix` is full path and `suffix` is empty; when `truncated` is true, `prefix` + `…` + `suffix` fits within `available_width`
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement `ellipsize_path()` algorithm in `src/path_ellipsis.rs` per research.md R2: split on `\`, try priority forms (first two dirs + leaf dir + filename → first two dirs + filename → first dir + filename → leaf-only with trailing `…`), return `EllipsizedPath` with prefix/suffix split. Ensure all T008/T009 tests pass.
-- [ ] T011 [US1] Integrate ellipsize into normal displayer in `src/results_displayer/normal.rs`: compute `available_width` using formula from research.md R1 (console width minus date/time/attributes/size/cloud/debug/owner/icon/filename/arrow columns); call `ellipsize_path()` when `cmd.ellipsize.unwrap_or(true)` is true; render with split colors — prefix in `text_attr`, `…` in `Attribute::Default`, suffix in `text_attr`
+- [X] T010 [US1] Implement `ellipsize_path()` algorithm in `src/path_ellipsis.rs` per research.md R2: split on `\`, try priority forms (first two dirs + leaf dir + filename → first two dirs + filename → first dir + filename → leaf-only with trailing `…`), return `EllipsizedPath` with prefix/suffix split. Ensure all T008/T009 tests pass.
+- [X] T011 [US1] Integrate ellipsize into normal displayer in `src/results_displayer/normal.rs`: compute `available_width` using formula from research.md R1 (console width minus date/time/attributes/size/cloud/debug/owner/icon/filename/arrow columns); call `ellipsize_path()` when `cmd.ellipsize.unwrap_or(true)` is true; render with split colors — prefix in `text_attr`, `…` in `Attribute::Default`, suffix in `text_attr`
 
 **Checkpoint**: `cargo test` passes. Normal-mode output shows truncated targets for long paths. Short paths are unaffected.
 
@@ -80,11 +80,11 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T012 [P] [US2] Write unit tests for tree-mode available-width calculation in `src/path_ellipsis.rs` (or as part of tree displayer tests): verify that tree prefix width (from `tree_state.get_prefix(is_last).len()` + indent) is subtracted from available width before calling `ellipsize_path()`
+- [X] T012 [P] [US2] Write unit tests for tree-mode available-width calculation in `src/path_ellipsis.rs` (or as part of tree displayer tests): verify that tree prefix width (from `tree_state.get_prefix(is_last).len()` + indent) is subtracted from available width before calling `ellipsize_path()`
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Integrate ellipsize into tree displayer in `src/results_displayer/tree.rs`: compute `available_width` using the same formula as normal mode but additionally subtracting tree prefix width (depth × indent + connector chars); call `ellipsize_path()` when `cmd.ellipsize.unwrap_or(true)` is true; render with same split-color pattern as normal mode
+- [X] T013 [US2] Integrate ellipsize into tree displayer in `src/results_displayer/tree.rs`: compute `available_width` using the same formula as normal mode but additionally subtracting tree prefix width (depth × indent + connector chars); call `ellipsize_path()` when `cmd.ellipsize.unwrap_or(true)` is true; render with same split-color pattern as normal mode
 
 **Checkpoint**: `cargo test` passes. Tree-mode output shows truncated targets for long paths at all depths.
 
@@ -98,11 +98,11 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T014 [P] [US3] Write unit tests verifying `ellipsize_path()` is NOT called (or is bypassed) when `cmd.ellipsize == Some(false)`: test that both normal and tree displayer code paths respect the switch. Also test config precedence: CLI `--Ellipsize` overrides config file `Ellipsize-`.
+- [X] T014 [P] [US3] Write unit tests verifying `ellipsize_path()` is NOT called (or is bypassed) when `cmd.ellipsize == Some(false)`: test that both normal and tree displayer code paths respect the switch. Also test config precedence: CLI `--Ellipsize` overrides config file `Ellipsize-`.
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Verify the `--Ellipsize-` code path in `src/results_displayer/normal.rs` and `src/results_displayer/tree.rs`: when `cmd.ellipsize == Some(false)`, skip the call to `ellipsize_path()` and display the full target path unchanged (existing behavior). This should already work from T011/T013 guard checks — verify and add explicit test coverage.
+- [X] T015 [US3] Verify the `--Ellipsize-` code path in `src/results_displayer/normal.rs` and `src/results_displayer/tree.rs`: when `cmd.ellipsize == Some(false)`, skip the call to `ellipsize_path()` and display the full target path unchanged (existing behavior). This should already work from T011/T013 guard checks — verify and add explicit test coverage.
 
 **Checkpoint**: `cargo test` passes. `rcdir --Ellipsize-` shows full untruncated paths.
 

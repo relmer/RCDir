@@ -11,7 +11,9 @@ use crate::console::Console;
 use crate::directory_info::DirectoryInfo;
 use crate::drive_info::DriveInfo;
 use crate::listing_totals::ListingTotals;
+use crate::path_ellipsis::ELLIPSIS;
 
+use super::column_layout::compute_column_layout;
 use super::common::{
     display_cloud_status_symbol,
     display_directory_summary,
@@ -137,7 +139,7 @@ impl ResultsDisplayer for WideDisplayer {
         if dir_info.matches.is_empty() {
             display_empty_directory_message(&mut self.console, dir_info);
         } else {
-            display_wide_file_results(&mut self.console, &self.config, dir_info, self.icons_active);
+            display_wide_file_results (&mut self.console, &self.cmd, &self.config, dir_info, self.icons_active);
             display_directory_summary(&mut self.console, dir_info);
 
             if !self.cmd.recurse {
@@ -176,57 +178,62 @@ impl ResultsDisplayer for WideDisplayer {
 //
 //  display_wide_file_results
 //
-//  Display files in column-major wide format.
+//  Display files in column-major wide format with variable-width columns.
 //  Port of: CResultsDisplayerWide::DisplayFileResults
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-fn display_wide_file_results(console: &mut Console, config: &Config, di: &DirectoryInfo, icons_active: bool) {
+fn display_wide_file_results (console: &mut Console, cmd: &CommandLine, config: &Config, di: &DirectoryInfo, icons_active: bool) {
     if di.largest_file_name == 0 || di.matches.is_empty() {
         return;
     }
 
     let console_width = console.width() as usize;
-    let in_sync_root = cloud_status::is_under_sync_root (di.dir_path.as_os_str());
+    let in_sync_root  = cloud_status::is_under_sync_root (di.dir_path.as_os_str());
+    let ellipsize     = cmd.ellipsize.unwrap_or (true);
 
-    // Account for brackets on directories (only when icons are NOT active).
-    // When icons are active, the folder icon provides the visual distinction.
-    let max_name_len = di.matches.iter().map(|fi| {
-        let base_len = fi.file_name.to_string_lossy().len();
-        if fi.is_directory() && !icons_active { base_len + 2 } else { base_len }
-    }).max().unwrap_or(0);
+    // Build per-entry display widths vector (T011).
+    // Each entry's width = filename + optional brackets/icon/cloud.
 
-    // When icons are active, account for icon + space (+2) in column width
-    let mut adjusted_max = if icons_active { max_name_len + 2 } else { max_name_len };
+    let display_widths: Vec<usize> = di.matches.iter().map (|fi| {
+        let mut w = fi.file_name.to_string_lossy().len();
 
-    // When in sync root, cloud status adds visual width:
-    //   Non-icon mode: 3 chars (space + symbol + space)
-    //   Icon mode:     4 visual cols (space + 2-col icon + space)
-    if in_sync_root {
-        adjusted_max += if icons_active { 4 } else { 3 };
-    }
+        // Directory brackets [name] when icons are off
+        if fi.is_directory() && !icons_active {
+            w += 2;
+        }
 
-    // Calculate column count and widths — Port of: GetColumnInfo
-    let (columns, column_width) = if adjusted_max + 1 > console_width {
-        (1, console_width)
-    } else {
-        let cols = console_width / (adjusted_max + 1);
-        (cols, console_width / cols)
-    };
+        // Icon space is always consumed when icons are active (even for
+        // suppressed icons, the render loop emits a 2-char placeholder).
+        if icons_active {
+            w += 2;
+        }
 
-    let total_items     = di.matches.len();
-    let rows            = total_items.div_ceil(columns);
-    let items_in_last_row = total_items % columns;
+        // Cloud status symbol + space
+        if in_sync_root {
+            w += if icons_active { 4 } else { 3 };
+        }
 
-    // Display in column-major order — Port of: DisplayFileResults loop
-    for row in 0..rows {
-        for col in 0..columns {
-            if row * columns + col >= total_items {
+        w
+    }).collect();
+
+    // Compute variable-width column layout (T012)
+
+    let layout = compute_column_layout (&display_widths, console_width, ellipsize);
+
+    // Display in column-major order (T013 + T014)
+
+    let total_items       = di.matches.len();
+    let items_in_last_row = total_items % layout.columns;
+
+    for row in 0..layout.rows {
+        for col in 0..layout.columns {
+            if row * layout.columns + col >= total_items {
                 break;
             }
 
             // Column-major index calculation matching TCDir exactly
-            let full_rows = if items_in_last_row != 0 { rows - 1 } else { rows };
+            let full_rows = if items_in_last_row != 0 { layout.rows - 1 } else { layout.rows };
             let mut idx = row + (col * full_rows);
 
             // Adjust for items in the last row
@@ -257,33 +264,69 @@ fn display_wide_file_results(console: &mut Console, config: &Config, di: &Direct
                 if let Some(icon) = style.icon_code_point {
                     if !style.icon_suppressed {
                         console.writef (text_attr, format_args! ("{} ", icon));
+                        cch_name += 2;
                     } else {
                         console.printf (text_attr, "  ");
+                        cch_name += 2;
                     }
                 } else {
                     console.printf (text_attr, "  ");
+                    cch_name += 2;
                 }
-                cch_name += 2; // icon + space
             }
 
-            // Format filename: [dirname] for dirs (classic mode only), plain name for files
+            // Format filename, with outlier truncation when trunc_cap is active (T014)
             let name = fi.file_name.to_string_lossy();
+
             if fi.is_directory() && !icons_active {
-                console.writef (text_attr, format_args! ("[{}]", name));
-                cch_name += name.len() + 2;
+                // Directory with [brackets]
+                let display_len = name.len() + 2;
+                let effective_cch = cch_name + display_len;
+
+                if layout.trunc_cap > 0 && effective_cch > layout.trunc_cap {
+                    let over = effective_cch - layout.trunc_cap;
+                    if over + 1 < display_len {
+                        let keep = name.len() - over - 1;
+                        console.writef (text_attr, format_args! ("[{}{}", &name[..keep], ELLIPSIS));
+                        cch_name = layout.trunc_cap;
+                    } else {
+                        console.writef (text_attr, format_args! ("[{}]", name));
+                        cch_name += display_len;
+                    }
+                } else {
+                    console.writef (text_attr, format_args! ("[{}]", name));
+                    cch_name += display_len;
+                }
             } else {
-                console.printf (text_attr, &name);
-                cch_name += name.len();
+                // Plain filename
+                let effective_cch = cch_name + name.len();
+
+                if layout.trunc_cap > 0 && effective_cch > layout.trunc_cap {
+                    let over = effective_cch - layout.trunc_cap;
+                    if over + 1 < name.len() {
+                        let keep = name.len() - over - 1;
+                        console.writef (text_attr, format_args! ("{}{}", &name[..keep], ELLIPSIS));
+                        cch_name = layout.trunc_cap;
+                    } else {
+                        console.printf (text_attr, &name);
+                        cch_name += name.len();
+                    }
+                } else {
+                    console.printf (text_attr, &name);
+                    cch_name += name.len();
+                }
             }
 
-            // Pad to column width
-            if column_width > cch_name {
+            // Pad to per-column width; last column gets no trailing space
+            let col_width = if col < layout.columns - 1 { layout.column_widths[col] } else { 0 };
+
+            if col_width > cch_name {
                 console.writef_attr (Attribute::Default, format_args! (
-                    "{:width$}", "", width = column_width - cch_name,
+                    "{:width$}", "", width = col_width - cch_name,
                 ));
             }
         }
 
-        console.puts(Attribute::Default, "");
+        console.puts (Attribute::Default, "");
     }
 }

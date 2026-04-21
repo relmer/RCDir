@@ -49,10 +49,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Build per-entry display widths vector in `display_wide_file_results()`
-- [ ] T012 [US1] Replace uniform-width column calculation with `compute_column_layout()` call
-- [ ] T013 [US1] Update render loop to use per-column widths from `ColumnLayout`
-- [ ] T014 [US1] Add outlier truncation at render time with `ELLIPSIS` char
+- [X] T011 [US1] Build per-entry display widths vector in `display_wide_file_results()`
+- [X] T012 [US1] Replace uniform-width column calculation with `compute_column_layout()` call
+- [X] T013 [US1] Update render loop to use per-column widths from `ColumnLayout`
+- [X] T014 [US1] Add outlier truncation at render time with `ELLIPSIS` char
 
 **Checkpoint**: `rcdir /W` on mixed-length directories shows variable-width columns. `rcdir /W` on uniform-length directories produces identical output to before. Column-major ordering is preserved.
 

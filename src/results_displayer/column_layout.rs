@@ -9,9 +9,6 @@
 // Port of: CResultsDisplayerWide::ComputeColumnLayout / FitColumns /
 //          TryColumnCount / ComputeMedianDisplayWidth
 
-// Allow dead_code until Phase 3 wires these functions into wide.rs.
-#![allow (dead_code)]
-
 use std::cmp::{max, min};
 
 

@@ -28,14 +28,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 [P] Implement `compute_median(widths: &[usize]) -> usize`
-- [ ] T004 [P] Implement `try_column_count(widths: &[usize], console_width: usize, num_cols: usize) -> Option<ColumnLayout>`
-- [ ] T005 Implement `fit_columns(widths: &[usize], console_width: usize) -> ColumnLayout`
-- [ ] T006 Implement `compute_column_layout(widths: &[usize], console_width: usize, ellipsize: bool) -> ColumnLayout`
-- [ ] T007 Add `#[cfg(test)] mod tests` with unit tests for `compute_median()`
-- [ ] T008 Add unit tests for `try_column_count()` including column-major ordering verification
-- [ ] T009 Add unit tests for `fit_columns()`
-- [ ] T010 Add unit tests for `compute_column_layout()`
+- [X] T003 [P] Implement `compute_median(widths: &[usize]) -> usize`
+- [X] T004 [P] Implement `try_column_count(widths: &[usize], console_width: usize, num_cols: usize) -> Option<ColumnLayout>`
+- [X] T005 Implement `fit_columns(widths: &[usize], console_width: usize) -> ColumnLayout`
+- [X] T006 Implement `compute_column_layout(widths: &[usize], console_width: usize, ellipsize: bool) -> ColumnLayout`
+- [X] T007 Add `#[cfg(test)] mod tests` with unit tests for `compute_median()`
+- [X] T008 Add unit tests for `try_column_count()` including column-major ordering verification
+- [X] T009 Add unit tests for `fit_columns()`
+- [X] T010 Add unit tests for `compute_column_layout()`
 
 **Checkpoint**: All pure algorithm functions implemented and tested. `cargo test` passes. `cargo clippy -- -D warnings` clean.
 

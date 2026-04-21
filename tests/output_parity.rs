@@ -318,6 +318,68 @@ fn parity_wide_listing() {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//  parity_wide_no_ellipsize
+//
+//  Verifies output parity for wide listing with ellipsis disabled
+//  (/w /ellipsize-).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_wide_no_ellipsize() {
+    let test_dir = std::env::current_dir().unwrap();
+    let pattern = format!("{}\\src\\*.rs", test_dir.display());
+    let (matching, total, diffs) = compare_output(&["/w", "/ellipsize-", &pattern]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (wide+no-ellipsize) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_wide_mixed_dirs
+//
+//  Verifies output parity for wide listing on a directory containing both
+//  files and subdirectories (mixed-length names).
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_wide_mixed_dirs() {
+    let test_dir = std::env::current_dir().unwrap();
+    let dir = format!("{}", test_dir.display());
+    let (matching, total, diffs) = compare_output(&["/w", &dir]);
+    if total > 0 && !diffs.is_empty() && !diffs[0].contains("not found") {
+        let pct = (matching as f64 / total as f64) * 100.0;
+        assert!(
+            pct >= 95.0,
+            "Output parity (wide+mixed) too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+            pct,
+            matching,
+            total,
+            diffs.join("\n"),
+        );
+    }
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
 //  parity_bare_listing
 //
 //  Verifies output parity for bare listing format (/b).

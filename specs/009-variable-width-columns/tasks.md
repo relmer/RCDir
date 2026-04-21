@@ -76,9 +76,9 @@
 
 **Purpose**: Output parity verification and edge case hardening
 
-- [ ] T017 [P] Add output parity test cases for wide mode in `tests/output_parity.rs`
-- [ ] T018 [P] Add edge case unit tests in `src/results_displayer/column_layout.rs`
-- [ ] T019 Run `cargo clippy -- -D warnings` and `cargo test` — verify zero errors before final commit
+- [X] T017 [P] Add output parity test cases for wide mode in `tests/output_parity.rs`
+- [X] T018 [P] Add edge case unit tests in `src/results_displayer/column_layout.rs`
+- [X] T019 Run `cargo clippy -- -D warnings` and `cargo test` — verify zero errors before final commit
 
 **Checkpoint**: All tests pass. Output parity verified. Clippy clean.
 

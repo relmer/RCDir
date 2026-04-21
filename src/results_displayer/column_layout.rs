@@ -539,4 +539,57 @@ mod tests {
         assert! (layout.column_widths[1] >= 30,
             "col1 width {} should be >= 30", layout.column_widths[1]);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  Edge case tests (T018)
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn edge_narrow_console_40() {
+        let widths = vec![15; 10];
+        let layout = compute_column_layout (&widths, 40, true);
+        // 15+1+15 = 31 < 40 → should fit 2 cols
+        assert! (layout.columns >= 2, "should fit 2 cols in 40-wide console");
+    }
+
+    #[test]
+    fn edge_single_entry_wider_than_console() {
+        let widths = vec![100];
+        let layout = compute_column_layout (&widths, 40, true);
+        assert_eq! (layout.columns, 1);
+        assert_eq! (layout.rows, 1);
+    }
+
+    #[test]
+    fn edge_all_same_width_identical_to_uniform() {
+        let widths = vec![20; 10];
+        let layout = compute_column_layout (&widths, 100, true);
+        if layout.columns > 2 {
+            let non_last: Vec<usize> = layout.column_widths[..layout.columns - 1].to_vec();
+            let min_w = *non_last.iter().min().unwrap();
+            let max_w = *non_last.iter().max().unwrap();
+            assert! (max_w - min_w <= 1, "uniform widths should give near-equal non-last cols");
+        }
+    }
+
+    #[test]
+    fn edge_exactly_two_entries() {
+        let widths = vec![10, 20];
+        let layout = compute_column_layout (&widths, 80, true);
+        assert_eq! (layout.columns, 2);
+        assert_eq! (layout.rows, 1);
+    }
+
+    #[test]
+    fn edge_console_width_1() {
+        let widths = vec![5, 10];
+        let layout = compute_column_layout (&widths, 1, true);
+        assert_eq! (layout.columns, 1);
+    }
 }

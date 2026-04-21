@@ -16,6 +16,7 @@
 //   bare.rs   — BareDisplayer + bare (filename-only) display
 
 mod bare;
+mod column_layout;
 mod common;
 mod normal;
 mod tree;

@@ -15,8 +15,8 @@
 
 **Purpose**: Create the new module and register it
 
-- [ ] T001 Create `src/results_displayer/column_layout.rs` with module header, `ColumnLayout` struct definition (fields: `columns: usize`, `rows: usize`, `column_widths: Vec<usize>`, `trunc_cap: usize`), and `use` imports
-- [ ] T002 Register `column_layout` module in `src/results_displayer/mod.rs` with `mod column_layout;` and `pub use self::column_layout::ColumnLayout;`
+- [X] T001 Create `src/results_displayer/column_layout.rs` with module header, `ColumnLayout` struct definition (fields: `columns: usize`, `rows: usize`, `column_widths: Vec<usize>`, `trunc_cap: usize`), and `use` imports
+- [X] T002 Register `column_layout` module in `src/results_displayer/mod.rs` with `mod column_layout;` and `pub use self::column_layout::ColumnLayout;`
 
 **Checkpoint**: Project compiles with empty new module (`cargo check`)
 

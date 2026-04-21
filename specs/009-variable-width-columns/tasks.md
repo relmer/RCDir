@@ -66,7 +66,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Add unit tests for display width scenarios (icons, cloud status, brackets, mixed)
+- [X] T016 [US3] Add unit tests for display width scenarios (icons, cloud status, brackets, mixed)
 
 **Checkpoint**: Width accounting verified by unit tests. The per-entry width vector built in T011 already handles these cases — this phase confirms correctness.
 

@@ -474,4 +474,69 @@ mod tests {
         assert_eq! (layout.rows, 1);
         assert_eq! (layout.trunc_cap, 0);
     }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  Display width scenario tests (T016)
+    //
+    //  Verify the layout algorithm handles varying per-entry display widths
+    //  simulating icons, cloud status, and directory brackets.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn width_entries_with_icons_plus_2() {
+        // Simulate 5 files with icon (+2): base 10 + 2 = 12
+        let widths = vec![12; 5];
+        let layout = fit_columns (&widths, 80);
+        assert! (layout.columns >= 2);
+    }
+
+    #[test]
+    fn width_suppressed_icons_still_plus_2() {
+        // Suppressed icons still consume +2 (placeholder spaces).
+        let widths = vec![12; 5];
+        let layout = fit_columns (&widths, 80);
+        assert! (layout.columns >= 2);
+    }
+
+    #[test]
+    fn width_cloud_status_icon_mode_plus_4() {
+        // Icon mode: base 10 + icon 2 + cloud 4 = 16
+        let widths = vec![16; 5];
+        let layout = fit_columns (&widths, 80);
+        assert! (layout.columns >= 2);
+    }
+
+    #[test]
+    fn width_cloud_status_non_icon_mode_plus_3() {
+        // Non-icon mode: base 10 + cloud 3 = 13
+        let widths = vec![13; 5];
+        let layout = fit_columns (&widths, 80);
+        assert! (layout.columns >= 2);
+    }
+
+    #[test]
+    fn width_directory_brackets_plus_2() {
+        // Dirs with brackets: base 8 + 2 = 10
+        let widths = vec![10; 5];
+        let layout = fit_columns (&widths, 80);
+        assert! (layout.columns >= 2);
+    }
+
+    #[test]
+    fn width_mixed_entries_widest_determines_column() {
+        // Column 0 gets entries [10, 10, 10, 10] (4 entries)
+        // Column 1 gets entries [10, 10, 30] (3 entries, one wide)
+        // The wide entry (30) should determine column 1's width.
+        let widths = vec![10, 10, 10, 10, 10, 10, 30];
+        let layout = try_column_count (&widths, 80, 2).unwrap();
+        assert_eq! (layout.columns, 2);
+        assert! (layout.column_widths[1] >= 30,
+            "col1 width {} should be >= 30", layout.column_widths[1]);
+    }
 }

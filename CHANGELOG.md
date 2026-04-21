@@ -2,6 +2,21 @@
 
 All notable changes to RCDir are documented in this file.
 
+## [5.4] - 2026-04-20
+
+### Added
+
+- Symlink, junction, and AppExecLink target display: `filename → target` in normal and tree modes
+  - Junctions show resolved target path with `\??\` device prefix stripped
+  - File and directory symlinks show target path as-stored (relative or absolute)
+  - AppExecLink entries (e.g., `python.exe` in WindowsApps) show resolved executable path
+  - Arrow (`→`) uses Information color; target uses the filename's own color
+  - Wide and bare modes unaffected (no target display)
+  - Graceful degradation: inaccessible reparse data shows filename without target
+  - Zero overhead for non-reparse files (single attribute flag check)
+- 3 new output parity tests for reparse target display (normal, tree, AppExecLink)
+- 469 unit tests (up from 435)
+
 ## [5.3.1403] - 2026-04-11
 
 ### Added

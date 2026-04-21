@@ -17,6 +17,7 @@ It's designed as a practical `dir`-style command with useful defaults (color by 
 
 | Version | Highlights |
 |---------|------------|
+| **5.4** | Symlink, junction, and AppExecLink target display (`→ target`) |
 | **5.3** | Config file support (`.rcdirconfig`), `--config` diagnostics, `--settings` merged view |
 | **5.2** | Interactive PowerShell alias configuration (`--set-aliases`, `--get-aliases`, `--remove-aliases`) |
 | **5.1** | `--Tree` hierarchical directory view with depth control |
@@ -37,6 +38,7 @@ Hat tip to [Chris Kirmse](https://github.com/ckirmse) whose excellent [ZDir](htt
 | Multi-threaded enumeration | — | ✅ | — | — |
 | Native Windows (no WSL/MSYS) | ✅ | ✅ | ⚠️ | ⚠️ |
 | Familiar `dir` switch syntax | ✅ | ✅ | — | — |
+| Symlink/junction target display | — | ✅ | ✅ | ✅ |
 | ARM64 native binary | ✅ | ✅ | — | — |
 | NTFS alternate data streams | ✅ | ✅ | — | — |
 | Configurable via environment variable | — | ✅ | — | — |

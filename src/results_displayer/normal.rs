@@ -13,6 +13,7 @@ use crate::drive_info::DriveInfo;
 use crate::file_info::{FileInfo, FILE_ATTRIBUTE_MAP};
 use crate::listing_totals::ListingTotals;
 use crate::owner;
+use crate::path_ellipsis;
 
 use super::common::{
     display_cloud_status_symbol,
@@ -255,7 +256,32 @@ fn display_file_results(
             // Reparse point: filename → target (FR-003, FR-006, FR-007)
             console.writef (text_attr, format_args! ("{}", name_str));
             console.printf (config.attributes[Attribute::Information as usize], " \u{2192} ");
-            console.writef_line (text_attr, format_args! ("{}", file_info.reparse_target));
+
+            // Ellipsize long target paths to prevent line wrapping (spec 008)
+            if cmd.ellipsize.unwrap_or (true) {
+                let available_width = compute_available_width_for_target (
+                    console.width() as usize,
+                    max_size_width,
+                    cmd.resolved_size_format(),
+                    icons_active,
+                    #[cfg(debug_assertions)]
+                    cmd.debug,
+                    cmd.show_owner,
+                    max_owner_len,
+                    0, // tree_prefix_width: 0 for normal mode
+                    name_str.len(),
+                );
+                let ep = path_ellipsis::ellipsize_path (&file_info.reparse_target, available_width);
+                if ep.truncated {
+                    console.writef (text_attr, format_args! ("{}", ep.prefix));
+                    console.printf (config.attributes[Attribute::Default as usize], "\u{2026}");
+                    console.writef_line (text_attr, format_args! ("{}", ep.suffix));
+                } else {
+                    console.writef_line (text_attr, format_args! ("{}", ep.prefix));
+                }
+            } else {
+                console.writef_line (text_attr, format_args! ("{}", file_info.reparse_target));
+            }
         } else {
             console.writef_line (text_attr, format_args! ("{}", name_str));
         }
@@ -495,6 +521,83 @@ pub(super) fn display_file_owner(console: &mut Console, config: &Config, owner: 
     let color = config.attributes[Attribute::Owner as usize];
     let padding = if max_width > owner.len() { max_width - owner.len() } else { 0 };
     console.writef (color, format_args! ("{}{:width$} ", owner, "", width = padding));
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  compute_available_width_for_target
+//
+//  Calculate how many characters remain on the current line for the
+//  reparse target path, after all metadata columns have been rendered.
+//  Used by both normal and tree displayers to feed `ellipsize_path()`.
+//  Port of: ComputeAvailableWidthForTarget
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn compute_available_width_for_target(
+    console_width: usize,
+    max_size_width: usize,
+    size_format: SizeFormat,
+    icons_active: bool,
+    #[cfg(debug_assertions)]
+    debug: bool,
+    show_owner: bool,
+    max_owner_len: usize,
+    tree_prefix_width: usize,
+    filename_len: usize,
+) -> usize {
+    // Date/time: "MM/dd/yyyy  hh:mm tt " = 21 chars
+    let date_time_width = 21;
+
+    // Attributes: one char per FILE_ATTRIBUTE_MAP entry = 9 chars
+    let attributes_width = FILE_ATTRIBUTE_MAP.len();
+
+    // File size column:
+    //   Auto mode: "  " + 7-char abbreviated = 9
+    //   Bytes mode: "  " + max(max_size_width, 5)
+    let size_col_width = if size_format == SizeFormat::Auto {
+        9
+    } else {
+        2 + max_size_width.max (5)
+    };
+
+    // Cloud status: always displayed (even CloudStatus::None emits a space)
+    //   With icons: " {icon} " = 4 visual columns
+    //   Without icons: " ● " = 3 chars
+    let cloud_width = if icons_active { 4 } else { 3 };
+
+    // Debug column: "[XXXXXXXX:YY] " = 14 chars (debug builds only)
+    #[cfg(debug_assertions)]
+    let debug_width = if debug { 14 } else { 0 };
+    #[cfg(not(debug_assertions))]
+    let debug_width = 0;
+
+    // Owner column: "owner + padding + space" = max_owner_len + 1
+    let owner_width = if show_owner { max_owner_len + 1 } else { 0 };
+
+    // Icon glyph: icon (2 cols) + space = 3 visual columns
+    let icon_width = if icons_active { 3 } else { 0 };
+
+    // Arrow separator: " → " = 3 chars
+    let arrow_width = 3;
+
+    let used = date_time_width
+        + attributes_width
+        + size_col_width
+        + cloud_width
+        + debug_width
+        + owner_width
+        + icon_width
+        + tree_prefix_width
+        + filename_len
+        + arrow_width;
+
+    console_width.saturating_sub (used)
 }
 
 

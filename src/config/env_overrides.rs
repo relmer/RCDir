@@ -392,7 +392,7 @@ impl Config {
             }
         }
 
-        self.active_errors().push (ErrorInfo::new ("Invalid switch (expected W, S, P, M, B, Owner, Streams, Tree, or Icons)".into(), entry.into(), entry.into(), 0));
+        self.active_errors().push (ErrorInfo::new ("Invalid switch (expected W, S, P, M, B, Owner, Streams, Tree, Icons, or Ellipsize)".into(), entry.into(), entry.into(), 0));
     }
 
 
@@ -727,6 +727,8 @@ const SWITCH_MAPPINGS: &[(&str, bool, SwitchAccessor)] = &[
     ("icons-",  false, |c| &mut c.icons),
     ("tree",    true,  |c| &mut c.tree),
     ("tree-",   false, |c| &mut c.tree),
+    ("ellipsize",  true,  |c| &mut c.ellipsize),
+    ("ellipsize-", false, |c| &mut c.ellipsize),
 ];
 
 
@@ -773,6 +775,7 @@ fn switch_name_to_source_index(name: &str) -> Option<usize> {
         "streams" => Some (6),
         "icons"   => Some (7),
         "tree"    => Some (8),
+        "ellipsize" => Some (9),
         _         => None,
     }
 }

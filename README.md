@@ -17,6 +17,7 @@ It's designed as a practical `dir`-style command with useful defaults (color by 
 
 | Version | Highlights |
 |---------|------------|
+| **5.5** | Ellipsize long link target paths — middle-truncate with `…` to prevent line wrapping |
 | **5.4** | Symlink, junction, and AppExecLink target display (`→ target`) |
 | **5.3** | Config file support (`.rcdirconfig`), `--config` diagnostics, `--settings` merged view |
 | **5.2** | Interactive PowerShell alias configuration (`--set-aliases`, `--get-aliases`, `--remove-aliases`) |

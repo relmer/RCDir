@@ -19,6 +19,7 @@ use crate::drive_info::DriveInfo;
 use crate::file_info::FileInfo;
 use crate::listing_totals::ListingTotals;
 use crate::owner;
+use crate::path_ellipsis;
 use crate::tree_connector_state::TreeConnectorState;
 
 use super::common::{
@@ -31,6 +32,7 @@ use super::common::{
     get_string_length_of_max_file_size,
 };
 use super::normal::{
+    compute_available_width_for_target,
     display_attributes,
     display_date_and_time,
     display_file_owner,
@@ -356,7 +358,32 @@ impl TreeDisplayer {
             // Reparse point: filename → target (FR-003, FR-006, FR-007)
             console.writef (text_attr, format_args! ("{}", name_str));
             console.printf (self.config.attributes[Attribute::Information as usize], " \u{2192} ");
-            console.writef_line (text_attr, format_args! ("{}", file_info.reparse_target));
+
+            // Ellipsize long target paths (spec 008) — tree mode subtracts prefix width
+            if self.cmd.ellipsize.unwrap_or (true) {
+                let available_width = compute_available_width_for_target (
+                    console.width() as usize,
+                    self.largest_file_size_str_len,
+                    self.cmd.resolved_size_format(),
+                    self.icons_active,
+                    #[cfg(debug_assertions)]
+                    self.cmd.debug,
+                    self.cmd.show_owner,
+                    self.max_owner_len,
+                    prefix.len(),
+                    name_str.len(),
+                );
+                let ep = path_ellipsis::ellipsize_path (&file_info.reparse_target, available_width);
+                if ep.truncated {
+                    console.writef (text_attr, format_args! ("{}", ep.prefix));
+                    console.printf (self.config.attributes[Attribute::Default as usize], "\u{2026}");
+                    console.writef_line (text_attr, format_args! ("{}", ep.suffix));
+                } else {
+                    console.writef_line (text_attr, format_args! ("{}", ep.prefix));
+                }
+            } else {
+                console.writef_line (text_attr, format_args! ("{}", file_info.reparse_target));
+            }
         } else {
             console.writef_line (text_attr, format_args! ("{}", name_str));
         }

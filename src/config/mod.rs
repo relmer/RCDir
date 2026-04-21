@@ -373,6 +373,7 @@ pub struct Config {
     pub max_depth:      Option<i32>,
     pub tree_indent:    Option<i32>,
     pub size_format:    Option<SizeFormat>,
+    pub ellipsize:      Option<bool>,
 
     /// Validation results from last env var parse
     pub last_parse_result: ValidationResult,
@@ -427,11 +428,11 @@ impl Default for Config {
 
 impl Config {
 
-    pub const SWITCH_COUNT: usize = 9;
+    pub const SWITCH_COUNT: usize = 10;
 
     /// Ordered member accessors for switch source tracking.
-    /// Index 0..8 maps to: wide_listing, bare_listing, recurse, perf_timer,
-    /// multi_threaded, show_owner, show_streams, icons, tree
+    /// Index 0..9 maps to: wide_listing, bare_listing, recurse, perf_timer,
+    /// multi_threaded, show_owner, show_streams, icons, tree, ellipsize
     pub const SWITCH_MEMBER_ORDER: [fn(&Config) -> &Option<bool>; Self::SWITCH_COUNT] = [
         |c| &c.wide_listing,
         |c| &c.bare_listing,
@@ -442,6 +443,7 @@ impl Config {
         |c| &c.show_streams,
         |c| &c.icons,
         |c| &c.tree,
+        |c| &c.ellipsize,
     ];
 
     ////////////////////////////////////////////////////////////////////////////
@@ -484,6 +486,7 @@ impl Config {
             max_depth:         None,
             tree_indent:       None,
             size_format:       None,
+            ellipsize:         None,
             last_parse_result: ValidationResult::default(),
             config_file_path:         String::new(),
             config_file_loaded:       false,

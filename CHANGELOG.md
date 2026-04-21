@@ -2,6 +2,19 @@
 
 All notable changes to RCDir are documented in this file.
 
+## [5.5] - 2026-04-20
+
+### Added
+
+- Ellipsize long link target paths: middle-truncate long reparse target paths with `…` (U+2026) to prevent line wrapping
+  - Priority-based truncation: preserves first two dirs + leaf dir + filename, degrades gracefully
+  - Works in both normal and tree modes (tree mode accounts for connector prefix width)
+  - Ellipsis character rendered in Default color for visual distinction from path text
+  - `--Ellipsize` switch (on by default); `--Ellipsize-` to disable and show full paths
+  - Configurable via `.rcdirconfig` and `RCDIR` environment variable
+- 23 new unit tests for path truncation algorithm
+- 1 new output parity test for `--Ellipsize-` disabled mode
+
 ## [5.4] - 2026-04-20
 
 ### Added

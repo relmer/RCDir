@@ -1283,3 +1283,36 @@ fn parity_reparse_appexeclink() {
         }
     }
 }
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  parity_ellipsize_disabled
+//
+//  Verifies output parity when ellipsize is disabled (--Ellipsize-).
+//  Both tools should display full untruncated target paths.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn parity_ellipsize_disabled() {
+    let apps_dir = r"C:\Users\relmer\AppData\Local\Microsoft\WindowsApps";
+    if std::path::Path::new (apps_dir).exists() {
+        let pattern = format! ("{}\\*", apps_dir);
+        let (matching, total, diffs) = compare_output (&["/Ellipsize-", &pattern]);
+        if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
+            let pct = (matching as f64 / total as f64) * 100.0;
+            assert!(
+                pct >= 95.0,
+                "Ellipsize disabled parity too low: {:.1}% ({}/{} lines). Diffs:\n{}",
+                pct,
+                matching,
+                total,
+                diffs.join ("\n"),
+            );
+        }
+    }
+}

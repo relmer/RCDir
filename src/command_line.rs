@@ -95,6 +95,7 @@ pub struct CommandLine {
     pub max_depth:        i32,
     pub tree_indent:      i32,
     pub size_format:      SizeFormat,
+    pub ellipsize:        Option<bool>,
     pub set_aliases:      bool,
     pub get_aliases:      bool,
     pub remove_aliases:   bool,
@@ -147,6 +148,7 @@ impl Default for CommandLine {
             max_depth:       0,
             tree_indent:     4,
             size_format:     SizeFormat::Default,
+            ellipsize:       None,
             set_aliases:     false,
             get_aliases:     false,
             remove_aliases:  false,
@@ -312,6 +314,7 @@ impl CommandLine {
             "depth",
             "treeindent",
             "size",
+            "ellipsize",
             "set-aliases",
             "get-aliases",
             "remove-aliases",
@@ -498,6 +501,11 @@ impl CommandLine {
         {
             self.size_format = sf;
         }
+
+        // Ellipsize: conditional merge — only apply config default if CLI didn't specify
+        if self.ellipsize.is_none() {
+            self.ellipsize = config.ellipsize;
+        }
     }
 
 
@@ -580,6 +588,8 @@ impl CommandLine {
             ("icons-",  |cmd| cmd.icons = Some (false)),
             ("tree",    |cmd| cmd.tree = Some (true)),
             ("tree-",   |cmd| cmd.tree = Some (false)),
+            ("ellipsize",  |cmd| cmd.ellipsize = Some (true)),
+            ("ellipsize-", |cmd| cmd.ellipsize = Some (false)),
             ("set-aliases",    |cmd| cmd.set_aliases    = true),
             ("get-aliases",    |cmd| cmd.get_aliases    = true),
             ("remove-aliases", |cmd| cmd.remove_aliases = true),

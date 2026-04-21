@@ -34,6 +34,7 @@ pub mod profile_file_manager;
 pub mod alias_block_generator;
 pub mod tui_widgets;
 pub mod alias_manager;
+pub mod path_ellipsis;
 
 
 

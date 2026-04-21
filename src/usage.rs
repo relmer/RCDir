@@ -181,6 +181,7 @@ const SWITCH_INFOS: &[SwitchInfo] = &[
     SwitchInfo { name: "Streams",        description: "Display alternate data streams" },
     SwitchInfo { name: "Icons",          description: "Enable file-type icons" },
     SwitchInfo { name: "Tree",           description: "Display directory tree view" },
+    SwitchInfo { name: "Ellipsize",      description: "Truncate long link target paths" },
     SwitchInfo { name: "Set-Aliases",    description: "Configure PowerShell aliases" },
     SwitchInfo { name: "Get-Aliases",    description: "Display current alias configuration" },
     SwitchInfo { name: "Remove-Aliases", description: "Remove PowerShell aliases" },
@@ -308,6 +309,7 @@ fn display_synopsis(console: &mut Console, prefix: char) {
         format!("[{{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}] "),
         format!("[{{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}}]"),
+        format!(" [{{InformationHighlight}}{long}Ellipsize{{Information}}]"),
         format!(" [{{InformationHighlight}}{long}Set-Aliases{{Information}}]"),
         format!(" [{{InformationHighlight}}{long}Get-Aliases{{Information}}]"),
         format!(" [{{InformationHighlight}}{long}Remove-Aliases{{Information}}]"),
@@ -435,6 +437,7 @@ Copyright {copy} 2004-{year} by Robert Elmer
   {{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}    {lpad}Sets tree indent width (1-8, default 4; requires {{InformationHighlight}}{long}Tree{{Information}}).
   {{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}} {lpad}File size format: {{InformationHighlight}}Auto{{Information}} = abbreviated (KB/MB/GB), {{InformationHighlight}}Bytes{{Information}} = exact with commas.
   {lpad}                   Default: {{InformationHighlight}}Auto{{Information}} in tree mode, {{InformationHighlight}}Bytes{{Information}} otherwise.
+  {{InformationHighlight}}{long}Ellipsize{{Information}}       {lpad}Truncate long link target paths with \u{2026} to prevent wrapping (default). Use {{InformationHighlight}}{long}Ellipsize-{{Information}} to disable.
 
   {{InformationHighlight}}{long}Set-Aliases{{Information}}     {lpad}Interactive wizard to configure PowerShell aliases for rcdir.
   {{InformationHighlight}}{long}Get-Aliases{{Information}}     {lpad}Display currently configured rcdir aliases and their source locations.
@@ -500,6 +503,7 @@ display items, file attributes, or file extensions:
                   {{InformationHighlight}}Streams{{Information}}  Display alternate data streams (NTFS)
                   {{InformationHighlight}}Icons{{Information}}    Enable file-type icons; use {{InformationHighlight}}Icons-{{Information}} to disable
                   {{InformationHighlight}}Tree{{Information}}     Display hierarchical tree view; use {{InformationHighlight}}Tree-{{Information}} to disable
+                  {{InformationHighlight}}Ellipsize{{Information}}  Truncate long link target paths; use {{InformationHighlight}}Ellipsize-{{Information}} to disable
                   {{InformationHighlight}}Depth=N{{Information}}  Limit tree depth to N levels
                   {{InformationHighlight}}TreeIndent=N{{Information}}  Tree indent width (1-8)
                   {{InformationHighlight}}Size=Auto|Bytes{{Information}}  File size format
@@ -595,7 +599,8 @@ pub fn display_config_file_help (console: &mut Console, prefix: char) {
          \x20                 {InformationHighlight}M{Information}        Enables multi-threaded enumeration (default); use {InformationHighlight}M-{Information} to disable\n\
          \x20                 {InformationHighlight}Owner{Information}    Display file ownership\n\
          \x20                 {InformationHighlight}Streams{Information}  Display alternate data streams (NTFS)\n\
-         \x20                 {InformationHighlight}Icons{Information}    Enable file-type icons; use {InformationHighlight}Icons-{Information} to disable\n"
+         \x20                 {InformationHighlight}Icons{Information}    Enable file-type icons; use {InformationHighlight}Icons-{Information} to disable\n\
+         \x20                 {InformationHighlight}Ellipsize{Information}  Truncate long link target paths; use {InformationHighlight}Ellipsize-{Information} to disable\n"
     );
 
     console.color_puts (
@@ -1455,7 +1460,8 @@ fn display_env_var_decoded_settings(console: &mut Console) {
         || config.show_owner.is_some()
         || config.show_streams.is_some()
         || config.icons.is_some()
-        || config.tree.is_some();
+        || config.tree.is_some()
+        || config.ellipsize.is_some();
 
     let has_display_items = DISPLAY_ITEM_INFOS.iter().any(|i| {
         config.attribute_sources[i.attr as usize] == AttributeSource::Environment
@@ -1483,7 +1489,7 @@ fn display_env_var_decoded_settings(console: &mut Console) {
 
     if has_switches {
         console.puts(Attribute::Information, "    Switches:");
-        let switch_values: [&Option<bool>; 9] = [
+        let switch_values: [&Option<bool>; 10] = [
             &config.wide_listing,
             &config.recurse,
             &config.perf_timer,
@@ -1493,9 +1499,10 @@ fn display_env_var_decoded_settings(console: &mut Console) {
             &config.show_streams,
             &config.icons,
             &config.tree,
+            &config.ellipsize,
         ];
         for (i, info) in SWITCH_INFOS.iter().enumerate() {
-            if switch_values[i].is_some() {
+            if i < switch_values.len() && switch_values[i].is_some() {
                 console.printf(
                     config.attributes[Attribute::Default as usize],
                     &format!("      {:<8} {}\n", info.name, info.description),

@@ -112,14 +112,14 @@
 
 **Purpose**: Output parity tests, documentation updates, and release checklist items.
 
-- [ ] T016 [P] Add output parity test cases in `tests/output_parity.rs`: add test cases for ellipsize in normal mode (default on) and tree mode, comparing `rcdir` vs `tcdir` output. Tests must gracefully skip when `tcdir.exe` is not available.
-- [ ] T017 [P] Add output parity test case in `tests/output_parity.rs` for `--Ellipsize-` (disabled) to verify both tools produce identical full-path output.
-- [ ] T018 [P] Update `CHANGELOG.md` with the new version entry and feature description for ellipsize
-- [ ] T019 [P] Update `README.md` "What's New" table with a row for the ellipsize feature
+- [X] T016 [P] Add output parity test cases in `tests/output_parity.rs`: add test cases for ellipsize in normal mode (default on) and tree mode, comparing `rcdir` vs `tcdir` output. Tests must gracefully skip when `tcdir.exe` is not available.
+- [X] T017 [P] Add output parity test case in `tests/output_parity.rs` for `--Ellipsize-` (disabled) to verify both tools produce identical full-path output.
+- [X] T018 [P] Update `CHANGELOG.md` with the new version entry and feature description for ellipsize
+- [X] T019 [P] Update `README.md` "What's New" table with a row for the ellipsize feature
 - [ ] T020 [P] Update `TCDir/specs/sync-status.md` with spec 008 row (RCDir status, version) — confirm with user before modifying TCDir workspace
-- [ ] T021 Run `cargo clippy -- -D warnings` and fix any warnings
-- [ ] T022 Run `cargo test` and verify all tests pass (unit + output parity)
-- [ ] T023 Run quickstart.md validation: build with VS Code task "Build Debug (current arch)", then manually test `rcdir` in `%LOCALAPPDATA%\Microsoft\WindowsApps` to confirm truncation behavior
+- [X] T021 Run `cargo clippy -- -D warnings` and fix any warnings
+- [X] T022 Run `cargo test` and verify all tests pass (unit + output parity)
+- [X] T023 Run quickstart.md validation: build with VS Code task "Build Debug (current arch)", then manually test `rcdir` in `%LOCALAPPDATA%\Microsoft\WindowsApps` to confirm truncation behavior
 
 ---
 

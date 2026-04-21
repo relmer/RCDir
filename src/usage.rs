@@ -306,10 +306,10 @@ fn display_synopsis(console: &mut Console, prefix: char) {
         format!("[{{InformationHighlight}}{long}Streams{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Icons{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Tree{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Ellipsize{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}] "),
         format!("[{{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}}]"),
-        format!(" [{{InformationHighlight}}{long}Ellipsize{{Information}}]"),
         format!(" [{{InformationHighlight}}{long}Set-Aliases{{Information}}]"),
         format!(" [{{InformationHighlight}}{long}Get-Aliases{{Information}}]"),
         format!(" [{{InformationHighlight}}{long}Remove-Aliases{{Information}}]"),
@@ -433,11 +433,11 @@ Copyright {copy} 2004-{year} by Robert Elmer
   {{InformationHighlight}}{long}Streams{{Information}}         {lpad}Displays alternate data streams (NTFS only).
   {{InformationHighlight}}{long}Icons{{Information}}           {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable.
   {{InformationHighlight}}{long}Tree{{Information}}            {lpad}Displays a hierarchical directory tree view. Use {{InformationHighlight}}{long}Tree-{{Information}} to disable.
+  {{InformationHighlight}}{long}Ellipsize{{Information}}        {lpad}Truncates long link target paths with \u{2026} to prevent line wrapping. Default: on. Use {{InformationHighlight}}{long}Ellipsize-{{Information}} to disable.
   {{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}         {lpad}Limits tree depth to N levels (requires {{InformationHighlight}}{long}Tree{{Information}}).
   {{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}    {lpad}Sets tree indent width (1-8, default 4; requires {{InformationHighlight}}{long}Tree{{Information}}).
   {{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}} {lpad}File size format: {{InformationHighlight}}Auto{{Information}} = abbreviated (KB/MB/GB), {{InformationHighlight}}Bytes{{Information}} = exact with commas.
   {lpad}                   Default: {{InformationHighlight}}Auto{{Information}} in tree mode, {{InformationHighlight}}Bytes{{Information}} otherwise.
-  {{InformationHighlight}}{long}Ellipsize{{Information}}       {lpad}Truncate long link target paths with \u{2026} to prevent wrapping (default). Use {{InformationHighlight}}{long}Ellipsize-{{Information}} to disable.
 
   {{InformationHighlight}}{long}Set-Aliases{{Information}}     {lpad}Interactive wizard to configure PowerShell aliases for rcdir.
   {{InformationHighlight}}{long}Get-Aliases{{Information}}     {lpad}Display currently configured rcdir aliases and their source locations.

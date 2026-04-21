@@ -262,6 +262,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         }
     }

@@ -64,8 +64,9 @@ All user-facing output MUST follow established patterns:
 - **Error Messages**: Errors go to stderr; user-facing messages MUST be clear, actionable, and consistent in tone
 - **Help System**: All features MUST be documented in `-?` help output and `--env`/`--config` where applicable
 - **Backward Compatibility**: Maintain compatibility with TCDir's command-line interface
+- **Output Parity (NON-NEGOTIABLE)**: Every feature and bug fix MUST produce byte-identical visible output to TCDir for the same inputs. Output parity tests in `tests/output_parity.rs` MUST be added or updated for every user-visible change. These parity tests are an allowed exception to the test isolation rule — they run real binaries and compare output.
 
-**Rationale**: RCDir is a Rust port of TCDir; users expect consistent behavior with the original.
+**Rationale**: RCDir is a Rust port of TCDir; users expect identical behavior with the original. Output parity tests are the final verification that the port is correct.
 
 ### IV. Performance Requirements
 
@@ -149,6 +150,6 @@ This constitution supersedes all ad-hoc practices. All code changes MUST verify 
 
 **Guidance Reference**: See `.github/copilot-instructions.md` for detailed runtime development guidance and code style rules.
 
-**Version**: 1.2.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-04-20
+**Version**: 1.3.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-04-20
 
 ```

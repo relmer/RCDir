@@ -143,6 +143,7 @@ pub struct FileInfo {
     pub last_write_time: u64,    // FILETIME as u64
     pub last_access_time: u64,   // FILETIME as u64
     pub reparse_tag:     u32,    // dwReserved0 — reparse tag for cloud/symlink detection
+    pub reparse_target:  String, // Resolved symlink/junction target path (empty if not applicable)
     pub streams:         Vec<StreamInfo>,
 }
 
@@ -192,6 +193,7 @@ impl FileInfo {
             last_write_time,
             last_access_time,
             reparse_tag: wfd.dwReserved0,
+            reparse_target: String::new(),
             streams: Vec::new(),
         }
     }
@@ -342,6 +344,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
         assert!(fi.is_directory());
@@ -369,6 +372,7 @@ mod tests {
             last_write_time: 0,
             last_access_time: 0,
             reparse_tag:     0,
+            reparse_target:  String::new(),
             streams:         Vec::new(),
         };
         assert!(fi.is_dot_dir());

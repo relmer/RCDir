@@ -178,6 +178,13 @@ console.print_error(&format!("Error: {}", msg));
 - **No test may run the real `rcdir` binary** — test the library functions directly with mocked dependencies
 - Temp files are acceptable **only** in explicitly marked integration tests, never in unit tests
 
+### Output Parity Tests — Required for All Features
+- Every user-visible feature or bug fix MUST include output parity tests in `tests/output_parity.rs`
+- Parity tests run both `rcdir` and `tcdir` with the same arguments and assert byte-identical output
+- These are an **allowed exception** to the unit test isolation rules above — they run real binaries
+- Parity tests gracefully skip when `tcdir.exe` is not available (CI environments)
+- When adding a new feature, add parity test cases covering all affected display modes (normal, tree, wide, bare as applicable)
+
 ---
 
 ## Communication Rules
@@ -222,6 +229,27 @@ console.print_error(&format!("Error: {}", msg));
 - `cargo check` — quick compilation verification
 - `cargo clippy` — lint checking
 
+### Toolchain Currency
+- **ALWAYS** run `rustup update stable` before starting work to ensure the local toolchain matches CI
+- CI uses `dtolnay/rust-toolchain@stable` which installs the latest stable Rust on every run
+- New stable releases (every 6 weeks) can introduce new clippy lints that break `-D warnings`
+- A toolchain mismatch between local and CI is the most common cause of "works locally, fails in CI"
+
+### Pre-Push Checklist
+- **ALWAYS** run `cargo clippy -- -D warnings` and verify zero errors before pushing
+- **ALWAYS** run `cargo test` and verify all tests pass before pushing
+- If clippy introduces new warnings after a toolchain update, fix them before pushing
+
+### Pre-Commit Gates
+- **ALL** tests MUST pass before committing (`cargo test`)
+- Clippy MUST be clean (`cargo clippy -- -D warnings`) before committing
+- Build MUST succeed with no errors before committing
+
+### Commit Frequency
+- During spec implementation, commit **at least once per completed phase**
+- Each commit must leave the codebase in a compilable, tests-passing, clippy-clean state
+- Do not batch an entire feature into a single commit
+
 ### Build Integration
 - Always build after making changes using the build task or `Build.ps1`
 - Fix all clippy warnings before considering task complete
@@ -255,7 +283,7 @@ console.print_error(&format!("Error: {}", msg));
 
 ---
 
-*Last Updated: 2026-02-16*
+*Last Updated: 2026-04-20*
 *These rules apply globally to all RCDir work*
 
 ````

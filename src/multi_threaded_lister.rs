@@ -780,7 +780,9 @@ fn enumerate_matching_files(
                     let excluded_ok = (attrs & cmd.attrs_excluded) == 0;
 
                     if required_ok && excluded_ok {
-                        let file_entry = FileInfo::from_find_data(&wfd);
+                        let mut file_entry = FileInfo::from_find_data(&wfd);
+                        let dir_path = { node.0.lock().unwrap().dir_path.clone() };
+                        file_entry.reparse_target = crate::reparse_resolver::resolve_reparse_target (&dir_path, &file_entry);
                         let mut di = node.0.lock().unwrap();
                         add_match_to_list(&wfd, file_entry, &mut di, cmd);
                     }
@@ -890,7 +892,9 @@ fn enumerate_subdirectories(
 
                 if !seen_dirs.contains (&lower_name) {
                     seen_dirs.insert (lower_name);
-                    let file_entry = FileInfo::from_find_data (&wfd);
+                    let mut file_entry = FileInfo::from_find_data (&wfd);
+                    let dir_path = { node.0.lock().unwrap().dir_path.clone() };
+                    file_entry.reparse_target = crate::reparse_resolver::resolve_reparse_target (&dir_path, &file_entry);
                     let mut di = node.0.lock().unwrap();
                     add_match_to_list (&wfd, file_entry, &mut di, cmd);
                 }

@@ -21,6 +21,7 @@ pub mod work_queue;
 pub mod results_displayer;
 pub mod cloud_status;
 pub mod streams;
+pub mod reparse_resolver;
 pub mod owner;
 pub mod usage;
 pub mod icon_mapping;

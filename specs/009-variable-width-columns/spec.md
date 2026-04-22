@@ -2,7 +2,7 @@
 
 **Feature Branch**: `009-variable-width-columns`  
 **Created**: 2026-04-20  
-**Status**: Draft  
+**Status**: Shipped  
 **Input**: User description: "Implement variable-width columns for wide mode (/W) to improve space utilization when a directory contains a mix of short and long filenames. (Port of TCDir 009)"
 
 ## Clarifications

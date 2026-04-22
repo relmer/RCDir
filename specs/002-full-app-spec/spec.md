@@ -2,7 +2,7 @@
 
 **Spec Branch**: `002-full-app-spec`  
 **Created**: 2026-02-07  
-**Status**: Port Specification  
+**Status**: Shipped  
 **Version**: 4.2.x  
 **Input**: Comprehensive specification reverse-engineered from TCDir C++ source code  
 **Reference Implementation**: [TCDir](https://github.com/relmer/TCDir) (C++, same workspace)

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `008-ellipsize-targets`
 **Created**: 2026-04-20
-**Status**: Draft
+**Status**: Shipped
 **Input**: User description: "Middle-truncate long link target paths to prevent line wrapping"
 
 ## Clarifications

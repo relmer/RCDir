@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-symlink-junction-targets`
 **Created**: 2026-04-19
-**Status**: Draft
+**Status**: Shipped
 **Input**: User description: "Display symlink and junction targets in directory listings"
 
 ## Clarifications

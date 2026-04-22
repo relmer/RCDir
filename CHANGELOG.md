@@ -6,6 +6,12 @@ All notable changes to RCDir are documented in this file.
 
 ### Added
 
+- Variable-width columns in wide mode (`/W`): columns are now sized per-column based on actual entry widths, fitting more entries per row when filenames vary in length
+  - Outlier truncation: filenames exceeding `max(2× median, 40)` are right-truncated with `…`; only applied when it yields more columns
+  - `--Ellipsize-` disables outlier truncation in wide mode
+  - Leftover space distributed evenly across inter-column gaps
+  - 32 new unit tests for column layout algorithm
+  - 2 new wide-mode output parity tests
 - Ellipsize long link target paths: middle-truncate long reparse target paths with `…` (U+2026) to prevent line wrapping
   - Priority-based truncation: preserves first two dirs + leaf dir + filename, degrades gracefully
   - Works in both normal and tree modes (tree mode accounts for connector prefix width)

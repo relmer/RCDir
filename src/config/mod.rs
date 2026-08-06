@@ -9,6 +9,7 @@ pub mod file_reader;
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::hash::Hash;
 use std::path::Path;
 
 use crate::color::*;
@@ -24,6 +25,23 @@ use crate::icon_mapping::{
     NF_CUSTOM_FOLDER, NF_FA_EXTERNAL_LINK, NF_FA_FILE, NF_COD_FILE_SYMLINK_DIR,
     NF_MD_CLOUD_CHECK, NF_MD_CLOUD_OUTLINE, NF_MD_PIN,
 };
+
+
+
+
+/// Lowercase an `OsStr` into a stack buffer for HashMap lookup.
+/// Returns a `&str` reference valid for the lifetime of `buf`.
+/// If the input is longer than `buf.len()`, panics (MAX_PATH is 260).
+#[inline]
+fn osstr_to_lower_ascii<'a>(os: &OsStr, buf: &'a mut [u8]) -> &'a str {
+    let lossy = os.to_string_lossy();
+    let len = lossy.len().min (buf.len());
+    for (i, b) in lossy.as_bytes().iter().take (buf.len()).copied().enumerate() {
+        buf[i] = b.to_ascii_lowercase();
+    }
+    // SAFETY: we only wrote ASCII bytes, so valid UTF-8.
+    unsafe { std::str::from_utf8_unchecked (&buf[..len]) }
+}
 
 
 
@@ -853,12 +871,13 @@ impl Config {
     ////////////////////////////////////////////////////////////////////////////
 
     fn resolve_directory_style(&self, file_info: &crate::file_info::FileInfo, style: &mut FileDisplayStyle) {
-        let name = file_info.file_name.to_string_lossy().to_ascii_lowercase();
+        let mut buf = [0u8; 260];
+        let lower = osstr_to_lower_ascii (&file_info.file_name, &mut buf);
 
         style.text_attr = self.attributes[Attribute::Directory as usize];
 
-        // Check well-known directory names
-        if let Some(&icon) = self.well_known_dir_icons.get(&name) {
+        // Check well-known directory names — zero-allocation lookup via &str
+        if let Some(&icon) = self.well_known_dir_icons.get (lower) {
             style.icon_code_point = if icon == '\0' { None } else { Some (icon) };
             style.icon_suppressed = icon == '\0';
             return;
@@ -891,17 +910,34 @@ impl Config {
     ////////////////////////////////////////////////////////////////////////////
 
     fn resolve_extension_style(&self, file_info: &crate::file_info::FileInfo, style: &mut FileDisplayStyle) {
-        let path = Path::new(&file_info.file_name);
-        let ext_str = match path.extension() {
-            Some(ext) => format!(".{}", ext.to_string_lossy()).to_ascii_lowercase(),
+        // Find the extension without allocating a Path
+        let lossy = file_info.file_name.to_string_lossy();
+        let dot_pos = match lossy.rfind('.') {
+            Some(pos) => pos,
             None => return,
         };
 
-        if let Some(&color) = self.extension_colors.get(&ext_str) {
+        // Don't treat dotfiles as having no extension (e.g. ".gitignore" has no ext)
+        if dot_pos == 0 {
+            return;
+        }
+
+        // Lowercase extension into stack buffer, prepend dot
+        let ext = &lossy[dot_pos..];  // includes the dot
+        let mut buf = [0u8; 260];
+        buf[0] = b'.';
+        let mut len = 1u32;
+        for &b in ext.as_bytes()[1..].iter().take (buf.len() - 1) {
+            buf[len as usize] = b.to_ascii_lowercase();
+            len += 1;
+        }
+        let ext_lower = unsafe { std::str::from_utf8_unchecked (&buf[..len as usize]) };
+
+        if let Some(&color) = self.extension_colors.get (ext_lower) {
             style.text_attr = color;
         }
 
-        if let Some(&icon) = self.extension_icons.get(&ext_str) {
+        if let Some(&icon) = self.extension_icons.get (ext_lower) {
             style.icon_code_point = if icon == '\0' { None } else { Some (icon) };
             style.icon_suppressed = icon == '\0';
         }

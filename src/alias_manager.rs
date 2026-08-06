@@ -1,5 +1,6 @@
 // src/alias_manager.rs — Top-level orchestrator for --set/--get/--remove-aliases
 
+use std::fs;
 use std::path::PathBuf;
 
 use crate::alias_types::*;
@@ -250,6 +251,17 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
         profile_file_manager::append_alias_block (&mut lines, &block_lines);
     }
 
+    // Guard: don't write an empty result over a non-empty file.
+    if lines.is_empty() && target_path.exists() {
+        let meta = fs::metadata (&target_path).map_err (AppError::Io)?;
+        if meta.len() > 0 {
+            return Err (AppError::Io (std::io::Error::new (
+                std::io::ErrorKind::InvalidData,
+                format! ("Profile file is non-empty but alias block generation produced empty content: {}", target_path.display()),
+            )));
+        }
+    }
+
     profile_file_manager::write_profile_file (&target_path, &lines, has_bom)?;
 
     console.printf_attr (Attribute::Information,
@@ -413,6 +425,18 @@ fn remove_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError>
             let block = profile_file_manager::find_alias_block (&lines);
             if block.found {
                 profile_file_manager::remove_alias_block (&mut lines, &block);
+
+                // Guard: don't write an empty result over a non-empty file.
+                if lines.is_empty() && profile.path.exists() {
+                    let meta = fs::metadata (&profile.path).map_err (AppError::Io)?;
+                    if meta.len() > 0 {
+                        return Err (AppError::Io (std::io::Error::new (
+                            std::io::ErrorKind::InvalidData,
+                            format! ("Profile file is non-empty but alias removal produced empty content: {}", profile.path.display()),
+                        )));
+                    }
+                }
+
                 profile_file_manager::write_profile_file (&profile.path, &lines, has_bom)?;
                 console.printf_attr (Attribute::Information,
                     &format! ("\n  Aliases removed from: {}\n", profile.path.display()));

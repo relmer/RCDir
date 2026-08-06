@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::alias_types::*;
 use crate::ehm::AppError;
@@ -146,8 +146,9 @@ pub fn find_alias_block (lines: &[String]) -> AliasBlock {
 //
 //  write_profile_file
 //
-//  Creates a timestamped backup, then writes lines back preserving BOM.
-//  Creates parent directories if needed (FR-072).
+//  Creates a timestamped backup, then writes lines back preserving BOM via
+//  a scratch file + rename (atomic on the same volume).  Creates parent
+//  directories if needed (FR-072).
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -168,20 +169,27 @@ pub fn write_profile_file (
         create_backup (path)?;
     }
 
-    // Write content
-    let mut file = fs::File::create (path).map_err (AppError::Io)?;
+    // Write to a scratch file in the same directory, then rename (atomic)
+    let scratch_path = create_scratch_path (path);
+    let content = lines.join ("\r\n");
+
+    let mut file = fs::File::create (&scratch_path).map_err (AppError::Io)?;
 
     if has_bom {
         file.write_all (&UTF8_BOM).map_err (AppError::Io)?;
     }
 
-    let content = lines.join ("\r\n");
     file.write_all (content.as_bytes()).map_err (AppError::Io)?;
 
     // Ensure trailing newline
     if !content.ends_with ('\n') {
         file.write_all (b"\r\n").map_err (AppError::Io)?;
     }
+
+    drop (file);
+
+    // Atomic rename — replaces the target if it exists
+    fs::rename (&scratch_path, path).map_err (AppError::Io)?;
 
     Ok(())
 }
@@ -210,6 +218,29 @@ pub fn create_backup (path: &Path) -> Result<(), AppError> {
 
     fs::copy (path, &backup_path).map_err (AppError::Io)?;
     Ok(())
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  create_scratch_path
+//
+//  Returns a unique sibling path for atomic rename.  Appends ".tmp" to the
+//  target name, using the same directory so the rename is on-disk atomic.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn create_scratch_path (path: &Path) -> PathBuf {
+    let mut scratch = path.to_path_buf();
+    if let Some (ext) = scratch.extension() {
+        scratch.set_extension (format! ("{}.tmp", ext.to_string_lossy()));
+    } else {
+        scratch.set_extension ("tmp");
+    }
+    scratch
 }
 
 

@@ -358,7 +358,7 @@ impl MultiThreadedLister {
                 let child_di = child.0.lock().unwrap();
                 let child_name = child_di.dir_path
                     .file_name()
-                    .map (|n| n.to_string_lossy().to_lowercase())
+                    .map (|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default();
                 child_map.insert (child_name, Arc::clone (child));
             }
@@ -380,8 +380,8 @@ impl MultiThreadedLister {
 
             // Tree pruning: if this directory has no descendant matches, skip it
             if pruning && is_dir {
-                let lower_name = entry.file_name.to_string_lossy().to_lowercase();
-                if let Some (child_node) = child_map.get (&lower_name) {
+                let name = entry.file_name.to_string_lossy();
+                if let Some (child_node) = child_map.get (name.as_ref()) {
                     let visible = wait_for_tree_visibility (child_node, &self.stop);
                     if !visible {
                         // Pruned — decrement subdirectory count so totals are correct
@@ -401,8 +401,8 @@ impl MultiThreadedLister {
 
             // If entry is a directory, find its child node and recurse
             if is_dir {
-                let lower_name = entry.file_name.to_string_lossy().to_lowercase();
-                if let Some (child_node) = child_map.get (&lower_name) {
+                let name = entry.file_name.to_string_lossy();
+                if let Some (child_node) = child_map.get (name.as_ref()) {
                     self.recurse_into_child_directory (
                         child_node,
                         entry,
@@ -517,8 +517,8 @@ impl MultiThreadedLister {
             }
 
             // Pruning active: check if this directory will be visible
-            let lower_name = next_entry.file_name.to_string_lossy().to_lowercase();
-            if let Some (child_node) = child_map.get (&lower_name) {
+            let name = next_entry.file_name.to_string_lossy();
+            if let Some (child_node) = child_map.get (name.as_ref()) {
                 if wait_for_tree_visibility (child_node, &self.stop) {
                     return false;
                 }
@@ -769,11 +769,11 @@ fn enumerate_matching_files(
             if !is_dots(&wfd.cFileName) {
                 // Dedup across multiple file specs
                 let name_len = wfd.cFileName.iter().position(|&c| c == 0).unwrap_or(0);
-                let lower_name = OsString::from_wide(&wfd.cFileName[..name_len])
-                    .to_string_lossy().to_lowercase();
+                let os_name = OsString::from_wide(&wfd.cFileName[..name_len]);
+                let name = os_name.to_string_lossy();
 
-                if !seen.contains(&lower_name) {
-                    seen.insert(lower_name);
+                if !seen.contains(name.as_ref()) {
+                    seen.insert(name.into_owned());
 
                     let attrs = wfd.dwFileAttributes;
                     let required_ok = (attrs & cmd.attrs_required) == cmd.attrs_required;
@@ -837,7 +837,8 @@ fn enumerate_subdirectories(
         let di = node.0.lock().unwrap();
         for entry in &di.matches {
             if (entry.file_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 {
-                seen_dirs.insert (entry.file_name.to_string_lossy().to_lowercase());
+                let name = entry.file_name.to_string_lossy();
+                seen_dirs.insert (name.into_owned());
             }
         }
     }
@@ -888,10 +889,10 @@ fn enumerate_subdirectories(
             //
 
             if is_tree {
-                let lower_name = name.to_string_lossy().to_lowercase();
+                let name_str = name.to_string_lossy();
 
-                if !seen_dirs.contains (&lower_name) {
-                    seen_dirs.insert (lower_name);
+                if !seen_dirs.contains (name_str.as_ref()) {
+                    seen_dirs.insert (name_str.into_owned());
                     let mut file_entry = FileInfo::from_find_data (&wfd);
                     let dir_path = { node.0.lock().unwrap().dir_path.clone() };
                     file_entry.reparse_target = crate::reparse_resolver::resolve_reparse_target (&dir_path, &file_entry);

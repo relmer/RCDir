@@ -259,10 +259,8 @@ impl Config {
         };
 
         let color_attr = if !color_view.is_empty() {
-            match self.parse_color_value (entry, color_view) {
-                Some (c) => Some (c),
-                None => return None,
-            }
+            let c = self.parse_color_value (entry, color_view)?;
+            Some (c)
         } else {
             None
         };

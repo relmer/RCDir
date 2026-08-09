@@ -29,18 +29,24 @@ use crate::icon_mapping::{
 
 
 
-/// Lowercase an `OsStr` into a stack buffer for HashMap lookup.
-/// Returns a `&str` reference valid for the lifetime of `buf`.
-/// If the input is longer than `buf.len()`, panics (MAX_PATH is 260).
-#[inline]
-fn osstr_to_lower_ascii<'a>(os: &OsStr, buf: &'a mut [u8]) -> &'a str {
+fn osstr_to_lower_ascii<'a>(os: &OsStr, buf: &'a mut [u8]) -> std::borrow::Cow<'a, str> {
     let lossy = os.to_string_lossy();
-    let len = lossy.len().min (buf.len());
-    for (i, b) in lossy.as_bytes().iter().take (buf.len()).copied().enumerate() {
-        buf[i] = b.to_ascii_lowercase();
+    let bytes = lossy.as_bytes();
+    if bytes.len() > buf.len() {
+        // Fall back to heap allocation for paths longer than the stack buffer.
+        // Note: the heap path preserves non-ASCII bytes via to_ascii_lowercase()
+        // (which passes bytes >= 128 unchanged), while the stack path below replaces
+        // them with '?' for UTF-8 safety. This divergence is deliberate — the stack
+        // path must guarantee valid UTF-8 for from_utf8_unchecked, while the heap
+        // path can return the lossy string as-is since it's already a Cow::Owned.
+        return std::borrow::Cow::Owned (lossy.to_ascii_lowercase());
     }
-    // SAFETY: we only wrote ASCII bytes, so valid UTF-8.
-    unsafe { std::str::from_utf8_unchecked (&buf[..len]) }
+    for (i, &b) in bytes.iter().enumerate() {
+        buf[i] = if b.is_ascii() { b.to_ascii_lowercase() } else { b'?' };
+    }
+    // SAFETY: we only wrote ASCII bytes (lowercase ASCII or '?' replacement), so valid UTF-8.
+    unsafe { std::str::from_utf8_unchecked (&buf[..bytes.len()]) }
+    .into ()
 }
 
 
@@ -877,7 +883,7 @@ impl Config {
         style.text_attr = self.attributes[Attribute::Directory as usize];
 
         // Check well-known directory names — zero-allocation lookup via &str
-        if let Some(&icon) = self.well_known_dir_icons.get (lower) {
+        if let Some(&icon) = self.well_known_dir_icons.get (&*lower) {
             style.icon_code_point = if icon == '\0' { None } else { Some (icon) };
             style.icon_suppressed = icon == '\0';
             return;
@@ -922,22 +928,15 @@ impl Config {
             return;
         }
 
-        // Lowercase extension into stack buffer, prepend dot
+        // Lowercase extension — extensions are tiny, direct allocation is fine
         let ext = &lossy[dot_pos..];  // includes the dot
-        let mut buf = [0u8; 260];
-        buf[0] = b'.';
-        let mut len = 1u32;
-        for &b in ext.as_bytes()[1..].iter().take (buf.len() - 1) {
-            buf[len as usize] = b.to_ascii_lowercase();
-            len += 1;
-        }
-        let ext_lower = unsafe { std::str::from_utf8_unchecked (&buf[..len as usize]) };
+        let ext_lower = ext.to_ascii_lowercase();
 
-        if let Some(&color) = self.extension_colors.get (ext_lower) {
+        if let Some(&color) = self.extension_colors.get (&ext_lower) {
             style.text_attr = color;
         }
 
-        if let Some(&icon) = self.extension_icons.get (ext_lower) {
+        if let Some(&icon) = self.extension_icons.get (&ext_lower) {
             style.icon_code_point = if icon == '\0' { None } else { Some (icon) };
             style.icon_suppressed = icon == '\0';
         }
@@ -4043,5 +4042,66 @@ mod tests {
         config.load_config_file (&mock);
         assert! (!config.config_file_loaded);
         assert! (!config.config_file_parse_result.has_issues());
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  osstr_to_lower_ascii — stack path (borrowed result)
+    //
+    //  Verifies short ASCII inputs return Cow::Borrowed from the stack buffer.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn osstr_to_lower_ascii_short_ascii_returns_borrowed() {
+        let mut buf = [0u8; 260];
+        let result = osstr_to_lower_ascii (&std::ffi::OsStr::new ("SRC/DIR"), &mut buf);
+        assert_eq!(result, "src/dir");
+        // Short input fits in buffer → Cow::Borrowed
+        assert!(matches!(result, std::borrow::Cow::Borrowed(_)));
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  osstr_to_lower_ascii_non_ascii_replacement
+    //
+    //  Verifies non-ASCII bytes are replaced with '?' in the stack path,
+    //  keeping the buffer as valid UTF-8.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn osstr_to_lower_ascii_non_ascii_replaced_with_question_mark() {
+        let mut buf = [0u8; 260];
+        // UTF-8 for "données" contains 0xE9 (é) which is non-ASCII
+        let result = osstr_to_lower_ascii (&std::ffi::OsStr::new ("donn\u{e9}es"), &mut buf);
+        // Non-ASCII bytes → '?' replacement, rest lowercased
+        // UTF-8 é = 0xC3 0xA9 (two non-ASCII bytes) → two '?' replacements
+        assert_eq!(result, "donn??es");
+        assert!(matches!(result, std::borrow::Cow::Borrowed(_)));
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  osstr_to_lower_ascii_overflow_returns_owned
+    //
+    //  Verifies inputs longer than the stack buffer (>260 bytes) fall back
+    //  to heap allocation, returning Cow::Owned without truncation.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn osstr_to_lower_ascii_long_input_returns_owned() {
+        let mut buf = [0u8; 260];
+        // Construct a 300-byte ASCII path — well beyond the 260-byte buffer
+        let long_name = "A".repeat(300);
+        let result = osstr_to_lower_ascii (&std::ffi::OsStr::new (&long_name), &mut buf);
+        // Must not truncate — full length preserved via heap allocation
+        assert_eq!(result.len(), 300);
+        assert_eq!(result, "a".repeat(300));
+        assert!(matches!(result, std::borrow::Cow::Owned(_)));
     }
 }

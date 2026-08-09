@@ -1,6 +1,5 @@
 // src/alias_manager.rs — Top-level orchestrator for --set/--get/--remove-aliases
 
-use std::fs;
 use std::path::PathBuf;
 
 use crate::alias_types::*;
@@ -251,17 +250,6 @@ fn set_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError> {
         profile_file_manager::append_alias_block (&mut lines, &block_lines);
     }
 
-    // Guard: don't write an empty result over a non-empty file.
-    if lines.is_empty() && target_path.exists() {
-        let meta = fs::metadata (&target_path).map_err (AppError::Io)?;
-        if meta.len() > 0 {
-            return Err (AppError::Io (std::io::Error::new (
-                std::io::ErrorKind::InvalidData,
-                format! ("Profile file is non-empty but alias block generation produced empty content: {}", target_path.display()),
-            )));
-        }
-    }
-
     profile_file_manager::write_profile_file (&target_path, &lines, has_bom)?;
 
     console.printf_attr (Attribute::Information,
@@ -425,17 +413,6 @@ fn remove_aliases (console: &mut Console, what_if: bool) -> Result<(), AppError>
             let block = profile_file_manager::find_alias_block (&lines);
             if block.found {
                 profile_file_manager::remove_alias_block (&mut lines, &block);
-
-                // Guard: don't write an empty result over a non-empty file.
-                if lines.is_empty() && profile.path.exists() {
-                    let meta = fs::metadata (&profile.path).map_err (AppError::Io)?;
-                    if meta.len() > 0 {
-                        return Err (AppError::Io (std::io::Error::new (
-                            std::io::ErrorKind::InvalidData,
-                            format! ("Profile file is non-empty but alias removal produced empty content: {}", profile.path.display()),
-                        )));
-                    }
-                }
 
                 profile_file_manager::write_profile_file (&profile.path, &lines, has_bom)?;
                 console.printf_attr (Attribute::Information,
@@ -1083,5 +1060,56 @@ mod tests {
     fn conflict_detection_no_conflict() {
         let conflict = find_alias_conflict ("zzz");
         assert! (conflict.is_none());
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // Regression test: a profile containing only an alias block (no other
+    // content) results in an empty file after removal. The removed guard that
+    // prevented writing empty content over a non-empty file would incorrectly
+    // fire here — the file is non-empty on disk but removal legitimately
+    // produces zero lines. This test uses a real tempfile to exercise the
+    // actual read-strip-write path.
+
+    #[test]
+    fn remove_aliases_block_only_profile_succeeds() {
+        // Create a temporary directory and file to simulate a block-only profile on disk
+        let dir = tempfile::tempdir().expect("Failed to create tempdir");
+        let file_path = dir.path().join("profile.ps1");
+
+        // Generate a block-only profile and write it to disk
+        let config = make_config ("d", "rcdir", &[
+            ("dd", "-a:d", "dirs", true),
+        ]);
+        let block_lines = alias_block_generator::generate (&config);
+        profile_file_manager::write_profile_file (&file_path, &block_lines, false)
+            .expect("Failed to write block-only profile");
+
+        // Verify the file exists and is non-empty (precondition for the former guard)
+        assert! (file_path.exists());
+        assert! (std::fs::metadata(&file_path).unwrap().len() > 0);
+
+        // Simulate the remove path: read, strip block, write back
+        let (mut lines, has_bom) = profile_file_manager::read_profile_file (&file_path)
+            .expect("Failed to read profile");
+        let found = profile_file_manager::find_alias_block (&lines);
+        assert! (found.found);
+        profile_file_manager::remove_alias_block (&mut lines, &found);
+        assert! (lines.is_empty());
+
+        // This write must succeed — the file becomes empty, which is correct
+        profile_file_manager::write_profile_file (&file_path, &lines, has_bom)
+            .expect("Writing empty result after block removal should succeed");
+
+        // Verify: file exists but is empty (or just a trailing newline from writer)
+        assert! (file_path.exists());
+        let remaining = std::fs::read_to_string(&file_path).unwrap();
+        assert! (remaining.trim().is_empty(), "File should be empty after removal, got: {remaining:?}");
+
+        let (final_lines, _) = profile_file_manager::read_profile_file (&file_path)
+            .expect("Failed to re-read profile");
+        let found2 = profile_file_manager::find_alias_block (&final_lines);
+        assert! (!found2.found);
     }
 }

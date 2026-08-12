@@ -33,11 +33,19 @@ fn get_tcdir_exe() -> Option<PathBuf> {
         }
     }
 
-    // Default locations based on architecture (prefer Release for performance)
+    // Default locations based on architecture (prefer native arch + Release)
+    #[cfg(target_arch = "x86_64")]
+    let candidates = [
+        r"c:\Users\relmer\source\repos\relmer\TCDir\x64\Release\TCDir.exe",
+        r"c:\Users\relmer\source\repos\relmer\TCDir\x64\Debug\TCDir.exe",
+        r"c:\Users\relmer\source\repos\relmer\TCDir\ARM64\Release\TCDir.exe",
+        r"c:\Users\relmer\source\repos\relmer\TCDir\ARM64\Debug\TCDir.exe",
+    ];
+    #[cfg(not(target_arch = "x86_64"))]
     let candidates = [
         r"c:\Users\relmer\source\repos\relmer\TCDir\ARM64\Release\TCDir.exe",
-        r"c:\Users\relmer\source\repos\relmer\TCDir\x64\Release\TCDir.exe",
         r"c:\Users\relmer\source\repos\relmer\TCDir\ARM64\Debug\TCDir.exe",
+        r"c:\Users\relmer\source\repos\relmer\TCDir\x64\Release\TCDir.exe",
         r"c:\Users\relmer\source\repos\relmer\TCDir\x64\Debug\TCDir.exe",
     ];
 
@@ -906,7 +914,7 @@ fn parity_tree_with_icons() {
 fn parity_tree_with_streams() {
     let test_dir = std::env::current_dir().unwrap();
     let pattern = format! ("{}\\*", test_dir.display());
-    let (matching, total, diffs) = compare_output (&["/Tree", "/r", &pattern]);
+    let (_matching, total, diffs) = compare_output (&["/Tree", "/r", &pattern]);
     if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
         // Both tools show help on validation error — help text naturally
         // differs (product names, switch prefixes).  Check that both
@@ -1024,7 +1032,7 @@ fn parity_size_auto_non_tree() {
 fn parity_size_bytes_explicit() {
     let test_dir = std::env::current_dir().unwrap();
     let pattern = format! ("{}\\*", test_dir.display());
-    let (matching, total, diffs) = compare_output (&["/Tree", "/Size=Bytes", &pattern]);
+    let (_matching, total, diffs) = compare_output (&["/Tree", "/Size=Bytes", &pattern]);
     if total > 0 && !diffs.is_empty() && !diffs[0].contains ("not found") {
         // Both tools show help on validation error (/Tree + /Size=Bytes
         // is invalid).  Check that both produced output.

@@ -2,6 +2,30 @@
 
 All notable changes to RCDir are documented in this file.
 
+## [5.5.1410] - 2026-08-18
+
+### Fixed
+
+- Owner column (`/Owner`): the column padding was emitted inside the Owner color rather than Default, matching TCDir visually but differing byte-for-byte in the ANSI stream
+- Reparse target ellipsis: at a display width under two columns, a lone `…` was rendered where the first character of the target (or nothing) belongs
+- Help syntax summary was missing `[/Settings]`, which also shifted every subsequent line wrap
+- Help syntax continuation lines: the final wrapped line was indented 7 columns instead of 6, caused by the token list mixing leading- and trailing-space conventions
+- `/Ellipsize` help description started one column right of every other switch
+- `--help` mode only: the `/Size` sub-note was indented 21 columns against a detail column of 22
+
+### Changed
+
+- Help output is now rendered from a row table with columns computed from content, replacing hand-typed padding. Adding or renaming a switch can no longer misalign the table, and a switch wider than the current column widens the table automatically
+- CI runs `cargo clippy --all-targets -- -D warnings` instead of linting only the library, so lint debt can no longer accumulate unseen in test code
+
+### Added
+
+- Help layout consistency tests asserting, independent of TCDir, that switch descriptions share one column, detail rows sit two past it, and wrapped syntax lines share one indent — each checked across several console widths, since layout bugs only appear where a wrap lands
+
+### Notes
+
+- `parity_help_output` is `#[ignore]`d pending the Nerd Font feature: TCDir 5.6 lists `/Install-NerdFonts` and `/Uninstall-NerdFonts` in its summary and widened its option column to fit them, so every option line differs on whitespace alone until RCDir ships the same switches
+
 ## [5.5] - 2026-04-20
 
 ### Added

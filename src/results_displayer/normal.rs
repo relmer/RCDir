@@ -518,9 +518,19 @@ pub(super) fn display_raw_attributes(console: &mut Console, config: &Config, fil
 ////////////////////////////////////////////////////////////////////////////////
 
 pub(super) fn display_file_owner(console: &mut Console, config: &Config, owner: &str, max_width: usize) {
-    let color = config.attributes[Attribute::Owner as usize];
+    //
+    // The owner name is emitted in the Owner color, but the column padding and
+    // the trailing separator are emitted in Default — matching TCDir's
+    // "{Owner}%s{Default}%*s".  Rendering the padding inside the Owner color
+    // is visually identical but differs byte-for-byte in the ANSI stream, which
+    // the output-parity suite compares.
+    //
+    let color   = config.attributes[Attribute::Owner as usize];
+    let default = config.attributes[Attribute::Default as usize];
     let padding = if max_width > owner.len() { max_width - owner.len() } else { 0 };
-    console.writef (color, format_args! ("{}{:width$} ", owner, "", width = padding));
+
+    console.writef (color,   format_args! ("{}", owner));
+    console.writef (default, format_args! ("{:width$} ", "", width = padding));
 }
 
 

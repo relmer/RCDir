@@ -302,6 +302,7 @@ fn display_synopsis(console: &mut Console, prefix: char) {
         format!("[{{InformationHighlight}}{short}M{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Env{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Config{{Information}}] "),
+        format!("[{{InformationHighlight}}{long}Settings{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Owner{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Streams{{Information}}] "),
         format!("[{{InformationHighlight}}{long}Icons{{Information}}] "),

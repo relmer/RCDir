@@ -146,20 +146,17 @@ pub fn ellipsize_path (target_path: &str, available_width: usize) -> EllipsizedP
         };
     }
 
-    // Edge case: available_width is 0 or 1 — return what we can
-    if available_width == 1 {
-        return EllipsizedPath {
-            prefix:    String::new(),
-            suffix:    String::new(),
-            truncated: true,
-        };
-    }
-
-    // available_width == 0
+    //
+    // Edge case: available_width is 0 or 1.  Emit whatever fits and report
+    // truncated = false, so the caller appends no ellipsis — there is no room
+    // for one.  TCDir does the same (`result.fTruncated = false` in its
+    // sub-2-width branch), and reporting truncation here would render a lone
+    // "…" where TCDir renders the first character or nothing at all.
+    //
     EllipsizedPath {
-        prefix:    String::new(),
+        prefix:    leaf.chars().take (available_width).collect(),
         suffix:    String::new(),
-        truncated: true,
+        truncated: false,
     }
 }
 
@@ -394,7 +391,10 @@ mod tests {
     #[test]
     fn available_width_zero() {
         let result = ellipsize_path ("C:\\Windows\\cmd.exe", 0);
-        assert!(result.truncated);
+
+        // No room for anything, including an ellipsis: truncated must be false
+        // so the caller appends nothing.  Matches TCDir's sub-2-width branch.
+        assert!(!result.truncated);
         assert!(result.prefix.is_empty());
         assert!(result.suffix.is_empty());
     }
@@ -410,7 +410,12 @@ mod tests {
     #[test]
     fn available_width_one() {
         let result = ellipsize_path ("C:\\Windows\\cmd.exe", 1);
-        assert!(result.truncated);
+
+        // One column: emit the leaf's first character and no ellipsis, so the
+        // rendered line reads "→ c" rather than "→ …".  TCDir does the same.
+        assert!(!result.truncated);
+        assert_eq!(result.prefix, "c");
+        assert!(result.suffix.is_empty());
     }
 
 

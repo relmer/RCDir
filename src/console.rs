@@ -536,11 +536,27 @@ impl Console {
 
     #[cfg(test)]
     pub(crate) fn new_for_testing (config: Arc<Config>) -> Console {
+        Console::new_for_testing_with_width (config, 120)
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  new_for_testing_with_width
+    //
+    //  As new_for_testing, but with an explicit console width so tests can
+    //  exercise width-dependent behaviour such as line wrapping.  Layout bugs
+    //  frequently only appear at the widths where a wrap actually lands.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[cfg(test)]
+    pub(crate) fn new_for_testing_with_width (config: Arc<Config>, width: u32) -> Console {
         Console {
             buffer:        String::with_capacity (4096),
             stdout_handle: windows::Win32::Foundation::HANDLE(std::ptr::null_mut()),
             is_redirected: true,
-            console_width: 120,
+            console_width: width,
             config,
             prev_attr:     None,
         }

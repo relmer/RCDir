@@ -1708,4 +1708,206 @@ mod tests {
         assert_eq!(char_display_width ('\t'), 0);
         assert_eq!(char_display_width ('\n'), 0);
     }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  Help-output layout consistency
+    //
+    //  These assert that RCDir's help is internally self-consistent by line
+    //  type, independent of TCDir.  The help body is currently a hand-spaced
+    //  literal block, so a mistyped run of spaces silently misaligns one row —
+    //  invisible in source, because the {{Color}} markup between the switch and
+    //  its description is far longer than the visible text.  Three real bugs of
+    //  exactly this kind shipped before these tests existed: a syntax line
+    //  wrapped at 7 columns instead of 6, /Ellipsize's description one column
+    //  right of every other switch, and a missing [/Settings] token.
+    //
+    //  These also guard the planned move to computed columns: the rendered
+    //  layout must not change when the literal block is replaced.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Widths to exercise. Layout bugs often appear only where a wrap lands,
+    /// so a single width (the old fixed 120) can miss them entirely.
+    const TEST_WIDTHS: &[u32] = &[80, 100, 120, 160];
+
+    /// Render the full help screen at a given width, ANSI escapes stripped.
+    fn rendered_help_at (prefix: char, width: u32) -> Vec<String> {
+        let mut cfg = crate::config::Config::new();
+        cfg.initialize (0x07);
+        let mut console = Console::new_for_testing_with_width (std::sync::Arc::new (cfg), width);
+
+        display_usage (&mut console, prefix, false);
+
+        let raw = console.take_test_buffer();
+        let mut out = String::with_capacity (raw.len());
+        let mut chars = raw.chars().peekable();
+
+        while let Some (ch) = chars.next() {
+            if ch == '\x1b' {
+                if chars.peek() == Some (&'[') {
+                    chars.next();
+                    while let Some (&c) = chars.peek() {
+                        chars.next();
+                        if c == 'm' { break; }
+                    }
+                }
+                continue;
+            }
+            out.push (ch);
+        }
+
+        out.lines().map (str::to_string).collect()
+    }
+
+    /// Column at which a line's description text begins, for lines shaped
+    /// "  <switch><spaces><description>".
+    fn description_column (line: &str) -> Option<usize> {
+        let body = line.strip_prefix ("  ")?;
+        if body.starts_with (' ') {
+            return None;
+        }
+
+        let gap_start = body.find ("  ")?;
+        let after     = &body[gap_start..];
+        let desc_off  = after.len() - after.trim_start().len();
+
+        Some (2 + gap_start + desc_off)
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  help_switch_descriptions_share_one_column
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn help_switch_descriptions_share_one_column() {
+        for prefix in ['/', '-'] {
+            for &width in TEST_WIDTHS {
+                let lines = rendered_help_at (prefix, width);
+                let sw    = if prefix == '-' { "-" } else { "/" };
+
+                let mut columns: Vec<(usize, String)> = Vec::new();
+
+                for line in &lines {
+                    let Some (body) = line.strip_prefix ("  ") else { continue };
+                    if !body.starts_with (sw) {
+                        continue;
+                    }
+                    // Skip rows whose description wrapped onto its own line.
+                    let Some (col) = description_column (line) else { continue };
+                    columns.push ((col, line.clone()));
+                }
+
+                assert! (columns.len() >= 10,
+                    "expected many switch rows for prefix '{prefix}' at width {width}, \
+                     found {}", columns.len());
+
+                let (first_col, ref first_line) = columns[0];
+
+                for (col, line) in &columns {
+                    assert_eq! (*col, first_col,
+                        "switch descriptions must all start at the same column \
+                         (prefix '{prefix}', width {width}).\n\
+                         Expected column {first_col} (as in: {first_line})\n\
+                         but found column {col} in: {line}");
+                }
+            }
+        }
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  help_detail_rows_indent_two_past_switch_column
+    //
+    //  Detail rows ("attributes  D  Directories ...") label in the switch
+    //  column; their value column must line up with the switch description
+    //  column so the two-level table reads as one grid.
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn help_detail_rows_indent_two_past_switch_column() {
+        let lines = rendered_help_at ('/', 120);
+
+        let switch_desc_col = lines.iter()
+            .filter (|l| l.strip_prefix ("  ").is_some_and (|b| b.starts_with ('/')))
+            .find_map (|l| description_column (l))
+            .expect ("no switch rows found");
+
+        let detail_labels = ["attributes", "sortorder", "timefield"];
+        let mut checked   = 0;
+
+        for line in &lines {
+            let Some (body) = line.strip_prefix ("  ") else { continue };
+            let Some (label) = detail_labels.iter().find (|l| body.starts_with (**l)) else { continue };
+
+            let col = description_column (line)
+                .unwrap_or_else (|| panic! ("detail row has no value column: {line}"));
+
+            assert_eq! (col, switch_desc_col + 2,
+                "detail row '{label}' must place its value column two past the switch \
+                 description column ({} vs expected {}): {line}",
+                col, switch_desc_col + 2);
+            checked += 1;
+        }
+
+        assert_eq! (checked, detail_labels.len(),
+            "expected to check {} detail rows, checked {checked}", detail_labels.len());
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    //  help_syntax_continuation_lines_share_one_indent
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn help_syntax_continuation_lines_share_one_indent() {
+        // Track that at least one width actually produced a multi-line wrap,
+        // so this test cannot silently degrade into asserting nothing.
+        let mut saw_multiline = false;
+
+        for prefix in ['/', '-'] {
+            for &width in TEST_WIDTHS {
+                let lines = rendered_help_at (prefix, width);
+                let sw    = if prefix == '-' { "-" } else { "/" };
+                let head  = format! ("[{sw}");
+
+                let start = lines.iter().position (|l| l.starts_with ("RCDIR "))
+                    .expect ("no RCDIR syntax line");
+
+                let indents: Vec<(usize, &String)> = lines[start + 1..].iter()
+                    .take_while (|l| l.trim_start().starts_with (&head))
+                    .map (|l| (l.len() - l.trim_start().len(), l))
+                    .collect();
+
+                assert! (!indents.is_empty(),
+                    "expected at least one wrapped syntax line for prefix '{prefix}' \
+                     at width {width}");
+
+                if indents.len() >= 2 {
+                    saw_multiline = true;
+                }
+
+                let (first, _) = indents[0];
+
+                for (indent, line) in &indents {
+                    assert_eq! (*indent, first,
+                        "wrapped syntax lines must share one indent \
+                         (prefix '{prefix}', width {width}).\n\
+                         Expected {first}, found {indent} in: [{line}]");
+                }
+            }
+        }
+
+        assert! (saw_multiline,
+            "no test width produced a multi-line syntax wrap — this test would \
+             pass vacuously; add a narrower width to TEST_WIDTHS");
+    }
 }

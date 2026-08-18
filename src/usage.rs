@@ -234,6 +234,135 @@ fn is_env_var_set(name: &str) -> bool {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+//
+//  Switch-help table
+//
+//  The help body is a two-level table.  Rather than hand-typing the padding
+//  between each switch and its description — which is invisible in source,
+//  because the {Color} markup is far longer than the visible text, and which
+//  has silently misaligned rows more than once — rows are declared as data and
+//  the column positions are computed from the widest entry.
+//
+//  Adding or renaming a switch therefore cannot misalign the table, and a
+//  switch longer than the current column widens the whole table automatically.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+enum HelpRow {
+    /// Empty line.
+    Blank,
+
+    /// Emitted exactly as given; used for prose that is not part of the grid.
+    Raw(String),
+
+    /// A switch and its description, description aligned to the switch column.
+    Switch { label: String, desc: String },
+
+    /// A description continuation, aligned to the switch description column.
+    DescCont(String),
+
+    /// A detail row: an optional label in the switch column, then one or two
+    /// value cells in the detail columns.
+    Detail { label: String, left: String, right: Option<String> },
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//  render_help_rows
+//
+//  Lay out the switch-help table.  Column positions are derived from content:
+//  the description column sits one space past the widest switch label, and the
+//  right-hand detail column one gap past the widest left-hand cell.  Both have
+//  a floor so the historical layout is preserved while content stays narrow.
+//
+////////////////////////////////////////////////////////////////////////////////
+
+fn render_help_rows(rows: &[HelpRow]) -> String {
+    const INDENT:        usize = 2;
+    const MIN_DESC_COL:  usize = 20;
+    const DETAIL_OFFSET: usize = 2;
+    const CELL_GAP:      usize = 2;
+
+    let widest_label = rows.iter()
+        .filter_map (|r| match r {
+            HelpRow::Switch { label, .. } => Some (measure_visible_width (label)),
+            _ => None,
+        })
+        .max()
+        .unwrap_or (0);
+
+    let desc_col = (INDENT + widest_label + 1).max (MIN_DESC_COL);
+    let left_col = desc_col + DETAIL_OFFSET;
+
+    // Only cells that actually have a right-hand neighbour constrain the right
+    // column; single-cell rows (the cloud-status symbols) may run past it.
+    let widest_left = rows.iter()
+        .filter_map (|r| match r {
+            HelpRow::Detail { left, right: Some (_), .. } => Some (measure_visible_width (left)),
+            _ => None,
+        })
+        .max()
+        .unwrap_or (0);
+
+    let right_col = left_col + widest_left + CELL_GAP;
+
+    let mut out = String::with_capacity (4096);
+
+    /// Append `text` so that its first visible character lands on `col`,
+    /// always leaving at least one space.
+    fn push_at (out: &mut String, current: usize, col: usize, text: &str) -> usize {
+        let pad = col.saturating_sub (current).max (1);
+        out.push_str (&" ".repeat (pad));
+        out.push_str (text);
+        current + pad + measure_visible_width (text)
+    }
+
+    for row in rows {
+        match row {
+            HelpRow::Blank => {}
+
+            HelpRow::Raw (text) => out.push_str (text),
+
+            HelpRow::DescCont (text) => {
+                out.push_str (&" ".repeat (desc_col));
+                out.push_str (text);
+            }
+
+            HelpRow::Switch { label, desc } => {
+                out.push_str (&" ".repeat (INDENT));
+                out.push_str (label);
+                let col = INDENT + measure_visible_width (label);
+                push_at (&mut out, col, desc_col, desc);
+            }
+
+            HelpRow::Detail { label, left, right } => {
+                out.push_str (&" ".repeat (INDENT));
+                out.push_str (label);
+                let mut col = INDENT + measure_visible_width (label);
+
+                col = push_at (&mut out, col, left_col, left);
+
+                if let Some (right) = right {
+                    push_at (&mut out, col, right_col, right);
+                }
+            }
+        }
+
+        out.push ('\n');
+    }
+
+    // The console adds its own trailing newline, so drop ours.
+    out.pop();
+    out
+}
+
+
+
+
 fn measure_visible_width(text: &str) -> usize {
     let mut cch    = 0usize;
     let mut in_tag = false;
@@ -364,7 +493,13 @@ pub fn display_usage(console: &mut Console, prefix: char, icons_active: bool) {
     let short = if prefix == '-' { "-" } else { "/" };
     let long  = if prefix == '-' { "--" } else { "/" };
     let m_dis = if prefix == '-' { " -M-" } else { " /M-" };
-    let lpad  = if prefix == '-' { "" } else { " " };
+    // NOTE: the former `lpad` hack is gone.  It existed to compensate by hand
+    // for "--" being one character wider than "/", so that the description
+    // column landed in the same place in both modes.  render_help_rows now
+    // derives that column from the widest switch label, so the compensation is
+    // automatic — and the one place the hack got it wrong (the /Size sub-note,
+    // which sat at column 21 in --help mode against a detail column of 22) is
+    // now correct.
 
     let sym_cloud  = if icons_active { NF_MD_CLOUD_OUTLINE } else { CIRCLE_HOLLOW };
     let sym_local  = if icons_active { NF_MD_CLOUD_CHECK }   else { CIRCLE_HALF_FILLED };
@@ -390,66 +525,109 @@ Copyright {copy} 2004-{year} by Robert Elmer
     display_synopsis (console, prefix);
 
     // Body: switch descriptions, attribute codes, cloud symbols, sort/time fields
-    // Multiline string literal — source indentation = output indentation (WYSIWYG).
-    // Only \ continuation is used mid-line to join two-column attribute pairs.
-    console.color_puts(&format!("\
-{{Information}}
-  [drive:][path][filename]
-                    Specifies drive, directory, and/or files to list.
+    //
+    // Switch help is declared as rows; column positions are computed by
+    // render_help_rows from the widest entry.  Do not hand-pad these strings.
+    //
+    let sw   = |label: String, desc: String| HelpRow::Switch { label, desc };
+    let det  = |label: &str, left: String, right: Option<String>|
+        HelpRow::Detail { label: label.to_string(), left, right };
+    let attr = |key: &str, text: &str|
+        format! ("{{InformationHighlight}}{key}{{Information}}  {text}");
 
-  {{InformationHighlight}}{short}A{{Information}}                Displays files with specified attributes.
-  attributes          {{InformationHighlight}}D{{Information}}  Directories                {{InformationHighlight}}R{{Information}}  Read-only files
-                      {{InformationHighlight}}H{{Information}}  Hidden files               {{InformationHighlight}}A{{Information}}  Files ready for archiving
-                      {{InformationHighlight}}S{{Information}}  System files               {{InformationHighlight}}T{{Information}}  Temporary files
-                      {{InformationHighlight}}E{{Information}}  Encrypted files            {{InformationHighlight}}C{{Information}}  Compressed files
-                      {{InformationHighlight}}P{{Information}}  Reparse points             {{InformationHighlight}}0{{Information}}  Sparse files
-                      {{InformationHighlight}}X{{Information}}  Not content indexed        {{InformationHighlight}}I{{Information}}  Integrity stream (ReFS)
-                      {{InformationHighlight}}B{{Information}}  No scrub data (ReFS)       {{InformationHighlight}}O{{Information}}  Cloud-only (not local)
-                      {{InformationHighlight}}L{{Information}}  Locally available          {{InformationHighlight}}V{{Information}}  Always locally available
-                      {{InformationHighlight}}-{{Information}}  Prefix meaning not
+    let mut rows: Vec<HelpRow> = vec![
+        HelpRow::Raw (String::from ("{Information}")),
+        HelpRow::Raw (String::from ("  [drive:][path][filename]")),
+        HelpRow::DescCont (String::from ("Specifies drive, directory, and/or files to list.")),
+        HelpRow::Blank,
 
-  Cloud status symbols shown between file size and name:
-                      {{CloudStatusCloudOnly}}{sym_cloud}{{Information}}  Cloud-only (not locally available)
-                      {{CloudStatusLocallyAvailable}}{sym_local}{{Information}}  Locally available (can be freed)
-                      {{CloudStatusAlwaysLocallyAvailable}}{sym_pinned}{{Information}}  Always locally available (pinned)
+        sw (format! ("{{InformationHighlight}}{short}A{{Information}}"),
+            String::from ("Displays files with specified attributes.")),
+        det ("attributes", attr ("D", "Directories"),            Some (attr ("R", "Read-only files"))),
+        det ("",           attr ("H", "Hidden files"),           Some (attr ("A", "Files ready for archiving"))),
+        det ("",           attr ("S", "System files"),           Some (attr ("T", "Temporary files"))),
+        det ("",           attr ("E", "Encrypted files"),        Some (attr ("C", "Compressed files"))),
+        det ("",           attr ("P", "Reparse points"),         Some (attr ("0", "Sparse files"))),
+        det ("",           attr ("X", "Not content indexed"),    Some (attr ("I", "Integrity stream (ReFS)"))),
+        det ("",           attr ("B", "No scrub data (ReFS)"),   Some (attr ("O", "Cloud-only (not local)"))),
+        det ("",           attr ("L", "Locally available"),      Some (attr ("V", "Always locally available"))),
+        det ("",           attr ("-", "Prefix meaning not"),     None),
+        HelpRow::Blank,
 
-  {{InformationHighlight}}{short}O{{Information}}                List by files in sorted order.
-  sortorder           {{InformationHighlight}}N{{Information}}  By name (alphabetic)       {{InformationHighlight}}S{{Information}}  By size (smallest first)
-                      {{InformationHighlight}}E{{Information}}  By extension (alphabetic)  {{InformationHighlight}}D{{Information}}  By date/time (oldest first)
-                      {{InformationHighlight}}-{{Information}}  Prefix to reverse order
+        HelpRow::Raw (String::from ("  Cloud status symbols shown between file size and name:")),
+        det ("", format! ("{{CloudStatusCloudOnly}}{sym_cloud}{{Information}}  Cloud-only (not locally available)"), None),
+        det ("", format! ("{{CloudStatusLocallyAvailable}}{sym_local}{{Information}}  Locally available (can be freed)"), None),
+        det ("", format! ("{{CloudStatusAlwaysLocallyAvailable}}{sym_pinned}{{Information}}  Always locally available (pinned)"), None),
+        HelpRow::Blank,
 
-  {{InformationHighlight}}{short}T{{Information}}                Selects the time field for display and sorting.
-  timefield           {{InformationHighlight}}C{{Information}}  Creation time              {{InformationHighlight}}A{{Information}}  Last access time
-                      {{InformationHighlight}}W{{Information}}  Last write time (default)
+        sw (format! ("{{InformationHighlight}}{short}O{{Information}}"),
+            String::from ("List by files in sorted order.")),
+        det ("sortorder", attr ("N", "By name (alphabetic)"),      Some (attr ("S", "By size (smallest first)"))),
+        det ("",          attr ("E", "By extension (alphabetic)"), Some (attr ("D", "By date/time (oldest first)"))),
+        det ("",          attr ("-", "Prefix to reverse order"),   None),
+        HelpRow::Blank,
 
-  {{InformationHighlight}}{short}S{{Information}}                Displays files in specified directory and all subdirectories.
-  {{InformationHighlight}}{short}W{{Information}}                Displays results in a wide listing format.
-  {{InformationHighlight}}{short}B{{Information}}                Displays bare file names only (no headers, footers, or details).
-  {{InformationHighlight}}{short}P{{Information}}                Displays performance timing information.
-  {{InformationHighlight}}{short}M{{Information}}                Enables multi-threaded enumeration (default). Use{{InformationHighlight}}{m_dis}{{Information}} to disable.
-  {{InformationHighlight}}{long}Env{{Information}}             {lpad}Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.
-  {{InformationHighlight}}{long}Config{{Information}}          {lpad}Displays config file diagnostics, syntax reference, and parse errors.
-  {{InformationHighlight}}{long}Settings{{Information}}        {lpad}Displays current merged configuration for all items and extensions.
-  {{InformationHighlight}}{long}Owner{{Information}}           {lpad}Displays the owner of each file and directory. Not allowed with {{InformationHighlight}}{long}Tree{{Information}}.
-  {{InformationHighlight}}{long}Streams{{Information}}         {lpad}Displays alternate data streams (NTFS only).
-  {{InformationHighlight}}{long}Icons{{Information}}           {lpad}Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable.
-  {{InformationHighlight}}{long}Tree{{Information}}            {lpad}Displays a hierarchical directory tree view. Use {{InformationHighlight}}{long}Tree-{{Information}} to disable.
-  {{InformationHighlight}}{long}Ellipsize{{Information}}       {lpad}Truncates long link target paths with \u{2026} to prevent line wrapping. Default: on. Use {{InformationHighlight}}{long}Ellipsize-{{Information}} to disable.
-  {{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}         {lpad}Limits tree depth to N levels (requires {{InformationHighlight}}{long}Tree{{Information}}).
-  {{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}    {lpad}Sets tree indent width (1-8, default 4; requires {{InformationHighlight}}{long}Tree{{Information}}).
-  {{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}} {lpad}File size format: {{InformationHighlight}}Auto{{Information}} = abbreviated (KB/MB/GB), {{InformationHighlight}}Bytes{{Information}} = exact with commas.
-  {lpad}                   Default: {{InformationHighlight}}Auto{{Information}} in tree mode, {{InformationHighlight}}Bytes{{Information}} otherwise.
+        sw (format! ("{{InformationHighlight}}{short}T{{Information}}"),
+            String::from ("Selects the time field for display and sorting.")),
+        det ("timefield", attr ("C", "Creation time"),           Some (attr ("A", "Last access time"))),
+        det ("",          attr ("W", "Last write time (default)"), None),
+        HelpRow::Blank,
 
-  {{InformationHighlight}}{long}Set-Aliases{{Information}}     {lpad}Interactive wizard to configure PowerShell aliases for rcdir.
-  {{InformationHighlight}}{long}Get-Aliases{{Information}}     {lpad}Display currently configured rcdir aliases and their source locations.
-  {{InformationHighlight}}{long}Remove-Aliases{{Information}}  {lpad}Interactive wizard to remove rcdir aliases from a profile.
-  {{InformationHighlight}}{long}WhatIf{{Information}}          {lpad}Preview changes without modifying files (use with {{InformationHighlight}}{long}Set-Aliases{{Information}} or {{InformationHighlight}}{long}Remove-Aliases{{Information}})."
-    ));
+        sw (format! ("{{InformationHighlight}}{short}S{{Information}}"),
+            String::from ("Displays files in specified directory and all subdirectories.")),
+        sw (format! ("{{InformationHighlight}}{short}W{{Information}}"),
+            String::from ("Displays results in a wide listing format.")),
+        sw (format! ("{{InformationHighlight}}{short}B{{Information}}"),
+            String::from ("Displays bare file names only (no headers, footers, or details).")),
+        sw (format! ("{{InformationHighlight}}{short}P{{Information}}"),
+            String::from ("Displays performance timing information.")),
+        sw (format! ("{{InformationHighlight}}{short}M{{Information}}"),
+            format! ("Enables multi-threaded enumeration (default). Use{{InformationHighlight}}{m_dis}{{Information}} to disable.")),
+        sw (format! ("{{InformationHighlight}}{long}Env{{Information}}"),
+            format! ("Displays {RCDIR_ENV_VAR_NAME} help, syntax, and current value.")),
+        sw (format! ("{{InformationHighlight}}{long}Config{{Information}}"),
+            String::from ("Displays config file diagnostics, syntax reference, and parse errors.")),
+        sw (format! ("{{InformationHighlight}}{long}Settings{{Information}}"),
+            String::from ("Displays current merged configuration for all items and extensions.")),
+        sw (format! ("{{InformationHighlight}}{long}Owner{{Information}}"),
+            format! ("Displays the owner of each file and directory. Not allowed with {{InformationHighlight}}{long}Tree{{Information}}.")),
+        sw (format! ("{{InformationHighlight}}{long}Streams{{Information}}"),
+            String::from ("Displays alternate data streams (NTFS only).")),
+        sw (format! ("{{InformationHighlight}}{long}Icons{{Information}}"),
+            format! ("Enables file-type icons (Nerd Font required). Use {{InformationHighlight}}{long}Icons-{{Information}} to disable.")),
+        sw (format! ("{{InformationHighlight}}{long}Tree{{Information}}"),
+            format! ("Displays a hierarchical directory tree view. Use {{InformationHighlight}}{long}Tree-{{Information}} to disable.")),
+        sw (format! ("{{InformationHighlight}}{long}Ellipsize{{Information}}"),
+            format! ("Truncates long link target paths with \u{2026} to prevent line wrapping. Default: on. Use {{InformationHighlight}}{long}Ellipsize-{{Information}} to disable.")),
+        sw (format! ("{{InformationHighlight}}{long}Depth{{Information}}={{InformationHighlight}}N{{Information}}"),
+            format! ("Limits tree depth to N levels (requires {{InformationHighlight}}{long}Tree{{Information}}).")),
+        sw (format! ("{{InformationHighlight}}{long}TreeIndent{{Information}}={{InformationHighlight}}N{{Information}}"),
+            format! ("Sets tree indent width (1-8, default 4; requires {{InformationHighlight}}{long}Tree{{Information}}).")),
+        sw (format! ("{{InformationHighlight}}{long}Size{{Information}}={{InformationHighlight}}Auto{{Information}}|{{InformationHighlight}}Bytes{{Information}}"),
+            String::from ("File size format: {InformationHighlight}Auto{Information} = abbreviated (KB/MB/GB), {InformationHighlight}Bytes{Information} = exact with commas.")),
+        // Sub-note under /Size: aligned to the detail column, not the
+        // description column, so it reads as subordinate to the switch above.
+        det ("", String::from ("Default: {InformationHighlight}Auto{Information} in tree mode, {InformationHighlight}Bytes{Information} otherwise."), None),
+        HelpRow::Blank,
+
+        sw (format! ("{{InformationHighlight}}{long}Set-Aliases{{Information}}"),
+            String::from ("Interactive wizard to configure PowerShell aliases for rcdir.")),
+        sw (format! ("{{InformationHighlight}}{long}Get-Aliases{{Information}}"),
+            String::from ("Display currently configured rcdir aliases and their source locations.")),
+        sw (format! ("{{InformationHighlight}}{long}Remove-Aliases{{Information}}"),
+            String::from ("Interactive wizard to remove rcdir aliases from a profile.")),
+        sw (format! ("{{InformationHighlight}}{long}WhatIf{{Information}}"),
+            format! ("Preview changes without modifying files (use with {{InformationHighlight}}{long}Set-Aliases{{Information}} or {{InformationHighlight}}{long}Remove-Aliases{{Information}}).")),
+    ];
 
     #[cfg(debug_assertions)]
-    console.color_puts(&format!(
-        "\n  {{InformationHighlight}}{long}Debug{{Information}}           {lpad}Displays raw file attributes in hex for diagnosing edge cases."
-    ));
+    {
+        rows.push (HelpRow::Blank);
+        rows.push (sw (format! ("{{InformationHighlight}}{long}Debug{{Information}}"),
+            String::from ("Displays raw file attribute values for troubleshooting.")));
+    }
+
+    console.color_puts (&render_help_rows (&rows));
 }
 
 

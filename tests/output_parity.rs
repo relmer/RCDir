@@ -1251,9 +1251,14 @@ fn compare_help_output() -> (usize, usize, Vec<String>) {
 // differs on whitespace alone.
 //
 // Un-ignore this test as part of spec 010 (T016/T042), once RCDir's help lists
-// both switches and uses the same column width.  Everything else in the help
-// output already matches — the /Settings omission that used to cause a real
-// divergence was fixed separately.
+// both switches and uses the same 20-column option width.
+//
+// Do NOT assume every remaining diff is feature-blocked — three genuine RCDir
+// bugs were found hiding behind that assumption and fixed separately: a missing
+// [/Settings] in the syntax summary, a wrapped syntax line indented 7 columns
+// instead of 6 (leading- vs trailing-space token convention), and /Ellipsize's
+// description starting one column right of every other switch.  When this is
+// un-ignored, diff the two outputs line by line rather than trusting the label.
 //
 #[test]
 #[ignore = "blocked on spec 010: TCDir 5.6 help lists the NerdFont switches and uses a wider option column"]

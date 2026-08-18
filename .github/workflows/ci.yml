@@ -49,8 +49,11 @@ jobs:
         if: matrix.configuration == 'release'
         run: cargo build --target ${{ matrix.target }} --release
 
+      # --all-targets covers tests, benches and examples in addition to the
+      # library, so lint debt cannot accumulate in test code where it would
+      # otherwise be invisible to CI.
       - name: Run Clippy
-        run: cargo clippy --target ${{ matrix.target }} -- -D warnings
+        run: cargo clippy --target ${{ matrix.target }} --all-targets -- -D warnings
 
       - name: Run Tests (debug)
         if: matrix.target == 'x86_64-pc-windows-msvc' && matrix.configuration == 'debug'

@@ -4016,7 +4016,7 @@ mod tests {
         ];
         let config = make_config_with_file (lines, None);
         assert! (!config.config_file_parse_result.has_issues());
-        assert_eq! (config.extension_colors.len() >= 20, true);
+        assert! (config.extension_colors.len() >= 20);
         assert_eq! (config.wide_listing, Some (true));
     }
 
@@ -4056,7 +4056,7 @@ mod tests {
     #[test]
     fn osstr_to_lower_ascii_short_ascii_returns_borrowed() {
         let mut buf = [0u8; 260];
-        let result = osstr_to_lower_ascii (&std::ffi::OsStr::new ("SRC/DIR"), &mut buf);
+        let result = osstr_to_lower_ascii (std::ffi::OsStr::new ("SRC/DIR"), &mut buf);
         assert_eq!(result, "src/dir");
         // Short input fits in buffer → Cow::Borrowed
         assert!(matches!(result, std::borrow::Cow::Borrowed(_)));
@@ -4076,7 +4076,7 @@ mod tests {
     fn osstr_to_lower_ascii_non_ascii_replaced_with_question_mark() {
         let mut buf = [0u8; 260];
         // UTF-8 for "données" contains 0xE9 (é) which is non-ASCII
-        let result = osstr_to_lower_ascii (&std::ffi::OsStr::new ("donn\u{e9}es"), &mut buf);
+        let result = osstr_to_lower_ascii (std::ffi::OsStr::new ("donn\u{e9}es"), &mut buf);
         // Non-ASCII bytes → '?' replacement, rest lowercased
         // UTF-8 é = 0xC3 0xA9 (two non-ASCII bytes) → two '?' replacements
         assert_eq!(result, "donn??es");
@@ -4098,7 +4098,7 @@ mod tests {
         let mut buf = [0u8; 260];
         // Construct a 300-byte ASCII path — well beyond the 260-byte buffer
         let long_name = "A".repeat(300);
-        let result = osstr_to_lower_ascii (&std::ffi::OsStr::new (&long_name), &mut buf);
+        let result = osstr_to_lower_ascii (std::ffi::OsStr::new (&long_name), &mut buf);
         // Must not truncate — full length preserved via heap allocation
         assert_eq!(result.len(), 300);
         assert_eq!(result, "a".repeat(300));

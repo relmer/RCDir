@@ -535,6 +535,9 @@ Copyright {copy} 2004-{year} by Robert Elmer
     let attr = |key: &str, text: &str|
         format! ("{{InformationHighlight}}{key}{{Information}}  {text}");
 
+    //  Mutated only by the debug-assertions block below, so release builds see
+    //  an unused `mut`.  The mut is required in debug; do not remove it.
+    #[cfg_attr (not (debug_assertions), allow (unused_mut))]
     let mut rows: Vec<HelpRow> = vec![
         HelpRow::Raw (String::from ("{Information}")),
         HelpRow::Raw (String::from ("  [drive:][path][filename]")),

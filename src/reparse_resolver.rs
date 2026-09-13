@@ -253,8 +253,9 @@ pub fn parse_app_exec_link_buffer (buffer: &[u8]) -> String {
             let str_data = &data[start..offset.saturating_sub (2)]; // exclude NUL
             if str_data.len() >= 2 {
                 let u16_chars: Vec<u16> = str_data
-                    .chunks_exact (2)
-                    .map (|pair| u16::from_le_bytes ([pair[0], pair[1]]))
+                    .as_chunks::<2> ().0
+                    .iter()
+                    .map (|pair| u16::from_le_bytes (*pair))
                     .collect();
                 return String::from_utf16_lossy (&u16_chars);
             }
@@ -381,8 +382,9 @@ fn extract_utf16_string (buffer: &[u8], offset: usize, byte_length: usize) -> Op
     }
 
     let u16_chars: Vec<u16> = buffer[offset..end]
-        .chunks_exact (2)
-        .map (|pair| u16::from_le_bytes ([pair[0], pair[1]]))
+        .as_chunks::<2> ().0
+        .iter()
+        .map (|pair| u16::from_le_bytes (*pair))
         .collect();
 
     Some (String::from_utf16_lossy (&u16_chars))

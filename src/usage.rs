@@ -415,9 +415,9 @@ fn display_synopsis(console: &mut Console, prefix: char) {
     // with a trailing space separator.
     #[cfg_attr(not(debug_assertions), allow(unused_mut))]
     let mut tokens: Vec<String> = vec![
-        format!("[{{InformationHighlight}}drive:{{Information}}]\
-                 [{{InformationHighlight}}path{{Information}}]\
-                 [{{InformationHighlight}}filename{{Information}}] "),
+        String::from("[{InformationHighlight}drive:{Information}]\
+                      [{InformationHighlight}path{Information}]\
+                      [{InformationHighlight}filename{Information}] "),
         format!("[{{InformationHighlight}}{short}A{{Information}}\
                  [[:]{{InformationHighlight}}attributes{{Information}}]] "),
         format!("[{{InformationHighlight}}{short}O{{Information}}\
